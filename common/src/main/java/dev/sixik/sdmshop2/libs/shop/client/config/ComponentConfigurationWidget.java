@@ -30,15 +30,15 @@ import java.util.function.BiConsumer;
 
 public class ComponentConfigurationWidget extends WidgetGroup {
 
-    private static final int DEFAULT_WIDTH = 60;
-    private static final int LABEL_X = 10;
-    private static final int TOP_PADDING = 10;
-    private static final int ROW_SPACING = 5;
-    private static final int EDITOR_WIDTH = 85;
-    private static final int RIGHT_PADDING = 10;
-    private static final int LABEL_EDITOR_GAP = 5;
-    private static final int DEFAULT_EDITOR_HEIGHT = 20;
-    private static final float MIN_LABEL_SCALE = 0.4f;
+    protected static final int DEFAULT_WIDTH = 60;
+    protected static final int LABEL_X = 10;
+    protected static final int TOP_PADDING = 10;
+    protected static final int ROW_SPACING = 5;
+    protected static final int EDITOR_WIDTH = 85;
+    protected static final int RIGHT_PADDING = 10;
+    protected static final int LABEL_EDITOR_GAP = 5;
+    protected static final int DEFAULT_EDITOR_HEIGHT = 20;
+    protected static final float MIN_LABEL_SCALE = 0.4f;
 
     public static final ColorRectAndBorderTexture texture = new ColorRectAndBorderTexture();
     public static final ColorBorderTexture hoverTexture = new ColorBorderTexture(1, -1);
@@ -138,7 +138,7 @@ public class ComponentConfigurationWidget extends WidgetGroup {
         repositionWidgets();
     }
 
-    private void rebuildConfiguration() {
+    protected void rebuildConfiguration() {
         clearAllWidgets();
         uiPairs.clear();
         if(component == null) return;
