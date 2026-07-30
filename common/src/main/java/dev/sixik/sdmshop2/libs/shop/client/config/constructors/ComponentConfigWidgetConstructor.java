@@ -29,11 +29,12 @@ import org.jspecify.annotations.Nullable;
 
 import java.lang.reflect.Array;
 import java.util.*;
+import java.util.function.Consumer;
 
 public class ComponentConfigWidgetConstructor {
 
-    private static int DEFAULT_W = 60;
-    private static int DEFAULT_H = 15;
+    private static final int DEFAULT_W = 60;
+    private static final int DEFAULT_H = 15;
 
     public static void createShopOfferWidget(WidgetGroup root, ShopEntity offer, int w) {
         final var components = offer.getComponents();
@@ -43,7 +44,7 @@ public class ComponentConfigWidgetConstructor {
 
             CollapsedGroupWidget widget = new ComponentCollapsedGroupWidget(component, offer, w);
             widget.useTabulation();
-            widget.addWidget(new ComponentConfigurationWidget(component));
+            widget.addWidget(new ComponentConfigurationWidget(w, component));
             root.addWidget(widget);
         }
     }
@@ -250,7 +251,7 @@ public class ComponentConfigWidgetConstructor {
                         saveCollection(targetComponent, cachedField, currentList, collectionType, innerType, existingRef);
                     });
 
-                    ButtonWidget removeBtn = new ButtonWidget(currentWidth - 15, 0, 15, 15, new TextTexture("§c-"), btn -> {
+                    ButtonWidget removeBtn = new ButtonWidget(currentWidth - 15, 0, 15, 15, new TextTexture(() -> I18n.get("client.shop.component.editor.arrays.button.remove_element")), btn -> {
                         currentList.remove(index);
                         saveCollection(targetComponent, cachedField, currentList, collectionType, innerType, existingRef);
                         rebuild();
@@ -354,47 +355,12 @@ public class ComponentConfigWidgetConstructor {
      * Создает изолированный виджет для редактирования конкретного значения из коллекции.
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private static Widget createListElementEditor(Class<?> type, Object value, ComponentConfigAccess.CachedField cachedField, java.util.function.Consumer<Object> onChange) {
-        if (type == String.class || type == int.class || type == Integer.class || type == float.class || type == Float.class || type == double.class || type == Double.class || type == ResourceLocation.class) {
-            ExternTextFieldWidget widget = new ExternTextFieldWidget();
-
-            final ComponentNumberRange numberRange = cachedField.numberRange();
-
-            if (type == int.class || type == Integer.class) {
-                int min = numberRange != null ? numberRange.intMin() : Integer.MIN_VALUE;
-                int max = numberRange != null ? numberRange.intMax() : Integer.MAX_VALUE;
-                widget.setNumbersOnly(min, max);
-            }
-            else if (type == float.class || type == Float.class) {
-                float min = numberRange != null ? numberRange.floatMin() : -Float.MAX_VALUE;
-                float max = numberRange != null ? numberRange.floatMax() : Float.MAX_VALUE;
-                widget.setNumbersOnly(min, max);
-            }
-            else if (type == double.class || type == Double.class) {
-                double min = numberRange != null ? numberRange.doubleMin() : -Double.MAX_VALUE;
-                double max = numberRange != null ? numberRange.doubleMax() : Double.MAX_VALUE;
-                widget.setNumbersOnly(min, max);
-            }
-            else if(type == ResourceLocation.class) {
-                widget.setResourceLocationOnly();
-            }
-
-            widget.setCurrentString(value != null ? String.valueOf(value) : "");
-
-            widget.setTextResponder(text -> {
-                if (text == null || text.isEmpty() || text.equals("-") || text.equals(".")) return;
-                try {
-                    if (type == int.class || type == Integer.class) onChange.accept(Integer.parseInt(text));
-                    else if (type == float.class || type == Float.class) onChange.accept(Float.parseFloat(text));
-                    else if (type == double.class || type == Double.class) onChange.accept(Double.parseDouble(text));
-                    else if (type == ResourceLocation.class) onChange.accept(ResourceLocation.tryParse(text));
-                    else onChange.accept(text); // String
-                } catch (Exception ignored) {}
-            });
-            return widget;
+    private static Widget createListElementEditor(Class<?> type, Object value, ComponentConfigAccess.CachedField cachedField, Consumer<Object> onChange) {
+        if (isTextEditableType(type)) {
+            return createTextEditor(type, value != null ? String.valueOf(value) : "", cachedField, onChange);
         }
 
-        else if (type.isEnum()) {
+        if (type.isEnum()) {
             SelectorWidget widget = new SelectorWidget();
             List<String> options = Arrays.stream(type.getEnumConstants()).map(obj -> ((Enum<?>) obj).name()).toList();
             widget.setCandidates(options);
@@ -408,7 +374,7 @@ public class ComponentConfigWidgetConstructor {
             return widget;
         }
 
-        else if (type == boolean.class || type == Boolean.class) {
+        if (type == boolean.class || type == Boolean.class) {
             SwitchWidget widget = new SwitchWidget();
             widget.setPressed(Boolean.TRUE.equals(value));
             widget.setOnPressCallback((s1, s2) -> onChange.accept(s2));
@@ -443,178 +409,138 @@ public class ComponentConfigWidgetConstructor {
     }
 
     private static @Nullable ExternTextFieldWidget createField(ShopComponent targetComponent, ComponentConfigAccess.CachedField cachedField) {
-        ExternTextFieldWidget widget = new ExternTextFieldWidget();
         Class<?> type = cachedField.type();
-        final ComponentNumberRange numberRange = cachedField.numberRange();
 
-        if(type == ResourceLocation.class) {
-            widget.setResourceLocationOnly();
-            widget.setTextSupplier(() -> {
-                try {
-                    Object val = cachedField.getter().invoke(targetComponent);
-                    return val != null ? val.toString() : "";
-                } catch (Throwable e) {
-                    SDMShop2.LOGGER.error("Failed to get ResourceLocation value", e);
-                    return "";
-                }
-            });
-            widget.setTextResponder(text -> {
-                if (text == null || text.isEmpty()) return;
-
-                ResourceLocation loc = text.contains(":")
-                        ? ResourceLocation.tryParse(text)
-                        : ResourceLocation.tryBuild("minecraft", text);
-
-                if (loc != null) {
-                    try {
-                        cachedField.setter().invoke(targetComponent, loc);
-                        invokeUpdate(targetComponent);
-                    } catch (Throwable e) {
-                        SDMShop2.LOGGER.error("Failed to set ResourceLocation value", e);
-                    }
-                }
-            });
-        } else if(type == UUID.class) {
-            widget.setUuidOnly();
-            widget.setTextSupplier(() -> {
-                try {
-                    Object val = cachedField.getter().invoke(targetComponent);
-                    return val != null ? val.toString() : "";
-                } catch (Throwable e) {
-                    SDMShop2.LOGGER.error("Failed to get UUID value", e);
-                    return "";
-                }
-            });
-            widget.setTextResponder(text -> {
-                try {
-                    cachedField.setter().invoke(targetComponent, UUID.fromString(text));
-                    invokeUpdate(targetComponent);
-                } catch (Throwable e) {
-                    SDMShop2.LOGGER.error("Failed to set UUID value", e);
-                }
-            });
-        } else if (type == String.class) {
-            widget.setTextSupplier(() -> {
-                try {
-                    Object val = cachedField.getter().invoke(targetComponent);
-                    return val != null ? (String) val : "";
-                } catch (Throwable e) {
-                    SDMShop2.LOGGER.error("Failed to get String value", e);
-                    return "";
-                }
-            });
-            widget.setTextResponder(text -> {
-                if (cachedField.stringRegex() != null) {
-                    ComponentStringRegex regexInfo = cachedField.stringRegex();
-                    if (!text.matches(regexInfo.value())) {
-                        SDMShop2.LOGGER.warn("Regex validation failed for {}: Expected {} but got '{}' ({})",
-                                cachedField.translationKey(), regexInfo.value(), text, regexInfo.errorMessage());
-                        return;
-                    }
-                }
-
-                try {
-                    cachedField.setter().invoke(targetComponent, text);
-                    invokeUpdate(targetComponent);
-                } catch (Throwable e) {
-                    SDMShop2.LOGGER.error("Failed to set String value", e);
-                }
-            });
-        }
-        else if (type == int.class || type == Integer.class) {
-            var min = numberRange != null ? numberRange.intMin() : Integer.MIN_VALUE;
-            var max = numberRange != null ? numberRange.intMax() : Integer.MAX_VALUE;
-            widget.setNumbersOnly(min, max);
-            widget.setTextSupplier(() -> {
-                try {
-                    return String.valueOf(cachedField.getter().invoke(targetComponent));
-                } catch (Throwable e) {
-                    return "0";
-                }
-            });
-            widget.setTextResponder(text -> {
-                if (text.isEmpty() || text.equals("-")) return;
-                try {
-                    cachedField.setter().invoke(targetComponent, Integer.parseInt(text));
-                    invokeUpdate(targetComponent);
-                } catch (Throwable e) {
-                    SDMShop2.LOGGER.error("Failed to set int value", e);
-                }
-            });
-        }
-        else if (type == long.class || type == Long.class) {
-            var min = numberRange != null ? numberRange.longMin() : Long.MIN_VALUE;
-            var max = numberRange != null ? numberRange.longMax() : Long.MAX_VALUE;
-            widget.setNumbersOnly(min, max);
-            widget.setTextSupplier(() -> {
-                try {
-                    return String.valueOf(cachedField.getter().invoke(targetComponent));
-                } catch (Throwable e) {
-                    return "0";
-                }
-            });
-            widget.setTextResponder(text -> {
-                if (text.isEmpty() || text.equals("-")) return;
-                try {
-                    cachedField.setter().invoke(targetComponent, Long.parseLong(text));
-                    invokeUpdate(targetComponent);
-                } catch (Throwable e) {
-                    SDMShop2.LOGGER.error("Failed to set long value", e);
-                }
-            });
-        }
-        else if (type == double.class || type == Double.class) {
-            var min = numberRange != null ? numberRange.doubleMin() : -Double.MAX_VALUE;
-            var max = numberRange != null ? numberRange.doubleMax() : Double.MAX_VALUE;
-            widget.setNumbersOnly(min, max);
-            widget.setTextSupplier(() -> {
-                try {
-                    return String.valueOf(cachedField.getter().invoke(targetComponent));
-                } catch (Throwable e) {
-                    return "0.0";
-                }
-            });
-            widget.setTextResponder(text -> {
-                if (text.isEmpty() || text.equals("-") || text.equals(".")) return;
-                try {
-                    cachedField.setter().invoke(targetComponent, Double.parseDouble(text));
-                    invokeUpdate(targetComponent);
-                } catch (Throwable e) {
-                    SDMShop2.LOGGER.error("Failed to set double value", e);
-                }
-            });
-        }
-        else if (type == float.class || type == Float.class) {
-            var min = numberRange != null ? numberRange.floatMin() : -Float.MAX_VALUE;
-            var max = numberRange != null ? numberRange.floatMax() : Float.MAX_VALUE;
-            widget.setNumbersOnly(min, max);
-            widget.setTextSupplier(() -> {
-                try {
-                    return String.valueOf(cachedField.getter().invoke(targetComponent));
-                } catch (Throwable e) {
-                    return "0.0";
-                }
-            });
-            widget.setTextResponder(text -> {
-                if (text.isEmpty() || text.equals("-") || text.equals(".")) return;
-                try {
-                    cachedField.setter().invoke(targetComponent, Float.parseFloat(text));
-                    invokeUpdate(targetComponent);
-                } catch (Throwable e) {
-                    SDMShop2.LOGGER.error("Failed to set float value", e);
-                }
-            });
-        }
-        else {
+        if (!isTextEditableType(type)) {
             return null;
         }
 
-        try {
-            widget.setCurrentString(String.valueOf(cachedField.getter().invoke(targetComponent)));
-        } catch (Throwable e) {
-            widget.setCurrentString("0.0");
-        }
+        ExternTextFieldWidget widget = createTextEditor(type, readFieldAsString(targetComponent, cachedField), cachedField, value -> {
+            try {
+                cachedField.setter().invoke(targetComponent, value);
+                invokeUpdate(targetComponent);
+            } catch (Throwable e) {
+                SDMShop2.LOGGER.error("Failed to set {} value", type.getSimpleName(), e);
+            }
+        });
+
+        widget.setTextSupplier(() -> readFieldAsString(targetComponent, cachedField));
         return widget;
+    }
+
+    private static ExternTextFieldWidget createTextEditor(Class<?> type, String currentValue, ComponentConfigAccess.CachedField cachedField, Consumer<Object> onChange) {
+        ExternTextFieldWidget widget = new ExternTextFieldWidget();
+        configureTextEditor(widget, type, cachedField);
+        widget.setCurrentString(currentValue != null ? currentValue : "");
+        widget.setTextResponder(text -> parseEditableValue(type, text, cachedField).ifPresent(onChange));
+        return widget;
+    }
+
+    private static void configureTextEditor(ExternTextFieldWidget widget, Class<?> type, ComponentConfigAccess.CachedField cachedField) {
+        ComponentNumberRange numberRange = cachedField.numberRange();
+
+        if (type == int.class || type == Integer.class) {
+            int min = numberRange != null ? numberRange.intMin() : Integer.MIN_VALUE;
+            int max = numberRange != null ? numberRange.intMax() : Integer.MAX_VALUE;
+            widget.setNumbersOnly(min, max);
+        } else if (type == long.class || type == Long.class) {
+            long min = numberRange != null ? numberRange.longMin() : Long.MIN_VALUE;
+            long max = numberRange != null ? numberRange.longMax() : Long.MAX_VALUE;
+            widget.setNumbersOnly(min, max);
+        } else if (type == float.class || type == Float.class) {
+            float min = numberRange != null ? numberRange.floatMin() : -Float.MAX_VALUE;
+            float max = numberRange != null ? numberRange.floatMax() : Float.MAX_VALUE;
+            widget.setNumbersOnly(min, max);
+        } else if (type == double.class || type == Double.class) {
+            double min = numberRange != null ? numberRange.doubleMin() : -Double.MAX_VALUE;
+            double max = numberRange != null ? numberRange.doubleMax() : Double.MAX_VALUE;
+            widget.setNumbersOnly(min, max);
+        } else if (type == ResourceLocation.class) {
+            widget.setResourceLocationOnly();
+        } else if (type == UUID.class) {
+            widget.setUuidOnly();
+        }
+    }
+
+    private static Optional<Object> parseEditableValue(Class<?> type, String text, ComponentConfigAccess.CachedField cachedField) {
+        if (isIntermediateText(type, text)) {
+            return Optional.empty();
+        }
+
+        try {
+            if (type == String.class) {
+                return validateString(text == null ? "" : text, cachedField).map(value -> value);
+            }
+            if (type == int.class || type == Integer.class) return Optional.of(Integer.parseInt(text));
+            if (type == long.class || type == Long.class) return Optional.of(Long.parseLong(text));
+            if (type == float.class || type == Float.class) return Optional.of(Float.parseFloat(text));
+            if (type == double.class || type == Double.class) return Optional.of(Double.parseDouble(text));
+            if (type == UUID.class) return Optional.of(UUID.fromString(text));
+            if (type == ResourceLocation.class) {
+                ResourceLocation location = parseResourceLocation(text);
+                return location != null ? Optional.of(location) : Optional.empty();
+            }
+        } catch (Exception ignored) {
+            return Optional.empty();
+        }
+
+        return Optional.empty();
+    }
+
+    private static Optional<Object> validateString(String text, ComponentConfigAccess.CachedField cachedField) {
+        ComponentStringRegex regexInfo = cachedField.stringRegex();
+        if (regexInfo != null && !text.matches(regexInfo.value())) {
+            SDMShop2.LOGGER.warn("Regex validation failed for {}: Expected {} but got '{}' ({})",
+                    cachedField.translationKey(), regexInfo.value(), text, regexInfo.errorMessage());
+            return Optional.empty();
+        }
+        return Optional.of(text);
+    }
+
+    private static ResourceLocation parseResourceLocation(String text) {
+        if (text == null || text.isEmpty()) {
+            return null;
+        }
+        return text.contains(":") ? ResourceLocation.tryParse(text) : ResourceLocation.tryBuild("minecraft", text);
+    }
+
+    private static boolean isIntermediateText(Class<?> type, String text) {
+        if (text == null || text.isEmpty()) {
+            return type != String.class;
+        }
+        if (isIntegralType(type)) {
+            return text.equals("-");
+        }
+        if (isDecimalType(type)) {
+            return text.equals("-") || text.equals(".") || text.equals("-.");
+        }
+        return false;
+    }
+
+    private static boolean isTextEditableType(Class<?> type) {
+        return type == String.class
+                || isIntegralType(type)
+                || isDecimalType(type)
+                || type == ResourceLocation.class
+                || type == UUID.class;
+    }
+
+    private static boolean isIntegralType(Class<?> type) {
+        return type == int.class || type == Integer.class || type == long.class || type == Long.class;
+    }
+
+    private static boolean isDecimalType(Class<?> type) {
+        return type == float.class || type == Float.class || type == double.class || type == Double.class;
+    }
+
+    private static String readFieldAsString(ShopComponent targetComponent, ComponentConfigAccess.CachedField cachedField) {
+        try {
+            Object value = cachedField.getter().invoke(targetComponent);
+            return value != null ? String.valueOf(value) : "";
+        } catch (Throwable e) {
+            SDMShop2.LOGGER.error("Failed to get {} value", cachedField.translationKey(), e);
+            return "";
+        }
     }
 
     private static void invokeUpdate(ShopComponent targetComponent) {

@@ -8,8 +8,8 @@ import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import com.lowdragmc.lowdraglib.gui.widget.layout.Layout;
 import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
+import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
 import dev.sixik.sdmshop2.libs.shop.client.WidgetGroupAccessor;
-import dev.sixik.sdmshop2.libs.shop.client.config.component_selector.ComponentSelectionMenu;
 import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.CollapsedGroupWidget;
 import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
@@ -26,8 +26,20 @@ import java.util.List;
 
 public class ComponentCollapsedGroupWidget extends CollapsedGroupWidget {
 
+    private static final int CONTEXT_MENU_WIDTH = 120;
+    private static final int CONTEXT_MENU_ROW_HEIGHT = 20;
+
+    private static long jsonTooltipVersion;
+
+    static {
+        SDMShopClient.UPDATE_COMPONENT_EVENT.register((entity, component) -> jsonTooltipVersion++);
+    }
+
     protected ShopComponent component;
     protected ShopEntity root;
+    protected ShopComponent cachedJsonTooltipComponent;
+    protected long cachedJsonTooltipVersion = -1L;
+    protected List<Component> cachedJsonTooltip;
 
     public ComponentCollapsedGroupWidget(ShopComponent component, ShopEntity root, int width) {
         super(Component.literal(component.getType().getId().toString()), width);
@@ -35,14 +47,10 @@ public class ComponentCollapsedGroupWidget extends CollapsedGroupWidget {
         this.root = root;
     }
 
-    /**
-     * Обработка клика по шапке
-     */
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         int x = getPositionX();
         int y = getPositionY();
-
 
         if (isMouseOver(x, y, getSizeWidth(), headerHeight, mouseX, mouseY)) {
             if (canCollapse && button == 0) {
@@ -59,7 +67,6 @@ public class ComponentCollapsedGroupWidget extends CollapsedGroupWidget {
         }
 
         if (isCollapsed) return false;
-
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
@@ -70,32 +77,49 @@ public class ComponentCollapsedGroupWidget extends CollapsedGroupWidget {
         int x = getPositionX();
         int y = getPositionY();
 
-        if (isMouseOver(x, y, getSizeWidth(), headerHeight, mouseX, mouseY) && gui != null && gui.getModularUIGui() != null) {
+        if (!isMouseOver(x, y, getSizeWidth(), headerHeight, mouseX, mouseY)
+                || gui == null
+                || gui.getModularUIGui() == null) {
+            return;
+        }
 
-            for (Widget widget : widgets) {
-                if (widget instanceof ComponentConfigurationWidget configWidget) {
-                    ShopComponent component = configWidget.getComponent();
-
-                    if (component != null) {
-                        List<Component> tooltip = new ArrayList<>();
-                        tooltip.add(Component.translatable("client.shop.component.editor.json.preivew")); // §e - желтый цвет
-
-                        try {
-                            JsonObject json = ShopComponentRegistry.toJson(component);
-                            String formattedJson = SDMShop2.GSON.toJson(json);
-                            for (String line : formattedJson.split("\n")) {
-                                tooltip.add(Component.literal("§7" + line.replace("  ", " ")));
-                            }
-                        } catch (Exception e) {
-                            tooltip.add(Component.translatable("client.shop.component.editor.json.generation_error"));
-                        }
-
-                        gui.getModularUIGui().setHoverTooltip(tooltip, ItemStack.EMPTY, null, null);
-                    }
-                    break;
+        for (Widget widget : widgets) {
+            if (widget instanceof ComponentConfigurationWidget configWidget) {
+                ShopComponent tooltipComponent = configWidget.getComponent();
+                if (tooltipComponent != null) {
+                    gui.getModularUIGui().setHoverTooltip(getJsonTooltip(tooltipComponent), ItemStack.EMPTY, null, null);
                 }
+                return;
             }
         }
+    }
+
+    protected List<Component> getJsonTooltip(ShopComponent tooltipComponent) {
+        if (cachedJsonTooltip == null
+                || cachedJsonTooltipComponent != tooltipComponent
+                || cachedJsonTooltipVersion != jsonTooltipVersion) {
+            cachedJsonTooltip = buildJsonTooltip(tooltipComponent);
+            cachedJsonTooltipComponent = tooltipComponent;
+            cachedJsonTooltipVersion = jsonTooltipVersion;
+        }
+        return cachedJsonTooltip;
+    }
+
+    protected List<Component> buildJsonTooltip(ShopComponent tooltipComponent) {
+        List<Component> tooltip = new ArrayList<>();
+        tooltip.add(Component.translatable("client.shop.component.editor.json.preview"));
+
+        try {
+            JsonObject json = ShopComponentRegistry.toJson(tooltipComponent);
+            String formattedJson = SDMShop2.GSON.toJson(json);
+            for (String line : formattedJson.split("\n")) {
+                tooltip.add(Component.literal("§7" + line.replace("  ", " ")));
+            }
+        } catch (Exception e) {
+            tooltip.add(Component.translatable("client.shop.component.editor.json.generation_error"));
+        }
+
+        return tooltip;
     }
 
     protected void openContextMenu(int mouseX, int mouseY) {
@@ -108,14 +132,10 @@ public class ComponentCollapsedGroupWidget extends CollapsedGroupWidget {
 
         if (!(root instanceof WidgetGroup mainGroup)) return;
 
-        WidgetGroup contextMenu = new WidgetGroup(mouseX, mouseY, 120, 0) {
+        WidgetGroup contextMenu = new WidgetGroup(mouseX, mouseY, CONTEXT_MENU_WIDTH, 0) {
             @Override
             public boolean mouseClicked(double mouseX, double mouseY, int button) {
                 boolean handled = super.mouseClicked(mouseX, mouseY, button);
-                /*
-                    Если кликнули по кнопке в меню - handled будет true.
-                    Если кликнули мимо кнопок, но внутри меню - мы тоже не закрываемся.
-                 */
                 if (!isMouseOverElement(mouseX, mouseY)) {
                     mainGroup.removeWidget(this);
                 }
@@ -124,9 +144,6 @@ public class ComponentCollapsedGroupWidget extends CollapsedGroupWidget {
 
             @Override
             public void onFocusChanged(Widget lastFocus, Widget focus) {
-                /*
-                    Если фокус ушел с меню и его детей - удаляем меню
-                 */
                 if (!isFocus()) {
                     mainGroup.removeWidget(this);
                 }
@@ -137,68 +154,45 @@ public class ComponentCollapsedGroupWidget extends CollapsedGroupWidget {
         contextMenu.setLayout(Layout.VERTICAL_LEFT);
         contextMenu.setBackground(new ColorRectAndBorderTexture(0xFF1E1E1E, 1, 0xFF555555));
 
+        ButtonWidget copyButton = new ButtonWidget(
+                0,
+                0,
+                CONTEXT_MENU_WIDTH,
+                CONTEXT_MENU_ROW_HEIGHT,
+                new TextTexture(() -> I18n.get("client.shop.component.editor.json.copy")),
+                button -> {
+                    JsonObject json = ShopComponentRegistry.toJson(component);
+                    String formattedJson = SDMShop2.GSON.toJson(json);
+                    Minecraft.getInstance().keyboardHandler.setClipboard(formattedJson);
+                    Minecraft.getInstance().player.sendSystemMessage(Component.translatable("client.shop.component.editor.copied"));
+                    mainGroup.removeWidget(contextMenu);
+                }
+        );
+        copyButton.initTemplate();
+        contextMenu.addWidget(copyButton);
 
+        ButtonWidget deleteButton = new ButtonWidget(
+                0,
+                0,
+                CONTEXT_MENU_WIDTH,
+                CONTEXT_MENU_ROW_HEIGHT,
+                new TextTexture(() -> I18n.get("client.shop.component.editor.components.delete")),
+                button -> {
+                    if (component.getRoot() != null) {
+                        component.getRoot().removeComponent(component);
+                    }
 
-        final var button = new ButtonWidget(0, 0, 120, 20, new TextTexture(() -> I18n.get("client.shop.component.editor.json.copy")), (s) -> {
-            JsonObject json = ShopComponentRegistry.toJson(component);
-            String formattedJson = SDMShop2.GSON.toJson(json);
-            Minecraft.getInstance().keyboardHandler.setClipboard(formattedJson);
-            Minecraft.getInstance().player.sendSystemMessage(Component.literal("Copied!"));
-            mainGroup.removeWidget(contextMenu);
-        });
-        button.initTemplate();
-        contextMenu.addWidget(button);
+                    mainGroup.removeWidget(contextMenu);
 
-        final var deleteButton = new ButtonWidget(0, 0, 120, 20, new TextTexture(() -> I18n.get("client.shop.component.editor.components.delete")), s -> {
-            if (component.getRoot() != null) {
-                component.getRoot().removeComponent(component);
-            }
-
-            mainGroup.removeWidget(contextMenu);
-
-            WidgetGroup parentGroup = this.getParent();
-            if (parentGroup != null) {
-                parentGroup.removeWidget(this);
-                ((WidgetGroupAccessor)parentGroup).sdm$onChildSizeUpdate(this);
-            }
-        });
+                    WidgetGroup parentGroup = this.getParent();
+                    if (parentGroup != null) {
+                        parentGroup.removeWidget(this);
+                        ((WidgetGroupAccessor) parentGroup).sdm$onChildSizeUpdate(this);
+                    }
+                }
+        );
         deleteButton.initTemplate();
         contextMenu.addWidget(deleteButton);
-
-       /*
-       final var testButton = new ButtonWidget(0, 0, 120, 20, new TextTexture("TestButton"), s -> {
-            ComponentSelectionMenu.showComponentSelector(getGui().mainGroup, newComponent -> {
-                if (newComponent == null) return;
-                this.root.addComponent(newComponent);
-
-                WidgetGroup parentGroup = this.getParent();
-                if (parentGroup != null) {
-
-                    ComponentCollapsedGroupWidget newWidget = new ComponentCollapsedGroupWidget(
-                            newComponent,
-                            this.root,
-                            this.getSizeWidth()
-                    );
-                    newWidget.useTabulation();
-
-                    newWidget.addWidget(new ComponentConfigurationWidget(this.getSizeWidth(), newComponent));
-                    parentGroup.addWidget(newWidget);
-
-                    *//*
-                        Обновление UI
-                     *//*
-                    WidgetGroupAccessor.get(parentGroup).sdm$onChildSizeUpdate(newWidget);
-                }
-            });
-
-            *//*
-                Закрываем UI
-             *//*
-            mainGroup.removeWidget(contextMenu);
-        });
-        testButton.initTemplate();
-        contextMenu.addWidget(testButton);
-        */
 
         mainGroup.addWidget(contextMenu);
         contextMenu.setFocus(true);

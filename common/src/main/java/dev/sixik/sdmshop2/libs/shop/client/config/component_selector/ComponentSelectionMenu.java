@@ -31,8 +31,12 @@ import java.util.function.Consumer;
 
 public class ComponentSelectionMenu {
 
+    private static final int CONTEXT_MENU_WIDTH = 120;
+    private static final int CONTEXT_MENU_ROW_HEIGHT = 20;
+
     private static List<String> cachedCategories;
     private static List<IComponentType<?>> cachedSortedComponents;
+    private static int cachedRegistrySignature = Integer.MIN_VALUE;
     private static String currentCategory = SDMShopConstants.ALL_GROUP;
 
     public static DialogWidget showComponentSelector(
@@ -192,7 +196,7 @@ public class ComponentSelectionMenu {
                 SDMShop2.LOGGER.error("Malformed Wiki URL: {}", url);
             }
         });
-        wikiButton.setBackground(ColorPattern.T_GRAY.rectTexture(), new TextTexture("Wiki"));
+        wikiButton.setBackground(ColorPattern.T_GRAY.rectTexture(), new TextTexture(() -> I18n.get("client.shop.component.editor.button.wiki.short")));
         wikiButton.setHoverTexture(ColorPattern.T_LIGHT_GRAY.rectTexture());
         wikiButton.setHoverTooltips(Component.translatable("client.shop.component.editor.button.wiki.tooltip"));
 
@@ -215,6 +219,7 @@ public class ComponentSelectionMenu {
     }
 
     private static List<IComponentType<?>> getSortedComponents() {
+        refreshCachesIfRegistryChanged();
         if (cachedSortedComponents != null) {
             return cachedSortedComponents;
         }
@@ -241,6 +246,7 @@ public class ComponentSelectionMenu {
     }
 
     private static List<String> getCategories() {
+        refreshCachesIfRegistryChanged();
         if (cachedCategories != null)
             return cachedCategories;
 
@@ -258,6 +264,27 @@ public class ComponentSelectionMenu {
 
         cachedCategories = result;
         return result;
+    }
+
+    public static void invalidateCaches() {
+        cachedRegistrySignature = Integer.MIN_VALUE;
+        cachedCategories = null;
+        cachedSortedComponents = null;
+    }
+
+    private static void refreshCachesIfRegistryChanged() {
+        int registrySignature = Objects.hash(
+                ShopComponentRegistry.getTypes().size(),
+                ShopComponentRegistry.getTypes().keySet()
+        );
+
+        if (registrySignature == cachedRegistrySignature) {
+            return;
+        }
+
+        cachedRegistrySignature = registrySignature;
+        cachedCategories = null;
+        cachedSortedComponents = null;
     }
 
     private static Widget createTileWidget(
@@ -374,7 +401,7 @@ public class ComponentSelectionMenu {
 
         if (!(root instanceof WidgetGroup mainGroup)) return;
 
-        WidgetGroup contextMenu = new WidgetGroup(mouseX, mouseY, 120, 0) {
+        WidgetGroup contextMenu = new WidgetGroup(mouseX, mouseY, CONTEXT_MENU_WIDTH, 0) {
             @Override
             public boolean mouseClicked(double mouseX, double mouseY, int button) {
                 boolean handled = super.mouseClicked(mouseX, mouseY, button);
@@ -403,9 +430,9 @@ public class ComponentSelectionMenu {
         contextMenu.setLayout(Layout.VERTICAL_LEFT);
         contextMenu.setBackground(new ColorRectAndBorderTexture(0xFF1E1E1E, 1, 0xFF555555));
 
-        final var button = new ButtonWidget(0, 0, 120, 20, new TextTexture(() -> I18n.get("client.shop.component.editor.component_selector.widget.tile.copy_id")), (s) -> {
+        final var button = new ButtonWidget(0, 0, CONTEXT_MENU_WIDTH, CONTEXT_MENU_ROW_HEIGHT, new TextTexture(() -> I18n.get("client.shop.component.editor.component_selector.widget.tile.copy_id")), (s) -> {
             Minecraft.getInstance().keyboardHandler.setClipboard(type.getId().toString());
-            Minecraft.getInstance().player.sendSystemMessage(Component.literal("Copied!"));
+            Minecraft.getInstance().player.sendSystemMessage(Component.translatable("client.shop.component.editor.copied"));
             mainGroup.removeWidget(contextMenu);
         });
         button.initTemplate();

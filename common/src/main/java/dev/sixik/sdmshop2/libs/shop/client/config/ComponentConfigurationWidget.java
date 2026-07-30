@@ -30,10 +30,20 @@ import java.util.function.BiConsumer;
 
 public class ComponentConfigurationWidget extends WidgetGroup {
 
+    private static final int DEFAULT_WIDTH = 60;
+    private static final int LABEL_X = 10;
+    private static final int TOP_PADDING = 10;
+    private static final int ROW_SPACING = 5;
+    private static final int EDITOR_WIDTH = 85;
+    private static final int RIGHT_PADDING = 10;
+    private static final int LABEL_EDITOR_GAP = 5;
+    private static final int DEFAULT_EDITOR_HEIGHT = 20;
+    private static final float MIN_LABEL_SCALE = 0.4f;
+
     public static final ColorRectAndBorderTexture texture = new ColorRectAndBorderTexture();
     public static final ColorBorderTexture hoverTexture = new ColorBorderTexture(1, -1);
 
-    protected final List<Widget[]> uiPairs = new ArrayList<>();
+    protected final List<UiPair> uiPairs = new ArrayList<>();
 
     @Getter
     @Nullable
@@ -41,7 +51,10 @@ public class ComponentConfigurationWidget extends WidgetGroup {
 
     @Setter
     protected BiConsumer<Integer, SwitchWidget> modifySwitchWidgetCallback = (index, widget) -> {
-        widget.setTexture(new GuiTextureGroup(getTexture(), new TextTexture("off")), new GuiTextureGroup(getTexture(), new TextTexture("on")));
+        widget.setTexture(
+                new GuiTextureGroup(getTexture(), new TextTexture(() -> I18n.get("client.shop.component.editor.switch.off"))),
+                new GuiTextureGroup(getTexture(), new TextTexture(() -> I18n.get("client.shop.component.editor.switch.on")))
+        );
     };
 
     @Setter
@@ -57,7 +70,7 @@ public class ComponentConfigurationWidget extends WidgetGroup {
         editor.setSizeWidth(editorWidth);
         editor.setSelfPosition(editorX, currentY);
 
-        int maxLabelWidth = editorX - 10 - 5;
+        int maxLabelWidth = editorX - LABEL_X - LABEL_EDITOR_GAP;
         int originalTextWidth = font.width(label.getText());
 
         /*
@@ -69,7 +82,7 @@ public class ComponentConfigurationWidget extends WidgetGroup {
                 Если текст шире, чем доступное место, считаем коэффициент сжатия.
              */
             scale = (float) maxLabelWidth / originalTextWidth;
-            scale = Math.max(scale, 0.4f);
+            scale = Math.max(scale, MIN_LABEL_SCALE);
         }
 
         label.setScale(scale);
@@ -79,19 +92,19 @@ public class ComponentConfigurationWidget extends WidgetGroup {
 
         int labelY = currentY + (int)((editorHeight - visualTextHeight) / 2f);
 
-        label.setSelfPosition(10, labelY);
+        label.setSelfPosition(LABEL_X, labelY);
 
         /*
             Возвращаем шаг по Y для следующего элемента (высота виджета + отступ)
          */
-        return editorHeight + 5;
+        return editorHeight + ROW_SPACING;
     });
 
     @Getter @Setter
     protected int fixedWidth;
 
     public ComponentConfigurationWidget(@Nullable ShopComponent component) {
-        this(60, component);
+        this(DEFAULT_WIDTH, component);
     }
 
     public ComponentConfigurationWidget(int width, @Nullable ShopComponent component) {
@@ -106,8 +119,9 @@ public class ComponentConfigurationWidget extends WidgetGroup {
 
     @Override
     public void initWidget() {
-        updateConfiguration();
+        rebuildConfiguration();
         super.initWidget();
+        repositionWidgets();
     }
 
     public void setComponent(ShopComponent component) {
@@ -117,6 +131,14 @@ public class ComponentConfigurationWidget extends WidgetGroup {
     }
 
     public void updateConfiguration() {
+        rebuildConfiguration();
+        if (isInitialized()) {
+            super.initWidget();
+        }
+        repositionWidgets();
+    }
+
+    private void rebuildConfiguration() {
         clearAllWidgets();
         uiPairs.clear();
         if(component == null) return;
@@ -135,10 +157,10 @@ public class ComponentConfigurationWidget extends WidgetGroup {
             }
 
             editorWidget.setHoverTexture(getHoverTexture());
-            editorWidget.setSizeHeight(20);
+            editorWidget.setSizeHeight(DEFAULT_EDITOR_HEIGHT);
 
             if (!(editorWidget instanceof WidgetGroup)) {
-                editorWidget.setSizeHeight(20);
+                editorWidget.setSizeHeight(DEFAULT_EDITOR_HEIGHT);
             }
 
             SDMTextLabel textLabel = new SDMTextLabel(Component.translatable(datum.translationKey()));
@@ -150,7 +172,7 @@ public class ComponentConfigurationWidget extends WidgetGroup {
                 textLabel.setHoverTooltips(tooltip);
             }
 
-            uiPairs.add(new Widget[]{textLabel, editorWidget});
+            uiPairs.add(new UiPair(textLabel, editorWidget));
         }
 
 
@@ -159,29 +181,24 @@ public class ComponentConfigurationWidget extends WidgetGroup {
             поэтому его DropDown перекроет все нижние виджеты и заберет клики.
          */
         for (int i = uiPairs.size() - 1; i >= 0; i--) {
-            Widget[] pair = uiPairs.get(i);
-            this.addWidget(pair[0]); // Label
-            this.addWidget(pair[1]); // Editor
+            UiPair pair = uiPairs.get(i);
+            this.addWidget(pair.label()); // Label
+            this.addWidget(pair.editor()); // Editor
         }
-
-        super.initWidget();
-        repositionWidgets();
     }
 
     /**
      * Тот самый метод, который двигает всё "в прямом эфире"
      */
     public void repositionWidgets() {
-        int currentY = 10;
-        int editorWidth = 85;
-        int paddingRight = 10;
+        int currentY = TOP_PADDING;
+        int editorWidth = EDITOR_WIDTH;
+        int paddingRight = RIGHT_PADDING;
         int editorX = getSizeWidth() - editorWidth - paddingRight;
         Font font = Minecraft.getInstance().font;
 
-        for (Widget[] pair : uiPairs) {
-            SDMTextLabel label = (SDMTextLabel) pair[0];
-            Widget editor = pair[1];
-            currentY += modifyInitElementsCallback.accept(this, label, editor, font, editorWidth, editorX, currentY);
+        for (UiPair pair : uiPairs) {
+            currentY += modifyInitElementsCallback.accept(this, pair.label(), pair.editor(), font, editorWidth, editorX, currentY);
         }
 
         /*
@@ -239,5 +256,8 @@ public class ComponentConfigurationWidget extends WidgetGroup {
     public interface ModifyElements {
 
         int accept(ComponentConfigurationWidget main, SDMTextLabel label, Widget editor, Font font, int editorWidth, int editorX, int currentY);
+    }
+
+    protected record UiPair(SDMTextLabel label, Widget editor) {
     }
 }
