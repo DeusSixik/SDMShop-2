@@ -20,6 +20,7 @@ import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.InputTextBox;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.MultiLineInputTextBox;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.GridBox;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.HorizontalContainer;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.TabBox;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.VerticalContainer;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.table.IconsTable;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.table.InteractionTable;
@@ -77,6 +78,11 @@ public final class ShopRenderLibExtension {
         iconsTable.setSelfPosition(390, 318);
         group.addWidget(section(378, 304, 138, 160, "IconsTable"));
         group.addWidget(iconsTable);
+
+        TabBox tabBox = createTabBoxDemo();
+        tabBox.setSelfPosition(560, 78);
+        group.addWidget(section(548, 64, 360, 190, "TabBox"));
+        group.addWidget(tabBox);
 
         return group;
     }
@@ -211,6 +217,45 @@ public final class ShopRenderLibExtension {
         input.setCurrentString(multilineText);
         input.setHoverTooltips(Component.literal("Enter inserts newline; Up/Down and mouse wheel work here"));
         return input;
+    }
+
+    private static TabBox createTabBoxDemo() {
+        TabBox tabBox = new TabBox(0, 0, 336, 150)
+                .setTabHeight(20)
+                .setTabWidth(74)
+                .setContentPadding(6);
+
+        WidgetGroup infoPage = new WidgetGroup(0, 0, 320, 112);
+        infoPage.addWidget(new SDMTextLabel(0, 0, 300, 18, Component.literal("TabBox: switches visible pages"))
+                .setAutoScale(true)
+                .setHoverTooltips(Component.literal("This page is a plain WidgetGroup")));
+        infoPage.addWidget(new SDMTextLabel(0, 24, 300, 18, Component.literal("Inactive pages are hidden/deactivated"))
+                .setAutoScale(true));
+
+        WidgetGroup inputPage = new WidgetGroup(0, 0, 320, 112);
+        InputTextBox input = new InputTextBox(0, 0, 180, 24, () -> text, text -> ShopRenderLibExtension.text = text)
+                .setPlaceholder(Component.literal("tab input"));
+        input.setCurrentString(text);
+        inputPage.addWidget(input);
+        ButtonWidget applyButton = button("Apply", "Button inside TabBox page");
+        applyButton.setSelfPosition(190, 0);
+        inputPage.addWidget(applyButton);
+
+        WidgetGroup gridPage = new WidgetGroup(0, 0, 320, 112);
+        GridBox grid = new GridBox(2, Position.ORIGIN)
+                .setCellSize(96, 28)
+                .setSpacing(8)
+                .alignCenter();
+        grid.addWidget(button("A", "Grid in TabBox"));
+        grid.addWidget(button("B", "Grid in TabBox"));
+        grid.addWidget(iconCell(Items.CHEST, "Icon page cell"));
+        grid.addWidget(iconCell(Items.BARRIER, "Icon page cell"));
+        gridPage.addWidget(grid);
+
+        tabBox.addTab("Info", infoPage);
+        tabBox.addTab("Input", inputPage);
+        tabBox.addTab("Grid", gridPage);
+        return tabBox;
     }
 
     private static ButtonWidget button(String text, String tooltip) {
