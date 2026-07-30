@@ -308,6 +308,15 @@ public class ShopBadgeHBoxWidget extends WidgetGroup {
         return hiddenBadgeCount;
     }
 
+    public int getScaledHeight() {
+        recomputeLayout();
+        return computeScaledLayoutHeight();
+    }
+
+    public int getHeightWithScale() {
+        return getScaledHeight();
+    }
+
     @Override
     protected Size computeDynamicSize() {
         int maxChildHeight = 0;
@@ -323,7 +332,7 @@ public class ShopBadgeHBoxWidget extends WidgetGroup {
         }
 
         int width = maxLength > 0 ? Math.min(maxLength, totalWidth) : totalWidth;
-        int height = getScaledPaddingTop() + getScaledPaddingBottom() + maxChildHeight;
+        int height = computeScaledNaturalHeight(maxChildHeight);
         return new Size(Math.max(1, width), Math.max(1, height));
     }
 
@@ -528,6 +537,30 @@ public class ShopBadgeHBoxWidget extends WidgetGroup {
 
     private int computeOverflowHeight() {
         return Math.max(1, Math.round(Minecraft.getInstance().font.lineHeight * scale) + getOverflowPadding() * 2);
+    }
+
+    private int computeScaledLayoutHeight() {
+        int maxChildHeight = 0;
+
+        for (int i = 0; i < visibleBadgeCount && i < badges.size(); i++) {
+            maxChildHeight = Math.max(maxChildHeight, badges.get(i).getSizeHeight());
+        }
+
+        if (hiddenBadgeCount > 0) {
+            maxChildHeight = Math.max(maxChildHeight, computeOverflowHeight());
+        }
+
+        if (maxChildHeight == 0) {
+            for (ShopBadgeWidget badge : badges) {
+                maxChildHeight = Math.max(maxChildHeight, badge.getSizeHeight());
+            }
+        }
+
+        return computeScaledNaturalHeight(maxChildHeight);
+    }
+
+    private int computeScaledNaturalHeight(int maxChildHeight) {
+        return Math.max(1, getScaledPaddingTop() + getScaledPaddingBottom() + Math.max(0, maxChildHeight));
     }
 
     private int getOverflowPadding() {

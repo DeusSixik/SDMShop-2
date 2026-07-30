@@ -20,6 +20,10 @@ public abstract class AbstractTable<T, SELF extends AbstractTable<T, SELF>> exte
     protected final FloatArrayList elementsScales = new FloatArrayList();
     protected final ObjectArrayList<T> elements = new ObjectArrayList<>();
 
+    public AbstractTable() {
+        this(1, 1);
+    }
+
     public AbstractTable(int coll, int row) {
         this(coll, row, Position.ORIGIN, Size.ZERO);
     }
@@ -38,6 +42,13 @@ public abstract class AbstractTable<T, SELF extends AbstractTable<T, SELF>> exte
         this.row = Math.max(1, row);
 
         setSize(computeTableSize(this.row));
+    }
+
+    public SELF setCollAndRow(int coll, int row) {
+        this.coll = Math.max(1, coll);
+        this.row = Math.max(1, row);
+        setSize(computeTableSize(this.row));
+        return self();
     }
 
     public SELF addElement(T element) {

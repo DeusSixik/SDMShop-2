@@ -1,9 +1,8 @@
 package dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.entities;
 
-import com.lowdragmc.lowdraglib.gui.texture.ColorRectTexture;
-import com.lowdragmc.lowdraglib.gui.texture.ItemStackTexture;
+import com.lowdragmc.lowdraglib.gui.texture.*;
+import com.lowdragmc.lowdraglib.gui.util.DrawerHelper;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
-import com.lowdragmc.lowdraglib.utils.Size;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ShopBadgeHBoxWidget;
 import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ShopBadgeWidget;
@@ -11,49 +10,53 @@ import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ShopEmptyWidget;
 import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.ShopUiElement;
 import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
 import dev.sixik.sdmshop2.libs.shop.components.misc.NameComponent;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ProgressBarWidget;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.SelectorList;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.table.InteractionTable;
 import lombok.Getter;
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.jetbrains.annotations.Nullable;
 
 public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
 
+    private static final int DEBUG_COUNTS_ELEMENTS = 24;
+    private static final int DEBUG_SIZE_ELEMENT = 8;
+    private static final int OFFER_ELEMENTS_TABLE_PADDING = 4;
+    private static final int OFFER_ELEMENTS_TABLE_TOP_GAP = 4;
+
     @Getter
     @Nullable
     private final ShopOffer shopEntity;
 
+
     @Nullable
     private TextLabel nameLabel;
+    private final ButtonWidget buyButton;
+    private final SelectorList moneyType;
 
-//    private ShopEmptyWidget iconWidget;
-//    private ShopEmptyWidget backgroundTitleWidget;
-//    private ShopBadgeWidget badgeWidget;
+    private final InteractionTable offerElementsTable;
+    private final ProgressBarWidget limitBar;
+    private final ShopBadgeHBoxWidget badgesBox;
 
-    private ProgressBarWidget limitBar;
-    private ShopBadgeHBoxWidget badgesBox;
 
     public ShopOfferElement(@Nullable ShopOffer shopEntity) {
         this.shopEntity = shopEntity;
         setBackground(new ColorRectAndBorderTexture());
 
-//        addWidget(backgroundTitleWidget = new ShopEmptyWidget());
-//        backgroundTitleWidget.setBackground(new ColorRectTexture(0xFF1E1E2A));
-//
-//        addWidget(iconWidget = new ShopEmptyWidget());
-//        iconWidget.setBackground(new ItemStackTexture(new ItemStack(Items.DIAMOND, 4)));
-
-//        addWidget(badgeWidget = new ShopBadgeWidget(Component.literal("Лим. 1")));
-
         badgesBox = new ShopBadgeHBoxWidget()
-                .scale(0.5f)
+                .scale(0.35f)
+                .scaleTooltipWithHBox()
                 .setSpacing(2);
         for (int i = 0; i < 10; i++) {
             badgesBox.addBadge(new ShopBadgeWidget(Component.literal("Test: " + i)).autoSizeToContent());
         }
         addWidget(badgesBox);
+
+
 
         addWidget(limitBar = new ProgressBarWidget()
                 .setLeftText(Component.literal("Limit"))
@@ -67,13 +70,53 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
         if (shopEntity != null) {
             NameComponent nameComponent = shopEntity.getComponent(NameComponent.class).orElse(null);
             if (nameComponent != null) {
-                nameLabel = new TextLabel(0, 0, 10, 10, Component.translatable(nameComponent.getName()))
-                        .setWrapText(true)
+                addWidget(nameLabel = (TextLabel) new TextLabel(Component.literal("Some Centered Text"))
+                        .setAutoSize(false)
+                        .setWrapText(false)
+                        .setMaxLines(1)
+                        .setLineSpacing(0)
+                        .setPadding(0)
                         .scaleToFit()
-                        .setAlignment(TextLabel.HorizontalAlignment.LEFT, TextLabel.VerticalAlignment.CENTER);
-//                addWidget(nameLabel);
+                        .setAlignment(TextLabel.HorizontalAlignment.CENTER, TextLabel.VerticalAlignment.CENTER));
             }
         }
+
+        addWidget(offerElementsTable = new InteractionTable());
+
+        for (int i = 0; i < DEBUG_COUNTS_ELEMENTS; i++) {
+
+            var item = Items.DIAMOND.getDefaultInstance();
+            var widget = new ShopEmptyWidget()
+                    .setBackground(new ItemStackTexture(Items.DIAMOND));
+            widget.setSize(DEBUG_SIZE_ELEMENT, DEBUG_SIZE_ELEMENT);
+            widget.setHoverTexture(new ColorBorderTexture(1, 0xFFFFFFFF));
+            widget.setHoverTooltips(DrawerHelper.getItemToolTip(item));
+            offerElementsTable.addElement(widget);
+        }
+
+        buyButton = new ButtonWidget(Component.literal("Buy"));
+        addWidget(buyButton);
+
+
+
+
+        moneyType = new SelectorList();
+
+        for (int i = 0; i < 3; i++) {
+            var widget = new ShopEmptyWidget().setBackground(new TextTexture("Test: " + i));
+            widget.setSizeHeight(Minecraft.getInstance().font.lineHeight);
+            moneyType.addOption(widget);
+        }
+
+        moneyType.allowEmptySelection()
+                .vertical()
+                .onSelectionChanged(index -> {
+                    // -1 = ничего не выбрано
+                });
+        moneyType.scale(0.5f);
+        moneyType.allowEmptySelection();
+        moneyType.preventDeselect();
+        addWidget(moneyType);
     }
 
     @Override
@@ -84,21 +127,15 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
         int headerWidth = this.getSizeWidth() - space_x * 2;
         int headerHeight = this.getSizeHeight() / 4;
 
-//        backgroundTitleWidget.setSelfPosition(space_x, space_y);
-//        backgroundTitleWidget.setSize(headerWidth, headerHeight);
-
         int iconPadding = 2;
         int iconSize = headerHeight - iconPadding * 2;
-
-//        iconWidget.setSelfPosition(space_x + iconPadding, space_y + iconPadding);
-//        iconWidget.setSize(iconSize, iconSize);
 
         int badgeWidth = 26;
         int badgeHeight = 10;
         int badgeX = (space_x + headerWidth) - badgeWidth - iconPadding;
         int badgeY = space_y + iconPadding;
 
-        badgesBox.setSelfPositionY(-1);
+        badgesBox.setSelfPositionY(-2);
         badgesBox.setSelfPositionX(2);
         int badgesBoxWidth = Math.max(0, getSizeWidth() - 4);
         badgesBox.setMaxLength(badgesBoxWidth);
@@ -107,18 +144,58 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
         limitBar.setSelfPosition(2, getSize().height - 9);
         limitBar.setBarHeight(2);
         limitBar.setSize(getSize().width - 4, 6);
-
-//        badgeWidget.setSelfPosition(badgeX, badgeY);
-//        badgeWidget.setSize(badgeWidth, badgeHeight);
-
         if (nameLabel != null) {
-//            int titleX = iconWidget.getSelfPositionX() + iconSize + 4;
-//            int titleY = space_y + iconPadding;
-//            int titleWidth = badgeX - titleX - 4;
-//            int titleHeight = headerHeight - iconPadding * 2;
-//
-//            nameLabel.setSelfPosition(titleX, titleY);
-//            nameLabel.setSize(titleWidth, titleHeight);
+
+            int screen_w = this.getSizeWidth();
+            int title_y = 4 + badgesBox.getHeightWithScale();
+
+            nameLabel.setSelfPosition(0, title_y);
+            nameLabel.setSize(screen_w, Minecraft.getInstance().font.lineHeight);
         }
+
+        alightOfferElementsTable();
+
+        buyButton.setSize(getSizeWidth() - 4, 14);
+        buyButton.setSelfPosition(2, offerElementsTable.getSelfPositionY() + offerElementsTable.getSizeHeight() + 2);
+
+        moneyType.setSize(getSizeWidth() - 4, moneyType.getContentHeightWithScale());
+        moneyType.setSelfPosition(2, buyButton.getSelfPositionY() + buyButton.getSizeHeight() + 2);
+    }
+
+    private void alightOfferElementsTable() {
+        int tableAvailableWidth = Math.max(1, getSizeWidth() - OFFER_ELEMENTS_TABLE_PADDING * 2);
+        int tableTop = getOfferElementsTableTop();
+        int tableBottom = Math.max(tableTop, limitBar.getSelfPositionY() - OFFER_ELEMENTS_TABLE_PADDING);
+
+        int columns = calculateOfferElementsColumns(tableAvailableWidth);
+        int rows = calculateOfferElementsRows(columns);
+
+        int yOffset = nameLabel == null ? 0 : nameLabel.getSizeHeight() + 4;
+
+        offerElementsTable
+                .setCellSize(DEBUG_SIZE_ELEMENT, DEBUG_SIZE_ELEMENT)
+                .setCollAndRow(columns, rows);
+
+        int tableX = Math.max(0, (getSizeWidth() - offerElementsTable.getSizeWidth()) / 2);
+        int tableY = badgesBox.getHeightWithScale() + 4 + yOffset;
+
+        offerElementsTable.setSelfPosition(tableX, tableY);
+    }
+
+    private int getOfferElementsTableTop() {
+        if (nameLabel == null) {
+            return 4 + badgesBox.getHeightWithScale() + OFFER_ELEMENTS_TABLE_TOP_GAP;
+        }
+
+        return nameLabel.getSelfPositionY() + nameLabel.getSizeHeight() + OFFER_ELEMENTS_TABLE_TOP_GAP;
+    }
+
+    private int calculateOfferElementsColumns(int availableWidth) {
+        int maxColumns = Math.max(1, availableWidth / Math.max(1, DEBUG_SIZE_ELEMENT));
+        return Math.max(1, Math.min(DEBUG_COUNTS_ELEMENTS, maxColumns));
+    }
+
+    private int calculateOfferElementsRows(int columns) {
+        return Math.max(1, (DEBUG_COUNTS_ELEMENTS + Math.max(1, columns) - 1) / Math.max(1, columns));
     }
 }

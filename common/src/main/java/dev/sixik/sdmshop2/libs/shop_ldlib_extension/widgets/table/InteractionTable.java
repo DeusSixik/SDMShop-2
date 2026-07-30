@@ -11,6 +11,10 @@ public class InteractionTable extends AbstractTable<Widget, InteractionTable> {
 
     private boolean recomputingLayout;
 
+    public InteractionTable() {
+        super();
+    }
+
     public InteractionTable(int coll, int row) {
         this(coll, row, Position.ORIGIN, Size.ZERO);
     }
