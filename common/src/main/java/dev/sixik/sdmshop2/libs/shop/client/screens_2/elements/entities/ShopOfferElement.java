@@ -4,12 +4,12 @@ import com.lowdragmc.lowdraglib.gui.texture.ColorRectTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ItemStackTexture;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
-import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.SDMZoneTextLabel;
 import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ShopBadgeWidget;
 import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ShopEmptyWidget;
 import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.ShopUiElement;
 import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
 import dev.sixik.sdmshop2.libs.shop.components.misc.NameComponent;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
 import lombok.Getter;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
@@ -23,7 +23,7 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
     private final ShopOffer shopEntity;
 
     @Nullable
-    private SDMZoneTextLabel nameLabel;
+    private TextLabel nameLabel;
 
     private ShopEmptyWidget iconWidget;
     private ShopEmptyWidget backgroundTitleWidget;
@@ -44,7 +44,10 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
         if (shopEntity != null) {
             NameComponent nameComponent = shopEntity.getComponent(NameComponent.class).orElse(null);
             if (nameComponent != null) {
-                nameLabel = new SDMZoneTextLabel(0, 0, 10, 10, Component.translatable(nameComponent.getName()));
+                nameLabel = new TextLabel(0, 0, 10, 10, Component.translatable(nameComponent.getName()))
+                        .setWrapText(true)
+                        .scaleToFit()
+                        .setAlignment(TextLabel.HorizontalAlignment.LEFT, TextLabel.VerticalAlignment.CENTER);
                 addWidget(nameLabel);
             }
         }

@@ -11,9 +11,9 @@ import dev.sixik.sdmshop2.libs.shop.client.WidgetGroupAccessor;
 import dev.sixik.sdmshop2.libs.shop.client.config.constructors.ComponentConfigAccess;
 import dev.sixik.sdmshop2.libs.shop.client.config.constructors.ComponentConfigWidgetConstructor;
 import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ExternTextFieldWidget;
-import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.SDMTextLabel;
 import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import lombok.Getter;
 import lombok.Setter;
@@ -63,7 +63,7 @@ public class ComponentConfigurationWidget extends WidgetGroup {
     };
 
     @Setter
-    protected BiConsumer<Integer, SDMTextLabel> modifyTextLabelCreateCallback = (index, widget) -> { };
+    protected BiConsumer<Integer, TextLabel> modifyTextLabelCreateCallback = (index, widget) -> { };
 
     @Setter
     protected ModifyElements modifyInitElementsCallback = ((main, label, editor, font, editorWidth, editorX, currentY) -> {
@@ -86,6 +86,7 @@ public class ComponentConfigurationWidget extends WidgetGroup {
         }
 
         label.setScale(scale);
+        label.setSize(maxLabelWidth, Math.max(1, Math.round(font.lineHeight * scale)));
 
         int editorHeight = editor.getSizeHeight();
         float visualTextHeight = font.lineHeight * scale;
@@ -163,7 +164,8 @@ public class ComponentConfigurationWidget extends WidgetGroup {
                 editorWidget.setSizeHeight(DEFAULT_EDITOR_HEIGHT);
             }
 
-            SDMTextLabel textLabel = new SDMTextLabel(Component.translatable(datum.translationKey()));
+            TextLabel textLabel = new TextLabel(Component.translatable(datum.translationKey()))
+                    .setAutoSize(false);
             modifyTextLabelCreateCallback.accept(i, textLabel);
 
             @Nullable String tooltip = datum.tooltipTranslationKey();
@@ -255,9 +257,9 @@ public class ComponentConfigurationWidget extends WidgetGroup {
 
     public interface ModifyElements {
 
-        int accept(ComponentConfigurationWidget main, SDMTextLabel label, Widget editor, Font font, int editorWidth, int editorX, int currentY);
+        int accept(ComponentConfigurationWidget main, TextLabel label, Widget editor, Font font, int editorWidth, int editorX, int currentY);
     }
 
-    protected record UiPair(SDMTextLabel label, Widget editor) {
+    protected record UiPair(TextLabel label, Widget editor) {
     }
 }

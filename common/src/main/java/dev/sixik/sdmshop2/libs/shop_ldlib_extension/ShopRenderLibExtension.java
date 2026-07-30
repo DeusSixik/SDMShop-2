@@ -14,7 +14,6 @@ import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import com.lowdragmc.lowdraglib.utils.Position;
 import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ButtonWidgetGroup;
-import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.SDMTextLabel;
 import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ShopEmptyWidget;
 import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.InputTextBox;
@@ -262,9 +261,9 @@ public final class ShopRenderLibExtension {
                 .setSpacing(8)
                 .alignStart();
 
-        box.addWidget(new SDMTextLabel(0, 0, 250, 18, Component.literal("VerticalContainer: stacks children"))
-                .setAutoScale(true)
-                .setHoverTooltips(Component.literal("This is our SDMTextLabel inside VBox")));
+        box.addWidget(new TextLabel(0, 0, 250, 18, Component.literal("VerticalContainer: stacks children"))
+                .scaleToFit()
+                .setHoverTooltips(Component.literal("This is our TextLabel inside VBox")));
 
         HorizontalContainer row = new HorizontalContainer(Position.ORIGIN)
                 .setPadding(4, 2)
@@ -289,7 +288,7 @@ public final class ShopRenderLibExtension {
                 click -> { });
         buttonGroup.setHoverTexture(new ColorBorderTexture(1, HOVER_BORDER));
         buttonGroup.setHoverTooltips(Component.literal("Our ButtonWidgetGroup with a nested label"));
-        buttonGroup.addWidget(new SDMTextLabel(8, 9, Component.literal("nested label")));
+        buttonGroup.addWidget(new TextLabel(8, 9, Component.literal("nested label")));
         box.addWidget(buttonGroup);
 
         return box;
@@ -303,9 +302,9 @@ public final class ShopRenderLibExtension {
 
         row.addWidget(coloredBox("ShopEmptyWidget", 0xFF2E3440));
         row.addWidget(coloredBox("Hover texture", 0xFF3B4252).setHoverTexture(new ColorBorderTexture(2, HOVER_BORDER)));
-        row.addWidget(new SDMTextLabel(0, 0, 120, 36, Component.literal("Auto-scale label"))
-                .setAutoScale(true)
-                .setHoverTooltips(Component.literal("SDMTextLabel autoScale demo")));
+        row.addWidget(new TextLabel(0, 0, 120, 36, Component.literal("Auto-scale label"))
+                .scaleToFit()
+                .setHoverTooltips(Component.literal("TextLabel scaleToFit demo")));
 
         ProgressWidget progress = new ProgressWidget(ProgressWidget.JEIProgress, 0, 0, 120, 18);
         progress.setHoverTooltips(Component.literal("ProgressWidget next to custom shop widgets"));
@@ -349,11 +348,11 @@ public final class ShopRenderLibExtension {
                 .setContentPadding(6);
 
         WidgetGroup infoPage = new WidgetGroup(0, 0, 320, 112);
-        infoPage.addWidget(new SDMTextLabel(0, 0, 300, 18, Component.literal("TabBox: switches visible pages"))
-                .setAutoScale(true)
+        infoPage.addWidget(new TextLabel(0, 0, 300, 18, Component.literal("TabBox: switches visible pages"))
+                .scaleToFit()
                 .setHoverTooltips(Component.literal("This page is a plain WidgetGroup")));
-        infoPage.addWidget(new SDMTextLabel(0, 24, 300, 18, Component.literal("Inactive pages are hidden/deactivated"))
-                .setAutoScale(true));
+        infoPage.addWidget(new TextLabel(0, 24, 300, 18, Component.literal("Inactive pages are hidden/deactivated"))
+                .scaleToFit());
 
         WidgetGroup inputPage = new WidgetGroup(0, 0, 320, 112);
         InputTextBox input = new InputTextBox(0, 0, 180, 24, () -> text, text -> ShopRenderLibExtension.text = text)

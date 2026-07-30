@@ -5,8 +5,8 @@ import com.lowdragmc.lowdraglib.gui.widget.*;
 import com.lowdragmc.lowdraglib.gui.texture.*;
 import com.lowdragmc.lowdraglib.gui.widget.layout.Align;
 import dev.sixik.sdmshop2.libs.shop.client.ShopColors;
-import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.SDMTextLabel;
 import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -28,7 +28,7 @@ public class ItemStackSelector extends WidgetGroup {
     private ItemStack itemStack;
     private DraggableScrollableWidgetGroup grid;
     private TextFieldWidget searchField;
-    private SDMTextLabel itemNameLabel;
+    private TextLabel itemNameLabel;
     private boolean isAll = true;
     private ButtonWidget changButton = new ButtonWidget();
     private List<ItemStack> allItems;
@@ -63,7 +63,8 @@ public class ItemStackSelector extends WidgetGroup {
         Widget selectedItem = new WidgetGroup(2,2,50,50);
         selectedItem.setBackground(new GuiTextureGroup(new ColorRectAndBorderTexture(ShopColors.ITEM_SElECTOR_BUTTONS,ShopColors.BORDER,1).setRadius(2),new ItemStackTexture(itemStack != null ? itemStack : ItemStack.EMPTY )));
 
-        itemNameLabel = new SDMTextLabel(56,2,Component.literal(itemStack != null ? itemStack.getItem().getName(itemStack).getString() : ""));
+        itemNameLabel = new TextLabel(56, 2, panelSize - 58, Minecraft.getInstance().font.lineHeight, Component.literal(itemStack != null ? itemStack.getItem().getName(itemStack).getString() : ""))
+                .scaleToFit();
 
         addWidget(itemNameLabel);
         addWidget(selectedItem);
@@ -181,8 +182,8 @@ public class ItemStackSelector extends WidgetGroup {
      */
     private void calculateWidgetSize() {
         // FIXME: При обновлении окна некоректно отрабатывает скеил
-        if(itemNameLabel.getSizeWidth() > panelSize - 56) itemNameLabel.setScale((float) (panelSize - 56) / itemNameLabel.getSizeWidth() - 0.02f);
-        else itemNameLabel.setScale(1f);
+        itemNameLabel.setSize(panelSize - 58, Minecraft.getInstance().font.lineHeight);
+        itemNameLabel.setScale(1f);
 
         searchField.setSize(panelSize - 20, 10);
 

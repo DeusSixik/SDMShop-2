@@ -3,11 +3,13 @@ package dev.sixik.sdmshop2.libs.shop.client.screens_2.elements;
 import com.lowdragmc.lowdraglib.gui.texture.ColorRectTexture;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.utils.Size;
+import com.mojang.blaze3d.platform.Window;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.base.ShopDraggableScrollableWidgetGroup;
 import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.entities.ShopOfferElement;
 import dev.sixik.sdmshop2.libs.shop.components.misc.ShopOffersContainerComponent;
 import lombok.Getter;
+import net.minecraft.client.Minecraft;
 import org.jetbrains.annotations.NotNull;
 
 public class ShopOffersPanel extends ShopDraggableScrollableWidgetGroup implements ShopUiElement {
@@ -54,11 +56,22 @@ public class ShopOffersPanel extends ShopDraggableScrollableWidgetGroup implemen
 
         final Size size = this.getSize();
 
+        final Minecraft minecraft = Minecraft.getInstance();
+        final Window window = minecraft.getWindow();
+        final int gui_w = window.getGuiScaledWidth();
+        final int gui_h = window.getGuiScaledHeight();
+        final int auto_element_w = gui_w / 5 + 20;
+        int auto_element_h = gui_h / 4;
+
+        auto_element_h = Math.max(auto_element_h, ITEM_HEIGHT);
+
+        System.out.println(auto_element_h);
+
         for (ShopOffer value : entriesContainer.getEntryMap().values()) {
             ShopOfferElement offerElement = new ShopOfferElement(value);
 
             // Обязательно задаем размер элементу перед тем, как его выравнивать
-            offerElement.setSize(size.width / 2 - 20, ITEM_HEIGHT);
+            offerElement.setSize(auto_element_w, auto_element_h);
 
             // Добавляем виджет в эту панель (название метода может отличаться, например addWidget)
             this.addWidget(offerElement);

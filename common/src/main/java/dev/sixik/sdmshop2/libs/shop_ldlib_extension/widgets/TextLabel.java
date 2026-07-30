@@ -51,6 +51,7 @@ public class TextLabel extends Widget {
     protected float minScale = 0.35f;
 
     protected boolean wrapText;
+    protected boolean shrinkWrappedTextToFit = true;
     protected boolean autoSize;
     protected int maxLines;
     protected int lineSpacing;
@@ -130,6 +131,12 @@ public class TextLabel extends Widget {
 
     public TextLabel setWrapText(boolean wrapText) {
         this.wrapText = wrapText;
+        invalidateLayout();
+        return this;
+    }
+
+    public TextLabel setShrinkWrappedTextToFit(boolean shrinkWrappedTextToFit) {
+        this.shrinkWrappedTextToFit = shrinkWrappedTextToFit;
         invalidateLayout();
         return this;
     }
@@ -352,23 +359,16 @@ public class TextLabel extends Widget {
 
         Font font = Minecraft.getInstance().font;
         renderScale = scale;
-        renderLines.clear();
+        rebuildLayout(font, renderScale);
 
-        int contentWidth = Math.max(1, getContentWidth());
-        int splitWidth = wrapText ? Math.max(1, Math.round(contentWidth / Math.max(0.01f, scale))) : Integer.MAX_VALUE;
-        if (wrapText) {
-            renderLines.addAll(font.split(text, splitWidth));
-        } else {
-            renderLines.add(text.getVisualOrderText());
-        }
-
-        applyMaxLinesAndOverflow(font, splitWidth);
-        recalculateTextBlock(font);
-
-        if (overflowMode == OverflowMode.SCALE_TO_FIT && !autoSize) {
-            float widthScale = textBlockWidth <= 0 ? scale : getContentWidth() / (float) textBlockWidth;
-            float heightScale = textBlockHeight <= 0 ? scale : getContentHeight() / (float) textBlockHeight;
-            renderScale = Math.max(minScale, Math.min(scale, Math.min(widthScale, heightScale)));
+        if (!autoSize) {
+            if (wrapText && shrinkWrappedTextToFit && isLayoutOverflowing(renderScale)) {
+                shrinkWrappedLayoutToFit(font);
+            } else if (overflowMode == OverflowMode.SCALE_TO_FIT) {
+                float widthScale = textBlockWidth <= 0 ? scale : getContentWidth() / (float) textBlockWidth;
+                float heightScale = textBlockHeight <= 0 ? scale : getContentHeight() / (float) textBlockHeight;
+                renderScale = Math.max(Math.min(scale, minScale), Math.min(scale, Math.min(widthScale, heightScale)));
+            }
         }
 
         if (autoSize) {
@@ -381,7 +381,49 @@ public class TextLabel extends Widget {
         }
     }
 
-    private void applyMaxLinesAndOverflow(Font font, int splitWidth) {
+    private void rebuildLayout(Font font, float layoutScale) {
+        renderScale = layoutScale;
+        renderLines.clear();
+
+        int contentWidth = Math.max(1, getContentWidth());
+        int splitWidth = wrapText ? Math.max(1, Math.round(contentWidth / Math.max(0.01f, layoutScale))) : Integer.MAX_VALUE;
+        if (wrapText) {
+            renderLines.addAll(font.split(text, splitWidth));
+        } else {
+            renderLines.add(text.getVisualOrderText());
+        }
+
+        applyMaxLinesAndOverflow(font, splitWidth, layoutScale);
+        recalculateTextBlock(font);
+    }
+
+    private void shrinkWrappedLayoutToFit(Font font) {
+        float minimumScale = Math.min(scale, minScale);
+        rebuildLayout(font, minimumScale);
+        if (isLayoutOverflowing(minimumScale)) {
+            return;
+        }
+
+        float low = minimumScale;
+        float high = scale;
+        for (int i = 0; i < 8; i++) {
+            float mid = (low + high) * 0.5f;
+            rebuildLayout(font, mid);
+            if (isLayoutOverflowing(mid)) {
+                high = mid;
+            } else {
+                low = mid;
+            }
+        }
+        rebuildLayout(font, low);
+    }
+
+    private boolean isLayoutOverflowing(float layoutScale) {
+        return Math.round(textBlockWidth * layoutScale) > getContentWidth()
+                || Math.round(textBlockHeight * layoutScale) > getContentHeight();
+    }
+
+    private void applyMaxLinesAndOverflow(Font font, int splitWidth, float layoutScale) {
         if (maxLines > 0 && renderLines.size() > maxLines) {
             while (renderLines.size() > maxLines) {
                 renderLines.remove(renderLines.size() - 1);
@@ -393,7 +435,7 @@ public class TextLabel extends Widget {
         }
 
         if (!wrapText && overflowMode == OverflowMode.ELLIPSIS && !autoSize) {
-            int availableWidth = Math.max(1, Math.round(getContentWidth() / Math.max(0.01f, scale)));
+            int availableWidth = Math.max(1, Math.round(getContentWidth() / Math.max(0.01f, layoutScale)));
             String rawText = text.getString();
             if (font.width(rawText) > availableWidth) {
                 renderLines.clear();

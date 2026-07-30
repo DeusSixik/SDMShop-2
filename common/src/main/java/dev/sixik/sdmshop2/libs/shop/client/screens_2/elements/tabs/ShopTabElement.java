@@ -4,9 +4,9 @@ import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.sixik.sdmshop2.libs.shop.client.ShopColors;
 import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.ShopUiElement;
-import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.SDMTextLabel;
 import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
 import dev.sixik.sdmshop2.utils.ShopUtils;
 import lombok.Getter;
 import net.minecraft.client.Minecraft;
@@ -21,7 +21,7 @@ public class ShopTabElement extends WidgetGroup implements ShopUiElement {
     private final @Nullable CatalogComponent component;
 
     @Getter
-    private final SDMTextLabel textLabel;
+    private final TextLabel textLabel;
 
     public ShopTabElement(
             @Nullable CatalogComponent component
@@ -35,12 +35,11 @@ public class ShopTabElement extends WidgetGroup implements ShopUiElement {
     ) {
         super(x, y, width, height);
         this.component = component;
-        this.textLabel = new SDMTextLabel(
+        this.textLabel = new TextLabel(
                 component != null
                         ? ShopUtils.getTranslation(component.getId())
                         : DEFAULT_TITLE
-        );
-        this.textLabel.color = ShopColors.TEXT_MAIN;
+        ).setColor(ShopColors.TEXT_MAIN).scaleToFit();
 
         setBackground(new ColorRectAndBorderTexture(0x332A2A36, 0x553D3D4E, 1).setRadius(5));
         setHoverTexture(new ColorRectAndBorderTexture(0x555C6BC0, 0xAA7986CB, 1).setRadius(5));
@@ -65,5 +64,6 @@ public class ShopTabElement extends WidgetGroup implements ShopUiElement {
         int labelX = 8;
         int labelY = Math.max(0, (getSizeHeight() - Minecraft.getInstance().font.lineHeight) / 2);
         textLabel.setSelfPosition(labelX, labelY);
+        textLabel.setSize(Math.max(0, getSizeWidth() - labelX * 2), Minecraft.getInstance().font.lineHeight);
     }
 }
