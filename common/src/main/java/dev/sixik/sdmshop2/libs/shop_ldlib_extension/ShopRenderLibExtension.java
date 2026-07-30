@@ -1,5 +1,6 @@
 package dev.sixik.sdmshop2.libs.shop_ldlib_extension;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.lowdragmc.lowdraglib.gui.texture.ColorBorderTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ColorRectTexture;
 import com.lowdragmc.lowdraglib.gui.texture.GuiTextureGroup;
@@ -19,6 +20,7 @@ import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.InputTextBox;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.MultiLineInputTextBox;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.WidgetScrollBar;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.GridBox;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.HorizontalContainer;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.TabBox;
@@ -26,11 +28,25 @@ import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.VerticalC
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.table.IconsTable;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.table.InteractionTable;
 import dev.sixik.sdmshop2.utils.ShopUtils;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
+import org.joml.Vector4f;
+
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Map;
+import java.util.Set;
 
 public final class ShopRenderLibExtension {
+
+    private static final int DEBUG_CONTENT_WIDTH = 1320;
+    private static final int DEBUG_CONTENT_HEIGHT = 560;
+    private static final int DEBUG_SCROLL_BAR_SIZE = 8;
+    private static final int DEBUG_MIN_VIEWPORT_WIDTH = 360;
+    private static final int DEBUG_MIN_VIEWPORT_HEIGHT = 260;
 
     private static final int TEXT_MAIN = 0xFFE8E8F0;
     private static final int TEXT_MUTED = 0xFF9DA3B0;
@@ -43,12 +59,18 @@ public final class ShopRenderLibExtension {
     }
 
     private static WidgetGroup debug() {
-        WidgetGroup group = new WidgetGroup(0, 0, 1920, 1080);
+        int viewportWidth = resolveDebugViewportWidth();
+        int viewportHeight = resolveDebugViewportHeight();
+        int contentViewportWidth = Math.max(1, viewportWidth - DEBUG_SCROLL_BAR_SIZE);
+        int contentViewportHeight = Math.max(1, viewportHeight - DEBUG_SCROLL_BAR_SIZE);
+
+        DebugScrollableWidgetGroup group = new DebugScrollableWidgetGroup(0, 0, viewportWidth, viewportHeight)
+                .setViewport(0, 0, contentViewportWidth, contentViewportHeight);
         group.setClientSideWidget();
         group.setBackground(new ColorRectTexture(0xDD101018));
 
         group.addWidget(label(40, 28, "SDMShop2 LDLib widgets debug", 0xFFFFFFFF));
-        group.addWidget(label(40, 44, "IconsTable / InteractionTable / GridBox / HorizontalContainer / VerticalContainer", TEXT_MUTED));
+        group.addWidget(label(40, 44, "IconsTable / InteractionTable / GridBox / HorizontalContainer / VerticalContainer / ScrollBar", TEXT_MUTED));
 
         MultiLineInputTextBox multiLineInput = createMultiLineInputDemo();
         multiLineInput.setSelfPosition(40, 78);
@@ -90,7 +112,70 @@ public final class ShopRenderLibExtension {
         group.addWidget(section(968, 64, 330, 190, "TextLabel"));
         group.addWidget(textLabelDemo);
 
+        WidgetGroup scrollBarDemo = createScrollBarDemo();
+        scrollBarDemo.setSelfPosition(980, 292);
+        group.addWidget(section(968, 278, 330, 190, "WidgetScrollBar"));
+        group.addWidget(scrollBarDemo);
+
+        group.rememberCanvasLayout();
+
+        WidgetScrollBar verticalScrollBar = WidgetScrollBar.vertical(
+                        contentViewportWidth,
+                        0,
+                        DEBUG_SCROLL_BAR_SIZE,
+                        contentViewportHeight
+                )
+                .setControlOnly(true)
+                .attachTo(group, 0, 0, contentViewportWidth, contentViewportHeight)
+                .keepWidgetVisibility()
+                .setContentLength(DEBUG_CONTENT_HEIGHT)
+                .setWheelStep(28)
+                .setScrollChangedListener(group::setContentScrollY)
+                .setTrackTexture(new ColorRectTexture(0x6630303A))
+                .setThumbTexture(new ColorRectTexture(0xFF6D7485))
+                .setThumbHoverTexture(new ColorRectTexture(0xFFAAB2C5));
+        verticalScrollBar.setHoverTooltips(Component.literal("Mouse wheel / drag to scroll debug UI vertically"));
+
+        WidgetScrollBar horizontalScrollBar = WidgetScrollBar.horizontal(
+                        0,
+                        contentViewportHeight,
+                        contentViewportWidth,
+                        DEBUG_SCROLL_BAR_SIZE
+                )
+                .setControlOnly(true)
+                .attachTo(group, 0, 0, contentViewportWidth, contentViewportHeight)
+                .keepWidgetVisibility()
+                .setContentLength(DEBUG_CONTENT_WIDTH)
+                .setWheelStep(36)
+                .setViewportWheelRequiresShift(true)
+                .setScrollChangedListener(group::setContentScrollX)
+                .setTrackTexture(new ColorRectTexture(0x6630303A))
+                .setThumbTexture(new ColorRectTexture(0xFF6D7485))
+                .setThumbHoverTexture(new ColorRectTexture(0xFFAAB2C5));
+        horizontalScrollBar.setHoverTooltips(Component.literal("Shift + mouse wheel / drag to scroll debug UI horizontally"));
+
+        Widget scrollCorner = new Widget(contentViewportWidth, contentViewportHeight, DEBUG_SCROLL_BAR_SIZE, DEBUG_SCROLL_BAR_SIZE)
+                .setBackground(new ColorRectTexture(0xFF30303A));
+        scrollCorner.setActive(false);
+
+        verticalScrollBar.ignore(verticalScrollBar, horizontalScrollBar, scrollCorner);
+        horizontalScrollBar.ignore(verticalScrollBar, horizontalScrollBar, scrollCorner);
+
+        group.addFixedWidget(verticalScrollBar);
+        group.addFixedWidget(horizontalScrollBar);
+        group.addFixedWidget(scrollCorner);
+
         return group;
+    }
+
+    private static int resolveDebugViewportWidth() {
+        int screenWidth = Minecraft.getInstance().getWindow().getGuiScaledWidth();
+        return Math.max(DEBUG_MIN_VIEWPORT_WIDTH, Math.min(DEBUG_CONTENT_WIDTH, screenWidth - 24));
+    }
+
+    private static int resolveDebugViewportHeight() {
+        int screenHeight = Minecraft.getInstance().getWindow().getGuiScaledHeight();
+        return Math.max(DEBUG_MIN_VIEWPORT_HEIGHT, Math.min(DEBUG_CONTENT_HEIGHT, screenHeight - 24));
     }
 
     private static IconsTable createIconsTable() {
@@ -296,6 +381,30 @@ public final class ShopRenderLibExtension {
         return group;
     }
 
+    private static WidgetGroup createScrollBarDemo() {
+        WidgetGroup panel = new WidgetGroup(0, 0, 306, 150);
+        panel.setBackground(new ColorRectAndBorderTexture(0xFF252733, PANEL_BORDER, 1));
+
+        for (int i = 0; i < 10; i++) {
+            ButtonWidget row = button("Scroll row " + (i + 1), "Direct child of this WidgetGroup; no wrapper content group");
+            row.setSelfPosition(8, 8 + i * 32);
+            row.setSize(270, 24);
+            panel.addWidget(row);
+        }
+
+        WidgetScrollBar scrollBar = new WidgetScrollBar(WidgetScrollBar.Orientation.VERTICAL, 292, 8, 6, 130)
+                .attachTo(panel, 8, 8, 278, 130)
+                .hidePartiallyOutside()
+                .setWheelStep(18)
+                .setTrackTexture(new ColorRectTexture(0x6630303A))
+                .setThumbTexture(new ColorRectTexture(0xFF6D7485))
+                .setThumbHoverTexture(new ColorRectTexture(0xFFAAB2C5));
+        scrollBar.setHoverTooltips(Component.literal("WidgetScrollBar controls existing panel children directly"));
+        panel.addWidget(scrollBar);
+
+        return panel;
+    }
+
     private static ButtonWidget button(String text, String tooltip) {
         ButtonWidget button = new ButtonWidget(0, 0, 96, 28,
                 new GuiTextureGroup(ResourceBorderTexture.BUTTON_COMMON, new TextTexture(text)),
@@ -336,5 +445,326 @@ public final class ShopRenderLibExtension {
 
     private static LabelWidget label(int x, int y, String text, int color) {
         return new LabelWidget(x, y, text).setTextColor(color);
+    }
+
+    private static final class DebugScrollableWidgetGroup extends WidgetGroup {
+
+        private final Set<Widget> fixedWidgets = Collections.newSetFromMap(new IdentityHashMap<>());
+        private final Map<Widget, Position> canvasBasePositions = new IdentityHashMap<>();
+
+        private int viewportX;
+        private int viewportY;
+        private int viewportWidth;
+        private int viewportHeight;
+        private int contentScrollX;
+        private int contentScrollY;
+        private boolean applyingCanvasScroll;
+
+        private DebugScrollableWidgetGroup(int x, int y, int width, int height) {
+            super(x, y, width, height);
+            setViewport(0, 0, width, height);
+        }
+
+        private DebugScrollableWidgetGroup setViewport(int x, int y, int width, int height) {
+            this.viewportX = x;
+            this.viewportY = y;
+            this.viewportWidth = Math.max(0, width);
+            this.viewportHeight = Math.max(0, height);
+            return this;
+        }
+
+        private DebugScrollableWidgetGroup addFixedWidget(Widget widget) {
+            if (widget != null) {
+                fixedWidgets.add(widget);
+                addWidget(widget);
+            }
+            return this;
+        }
+
+        private DebugScrollableWidgetGroup rememberCanvasLayout() {
+            canvasBasePositions.clear();
+            for (Widget widget : widgets) {
+                if (!fixedWidgets.contains(widget)) {
+                    canvasBasePositions.put(widget, widget.getSelfPosition());
+                    widget.setVisible(true);
+                }
+            }
+            applyContentScroll();
+            return this;
+        }
+
+        private void setContentScrollX(int contentScrollX) {
+            if (this.contentScrollX == contentScrollX) {
+                return;
+            }
+            this.contentScrollX = Math.max(0, contentScrollX);
+            applyContentScroll();
+        }
+
+        private void setContentScrollY(int contentScrollY) {
+            if (this.contentScrollY == contentScrollY) {
+                return;
+            }
+            this.contentScrollY = Math.max(0, contentScrollY);
+            applyContentScroll();
+        }
+
+        private void applyContentScroll() {
+            if (applyingCanvasScroll) {
+                return;
+            }
+
+            applyingCanvasScroll = true;
+            try {
+                for (Map.Entry<Widget, Position> entry : canvasBasePositions.entrySet()) {
+                    Widget widget = entry.getKey();
+                    if (fixedWidgets.contains(widget)) {
+                        continue;
+                    }
+
+                    Position base = entry.getValue();
+                    widget.setSelfPosition(base.x - contentScrollX, base.y - contentScrollY);
+                    widget.setVisible(true);
+                }
+            } finally {
+                applyingCanvasScroll = false;
+            }
+        }
+
+        @Override
+        public void drawInBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+            drawBackgroundTexture(graphics, mouseX, mouseY);
+
+            withViewportScissor(graphics, () -> {
+                for (Widget widget : widgets) {
+                    if (!fixedWidgets.contains(widget) && widget.isVisible()) {
+                        RenderSystem.setShaderColor(1, 1, 1, 1);
+                        RenderSystem.enableBlend();
+                        if (widget.inAnimate()) {
+                            widget.getAnimation().drawInBackground(graphics, mouseX, mouseY, partialTicks);
+                        } else {
+                            widget.drawInBackground(graphics, mouseX, mouseY, partialTicks);
+                        }
+                    }
+                }
+            });
+
+            drawFixedBackground(graphics, mouseX, mouseY, partialTicks);
+        }
+
+        @Override
+        public void drawInForeground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+            drawTooltipTexts(mouseX, mouseY);
+
+            withViewportScissor(graphics, () -> {
+                for (Widget widget : widgets) {
+                    if (!fixedWidgets.contains(widget) && widget.isVisible()) {
+                        RenderSystem.setShaderColor(1, 1, 1, 1);
+                        RenderSystem.enableBlend();
+                        if (widget.inAnimate()) {
+                            widget.getAnimation().drawInForeground(graphics, mouseX, mouseY, partialTicks);
+                        } else {
+                            widget.drawInForeground(graphics, mouseX, mouseY, partialTicks);
+                        }
+                    }
+                }
+            });
+
+            for (Widget widget : fixedWidgets) {
+                if (widget.isVisible()) {
+                    RenderSystem.setShaderColor(1, 1, 1, 1);
+                    RenderSystem.enableBlend();
+                    widget.drawInForeground(graphics, mouseX, mouseY, partialTicks);
+                }
+            }
+        }
+
+        @Override
+        public void drawOverlay(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+            if (overlay != null) {
+                overlay.draw(graphics, mouseX, mouseY, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
+            }
+
+            withViewportScissor(graphics, () -> {
+                for (Widget widget : widgets) {
+                    if (!fixedWidgets.contains(widget) && widget.isVisible()) {
+                        RenderSystem.setShaderColor(1, 1, 1, 1);
+                        RenderSystem.enableBlend();
+                        widget.drawOverlay(graphics, mouseX, mouseY, partialTicks);
+                    }
+                }
+            });
+
+            for (Widget widget : fixedWidgets) {
+                if (widget.isVisible()) {
+                    RenderSystem.setShaderColor(1, 1, 1, 1);
+                    RenderSystem.enableBlend();
+                    widget.drawOverlay(graphics, mouseX, mouseY, partialTicks);
+                }
+            }
+        }
+
+        @Override
+        public boolean mouseWheelMove(double mouseX, double mouseY, double wheelDelta) {
+            // Scrollbar directly under the cursor has the highest priority.
+            // This lets users wheel over the visible bar/track itself without child widgets stealing it.
+            for (int i = widgets.size() - 1; i >= 0; i--) {
+                Widget widget = widgets.get(i);
+                if (fixedWidgets.contains(widget) && widget.isVisible() && widget.isActive()
+                        && widget.isMouseOverElement(mouseX, mouseY)
+                        && widget.mouseWheelMove(mouseX, mouseY, wheelDelta)) {
+                    return true;
+                }
+            }
+
+            if (!isMouseOverViewport(mouseX, mouseY)) {
+                return false;
+            }
+
+            for (int i = widgets.size() - 1; i >= 0; i--) {
+                Widget widget = widgets.get(i);
+                if (!fixedWidgets.contains(widget) && widget.isVisible() && widget.isActive()
+                        && widget.isMouseOverElement(mouseX, mouseY)
+                        && widget.mouseWheelMove(mouseX, mouseY, wheelDelta)) {
+                    return true;
+                }
+            }
+
+            // If no hovered child consumed the wheel, fall back to the global debug canvas scrollbars.
+            // These bars can still treat the whole viewport as their wheel area.
+            for (int i = widgets.size() - 1; i >= 0; i--) {
+                Widget widget = widgets.get(i);
+                if (fixedWidgets.contains(widget) && widget.isVisible() && widget.isActive()
+                        && !widget.isMouseOverElement(mouseX, mouseY)
+                        && widget.mouseWheelMove(mouseX, mouseY, wheelDelta)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            for (int i = widgets.size() - 1; i >= 0; i--) {
+                Widget widget = widgets.get(i);
+                if (fixedWidgets.contains(widget) && widget.isVisible() && widget.isActive()
+                        && widget.mouseClicked(mouseX, mouseY, button)) {
+                    return true;
+                }
+            }
+
+            if (!isMouseOverViewport(mouseX, mouseY)) {
+                return false;
+            }
+
+            for (int i = widgets.size() - 1; i >= 0; i--) {
+                Widget widget = widgets.get(i);
+                if (!fixedWidgets.contains(widget) && widget.isVisible() && widget.isActive()
+                        && widget.mouseClicked(mouseX, mouseY, button)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        @Override
+        public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+            for (int i = widgets.size() - 1; i >= 0; i--) {
+                Widget widget = widgets.get(i);
+                if (fixedWidgets.contains(widget) && widget.isVisible() && widget.isActive()
+                        && widget.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
+                    return true;
+                }
+            }
+
+            if (!isMouseOverViewport(mouseX, mouseY)) {
+                return false;
+            }
+
+            for (int i = widgets.size() - 1; i >= 0; i--) {
+                Widget widget = widgets.get(i);
+                if (!fixedWidgets.contains(widget) && widget.isVisible() && widget.isActive()
+                        && widget.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        @Override
+        public boolean mouseReleased(double mouseX, double mouseY, int button) {
+            for (int i = widgets.size() - 1; i >= 0; i--) {
+                Widget widget = widgets.get(i);
+                if (widget.isVisible() && widget.isActive() && widget.mouseReleased(mouseX, mouseY, button)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        @Override
+        public boolean mouseMoved(double mouseX, double mouseY) {
+            for (int i = widgets.size() - 1; i >= 0; i--) {
+                Widget widget = widgets.get(i);
+                if (fixedWidgets.contains(widget) && widget.isVisible() && widget.isActive()
+                        && widget.mouseMoved(mouseX, mouseY)) {
+                    return true;
+                }
+            }
+
+            if (!isMouseOverViewport(mouseX, mouseY)) {
+                return false;
+            }
+
+            for (int i = widgets.size() - 1; i >= 0; i--) {
+                Widget widget = widgets.get(i);
+                if (!fixedWidgets.contains(widget) && widget.isVisible() && widget.isActive()
+                        && widget.mouseMoved(mouseX, mouseY)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void drawFixedBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+            for (Widget widget : fixedWidgets) {
+                if (widget.isVisible()) {
+                    RenderSystem.setShaderColor(1, 1, 1, 1);
+                    RenderSystem.enableBlend();
+                    widget.drawInBackground(graphics, mouseX, mouseY, partialTicks);
+                }
+            }
+        }
+
+        private void withViewportScissor(GuiGraphics graphics, Runnable draw) {
+            int x = getPositionX() + viewportX;
+            int y = getPositionY() + viewportY;
+            int width = viewportWidth;
+            int height = viewportHeight;
+
+            var transform = graphics.pose().last().pose();
+            var realPos = transform.transform(new Vector4f(x, y, 0, 1));
+            var realPos2 = transform.transform(new Vector4f(x + width, y + height, 0, 1));
+
+            graphics.enableScissor((int) realPos.x, (int) realPos.y, (int) realPos2.x, (int) realPos2.y);
+            draw.run();
+            graphics.disableScissor();
+        }
+
+        private boolean isMouseOverViewport(double mouseX, double mouseY) {
+            return isMouseOver(
+                    getPositionX() + viewportX,
+                    getPositionY() + viewportY,
+                    viewportWidth,
+                    viewportHeight,
+                    mouseX,
+                    mouseY
+            );
+        }
     }
 }
