@@ -18,6 +18,7 @@ import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ShopEmptyWidget;
 import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.InputTextBox;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.MultiLineInputTextBox;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.GridBox;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.HorizontalContainer;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.TabBox;
@@ -80,9 +81,14 @@ public final class ShopRenderLibExtension {
         group.addWidget(iconsTable);
 
         TabBox tabBox = createTabBoxDemo();
-        tabBox.setSelfPosition(560, 78);
-        group.addWidget(section(548, 64, 360, 190, "TabBox"));
+        tabBox.setSelfPosition(600, 78);
+        group.addWidget(section(588, 64, 360, 190, "TabBox"));
         group.addWidget(tabBox);
+
+        WidgetGroup textLabelDemo = createTextLabelDemo();
+        textLabelDemo.setSelfPosition(980, 78);
+        group.addWidget(section(968, 64, 330, 190, "TextLabel"));
+        group.addWidget(textLabelDemo);
 
         return group;
     }
@@ -256,6 +262,38 @@ public final class ShopRenderLibExtension {
         tabBox.addTab("Input", inputPage);
         tabBox.addTab("Grid", gridPage);
         return tabBox;
+    }
+
+    private static WidgetGroup createTextLabelDemo() {
+        WidgetGroup group = new WidgetGroup(0, 0, 306, 150);
+
+        group.addWidget(new TextLabel(0, 0, 290, 36,
+                Component.literal("Wrapped TextLabel: long text stays inside the assigned box."))
+                .setWrapText(true)
+                .setLineSpacing(1)
+                .setPadding(3)
+                .setBackground(new ColorRectAndBorderTexture(0xFF252733, PANEL_BORDER, 1)));
+
+        group.addWidget(new TextLabel(0, 46, 140, 22,
+                Component.literal("Ellipsis overflow example"))
+                .ellipsisOverflow()
+                .setPadding(3)
+                .setBackground(new ColorRectAndBorderTexture(0xFF252733, PANEL_BORDER, 1)));
+
+        group.addWidget(new TextLabel(150, 46, 140, 22,
+                Component.literal("Centered"))
+                .setAlignment(TextLabel.HorizontalAlignment.CENTER, TextLabel.VerticalAlignment.CENTER)
+                .setPadding(3)
+                .setBackground(new ColorRectAndBorderTexture(0xFF252733, PANEL_BORDER, 1)));
+
+        group.addWidget(new TextLabel(0, 78, 290, 42,
+                Component.literal("Scale to fit keeps large labels readable"))
+                .scaleToFit()
+                .setAlignment(TextLabel.HorizontalAlignment.CENTER, TextLabel.VerticalAlignment.CENTER)
+                .setPadding(4)
+                .setBackground(new ColorRectAndBorderTexture(0xFF252733, PANEL_BORDER, 1)));
+
+        return group;
     }
 
     private static ButtonWidget button(String text, String tooltip) {
