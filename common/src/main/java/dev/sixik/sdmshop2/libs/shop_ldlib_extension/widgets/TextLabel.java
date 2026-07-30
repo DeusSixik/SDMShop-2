@@ -34,10 +34,18 @@ public class TextLabel extends Widget {
         SCALE_TO_FIT
     }
 
+    public enum HighlightMode {
+        OUTLINE,
+        FILL
+    }
+
     protected Component text;
 
     protected int color = 0xFFFFFFFF;
     protected boolean shadow;
+    protected boolean highlighted;
+    protected int highlightColor = 0xFFFFFFFF;
+    protected HighlightMode highlightMode = HighlightMode.OUTLINE;
 
     protected float scale = 1.0f;
     protected float minScale = 0.35f;
@@ -219,6 +227,37 @@ public class TextLabel extends Widget {
         return setOverflowMode(OverflowMode.SCALE_TO_FIT);
     }
 
+    public TextLabel setHighlighted(boolean highlighted) {
+        this.highlighted = highlighted;
+        return this;
+    }
+
+    public TextLabel setHighlightOutline(int color) {
+        this.highlighted = true;
+        this.highlightMode = HighlightMode.OUTLINE;
+        this.highlightColor = color;
+        return this;
+    }
+
+    public TextLabel setHighlightFill(int color) {
+        this.highlighted = true;
+        this.highlightMode = HighlightMode.FILL;
+        this.highlightColor = color;
+        return this;
+    }
+
+    public TextLabel setHighlight(HighlightMode mode, int color) {
+        this.highlighted = true;
+        this.highlightMode = mode == null ? HighlightMode.OUTLINE : mode;
+        this.highlightColor = color;
+        return this;
+    }
+
+    public TextLabel clearHighlight() {
+        this.highlighted = false;
+        return this;
+    }
+
     @Override
     public void setSize(Size size) {
         super.setSize(size);
@@ -230,6 +269,7 @@ public class TextLabel extends Widget {
     @Override
     public void drawInBackground(@NonNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         super.drawInBackground(graphics, mouseX, mouseY, partialTicks);
+        drawHighlight(graphics, mouseX, mouseY);
         ensureLayout();
         if (renderLines.isEmpty()) return;
 
@@ -273,6 +313,27 @@ public class TextLabel extends Widget {
 
         poseStack.popPose();
         graphics.disableScissor();
+    }
+
+    private void drawHighlight(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (!highlighted || highlightColor == 0 || getSizeWidth() <= 0 || getSizeHeight() <= 0) return;
+
+        if (highlightMode == HighlightMode.FILL) {
+            graphics.fill(getPositionX(), getPositionY(), getPositionX() + getSizeWidth(), getPositionY() + getSizeHeight(), highlightColor);
+            return;
+        }
+
+        drawOutline(graphics, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight(), highlightColor, 1);
+    }
+
+    private void drawOutline(GuiGraphics graphics, int x, int y, int width, int height, int color, int thickness) {
+        if (color == 0 || width <= 0 || height <= 0) return;
+
+        int line = Math.max(1, Math.min(thickness, Math.min(width, height)));
+        graphics.fill(x, y, x + width, y + line, color);
+        graphics.fill(x, y + height - line, x + width, y + height, color);
+        graphics.fill(x, y + line, x + line, y + height - line, color);
+        graphics.fill(x + width - line, y + line, x + width, y + height - line, color);
     }
 
     public int getTextWidth() {

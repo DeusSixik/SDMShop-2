@@ -28,6 +28,11 @@ public class DropDownBox extends WidgetGroup {
         UP
     }
 
+    public enum HighlightMode {
+        OUTLINE,
+        FILL
+    }
+
     protected static final int ACTION_SELECT = 1;
 
     protected final List<Option> options = new ArrayList<>();
@@ -62,7 +67,8 @@ public class DropDownBox extends WidgetGroup {
     protected int popupFill = 0xFF1E1F28;
     protected int borderColor = 0xFF4C5265;
     protected int hoverFill = 0xFF343746;
-    protected int selectedFill = 0xFF3E465E;
+    protected int selectedHighlightColor = 0xFFFFFFFF;
+    protected HighlightMode selectedHighlightMode = HighlightMode.OUTLINE;
     protected int disabledFill = 0x66202020;
     protected int arrowColor = 0xFFE8E8F0;
     protected int scrollTrackColor = 0x5530303A;
@@ -365,7 +371,25 @@ public class DropDownBox extends WidgetGroup {
         this.popupFill = popupFill;
         this.borderColor = borderColor;
         this.hoverFill = hoverFill;
-        this.selectedFill = selectedFill;
+        this.selectedHighlightColor = selectedFill;
+        return this;
+    }
+
+    public DropDownBox setSelectedOptionOutline(int color) {
+        this.selectedHighlightMode = HighlightMode.OUTLINE;
+        this.selectedHighlightColor = color;
+        return this;
+    }
+
+    public DropDownBox setSelectedOptionFill(int color) {
+        this.selectedHighlightMode = HighlightMode.FILL;
+        this.selectedHighlightColor = color;
+        return this;
+    }
+
+    public DropDownBox setSelectedOptionHighlight(HighlightMode mode, int color) {
+        this.selectedHighlightMode = mode == null ? HighlightMode.OUTLINE : mode;
+        this.selectedHighlightColor = color;
         return this;
     }
 
@@ -792,10 +816,43 @@ public class DropDownBox extends WidgetGroup {
             return;
         }
 
-        int color = !option.enabled ? disabledFill : selected ? selectedFill : hovered ? hoverFill : 0;
-        if (color != 0) {
-            graphics.fill(rect.x, rect.y, rect.x + rect.width, rect.y + rect.height, color);
+        if (!option.enabled) {
+            if (disabledFill != 0) {
+                graphics.fill(rect.x, rect.y, rect.x + rect.width, rect.y + rect.height, disabledFill);
+            }
+            return;
         }
+
+        if (selected) {
+            if (selectedHighlightMode == HighlightMode.FILL) {
+                if (selectedHighlightColor != 0) {
+                    graphics.fill(rect.x, rect.y, rect.x + rect.width, rect.y + rect.height, selectedHighlightColor);
+                }
+                return;
+            }
+
+            if (hovered && hoverFill != 0) {
+                graphics.fill(rect.x, rect.y, rect.x + rect.width, rect.y + rect.height, hoverFill);
+            }
+            if (selectedHighlightColor != 0) {
+                drawOutline(graphics, rect.x, rect.y, rect.width, rect.height, selectedHighlightColor, 1);
+            }
+            return;
+        }
+
+        if (hovered && hoverFill != 0) {
+            graphics.fill(rect.x, rect.y, rect.x + rect.width, rect.y + rect.height, hoverFill);
+        }
+    }
+
+    protected void drawOutline(GuiGraphics graphics, int x, int y, int width, int height, int color, int thickness) {
+        if (color == 0 || width <= 0 || height <= 0) return;
+
+        int line = Math.max(1, Math.min(thickness, Math.min(width, height)));
+        graphics.fill(x, y, x + width, y + line, color);
+        graphics.fill(x, y + height - line, x + width, y + height, color);
+        graphics.fill(x, y + line, x + line, y + height - line, color);
+        graphics.fill(x + width - line, y + line, x + width, y + height - line, color);
     }
 
     protected boolean isMouseOverHeader(double mouseX, double mouseY) {

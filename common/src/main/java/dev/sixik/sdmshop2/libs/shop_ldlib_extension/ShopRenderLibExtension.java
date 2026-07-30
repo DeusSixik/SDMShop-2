@@ -53,7 +53,7 @@ public final class ShopRenderLibExtension {
     private static final int TEXT_MUTED = 0xFF9DA3B0;
     private static final int PANEL_FILL = 0xFF20202A;
     private static final int PANEL_BORDER = 0xFF4C5265;
-    private static final int HOVER_BORDER = 0xFFFFD166;
+    private static final int HOVER_BORDER = 0xFFFFFFFF;
 
     public static void openUi() {
         ShopUtils.openWidget(debug());

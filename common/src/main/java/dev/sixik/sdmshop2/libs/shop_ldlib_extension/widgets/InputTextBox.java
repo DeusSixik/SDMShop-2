@@ -23,6 +23,11 @@ import java.util.function.Supplier;
 
 public class InputTextBox extends Widget {
 
+    public enum HighlightMode {
+        OUTLINE,
+        FILL
+    }
+
     public static final int DEFAULT_BACKGROUND_COLOR = 0xFF101016;
     public static final int DEFAULT_BORDER_COLOR = 0xFF5C637A;
     public static final int DEFAULT_FOCUSED_BORDER_COLOR = 0xFFFFFFFF;
@@ -52,6 +57,8 @@ public class InputTextBox extends Widget {
     protected int placeholderColor = DEFAULT_PLACEHOLDER_COLOR;
     protected int selectionColor = DEFAULT_SELECTION_COLOR;
     protected int cursorColor = DEFAULT_CURSOR_COLOR;
+    protected int focusedHighlightColor = DEFAULT_FOCUSED_BORDER_COLOR;
+    protected HighlightMode focusedHighlightMode = HighlightMode.OUTLINE;
 
     protected int paddingLeft = 4;
     protected int paddingRight = 4;
@@ -59,7 +66,7 @@ public class InputTextBox extends Widget {
     protected int paddingBottom = 0;
 
     protected IGuiTexture backgroundTexture = new ColorRectAndBorderTexture(DEFAULT_BACKGROUND_COLOR, DEFAULT_BORDER_COLOR, 1).setRadius(2);
-    protected IGuiTexture focusedBackgroundTexture = new ColorRectAndBorderTexture(DEFAULT_BACKGROUND_COLOR, DEFAULT_FOCUSED_BORDER_COLOR, 1).setRadius(2);
+    protected IGuiTexture focusedBackgroundTexture;
 
     public InputTextBox() {
         this(0, 0, 80, 18, null, null);
@@ -203,20 +210,28 @@ public class InputTextBox extends Widget {
 
     public InputTextBox setFocusedBackground(IGuiTexture focusedBackgroundTexture) {
         this.focusedBackgroundTexture = focusedBackgroundTexture;
+        this.focusedHighlightMode = HighlightMode.FILL;
         return this;
     }
 
     public InputTextBox setFocusedOutline(int borderColor) {
-        return setFocusedOutline(DEFAULT_BACKGROUND_COLOR, borderColor);
+        this.focusedBackgroundTexture = null;
+        this.focusedHighlightMode = HighlightMode.OUTLINE;
+        this.focusedHighlightColor = borderColor;
+        return this;
     }
 
     public InputTextBox setFocusedOutline(int backgroundColor, int borderColor) {
-        this.focusedBackgroundTexture = new ColorRectAndBorderTexture(backgroundColor, borderColor, 1).setRadius(2);
+        this.focusedBackgroundTexture = new ColorRectAndBorderTexture(backgroundColor, DEFAULT_BORDER_COLOR, 1).setRadius(2);
+        this.focusedHighlightMode = HighlightMode.OUTLINE;
+        this.focusedHighlightColor = borderColor;
         return this;
     }
 
     public InputTextBox setFocusedFill(int fillColor) {
         this.focusedBackgroundTexture = new ColorRectAndBorderTexture(fillColor, DEFAULT_BORDER_COLOR, 1).setRadius(2);
+        this.focusedHighlightMode = HighlightMode.FILL;
+        this.focusedHighlightColor = fillColor;
         return this;
     }
 
@@ -386,9 +401,18 @@ public class InputTextBox extends Widget {
     private void drawOwnBackground(GuiGraphics graphics, int mouseX, int mouseY) {
         if (!bordered) return;
 
-        IGuiTexture texture = isFocus() && focusedBackgroundTexture != null ? focusedBackgroundTexture : backgroundTexture;
-        if (texture != null) {
-            texture.draw(graphics, mouseX, mouseY, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
+        if (backgroundTexture != null) {
+            backgroundTexture.draw(graphics, mouseX, mouseY, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
+        }
+
+        if (!isFocus()) return;
+
+        if (focusedBackgroundTexture != null) {
+            focusedBackgroundTexture.draw(graphics, mouseX, mouseY, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
+        }
+
+        if (focusedHighlightMode == HighlightMode.OUTLINE && focusedHighlightColor != 0) {
+            drawOutline(graphics, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight(), focusedHighlightColor, 1);
         }
     }
 
@@ -432,6 +456,16 @@ public class InputTextBox extends Widget {
         int selectionX1 = textX + font.width(value.substring(safeDisplayOffset, start));
         int selectionX2 = textX + font.width(value.substring(safeDisplayOffset, end));
         graphics.fill(selectionX1, textY - 1, selectionX2, textY + font.lineHeight + 1, selectionColor);
+    }
+
+    private void drawOutline(GuiGraphics graphics, int x, int y, int width, int height, int color, int thickness) {
+        if (color == 0 || width <= 0 || height <= 0) return;
+
+        int line = Math.max(1, Math.min(thickness, Math.min(width, height)));
+        graphics.fill(x, y, x + width, y + line, color);
+        graphics.fill(x, y + height - line, x + width, y + height, color);
+        graphics.fill(x, y + line, x + line, y + height - line, color);
+        graphics.fill(x + width - line, y + line, x + width, y + height - line, color);
     }
 
     private void insertText(String text) {

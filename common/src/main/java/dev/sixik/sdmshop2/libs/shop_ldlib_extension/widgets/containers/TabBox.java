@@ -368,18 +368,31 @@ public class TabBox extends WidgetGroup {
             boolean active = i == currentTab;
             int fill = !tab.enabled
                     ? disabledTabColor
-                    : active && activeHighlightMode == HighlightMode.FILL ? activeHighlightColor : active ? activeTabColor : tabColor;
-            int border = active && activeHighlightMode == HighlightMode.OUTLINE ? activeHighlightColor : borderColor;
+                    : active && activeHighlightMode == HighlightMode.FILL ? activeHighlightColor : tabColor;
 
-            new ColorRectAndBorderTexture(fill, border, 1)
+            new ColorRectAndBorderTexture(fill, borderColor, 1)
                     .setRadius(2)
                     .draw(graphics, 0, 0, getPositionX() + rect.x, getPositionY() + rect.y, rect.width, rect.height);
+
+            if (active && activeHighlightMode == HighlightMode.OUTLINE) {
+                drawOutline(graphics, getPositionX() + rect.x, getPositionY() + rect.y, rect.width, rect.height, activeHighlightColor, 1);
+            }
 
             String text = tab.title.getString();
             int textX = getPositionX() + rect.x + Math.max(2, (rect.width - font.width(text)) / 2);
             int textY = getPositionY() + rect.y + Math.max(1, (rect.height - font.lineHeight) / 2);
             graphics.drawString(font, text, textX, textY, tab.enabled ? textColor : disabledTextColor, false);
         }
+    }
+
+    private void drawOutline(GuiGraphics graphics, int x, int y, int width, int height, int color, int thickness) {
+        if (color == 0 || width <= 0 || height <= 0) return;
+
+        int line = Math.max(1, Math.min(thickness, Math.min(width, height)));
+        graphics.fill(x, y, x + width, y + line, color);
+        graphics.fill(x, y + height - line, x + width, y + height, color);
+        graphics.fill(x, y + line, x + line, y + height - line, color);
+        graphics.fill(x + width - line, y + line, x + width, y + height - line, color);
     }
 
     private int getTabAt(double mouseX, double mouseY) {
