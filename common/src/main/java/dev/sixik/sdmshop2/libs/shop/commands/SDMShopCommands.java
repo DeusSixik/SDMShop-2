@@ -6,6 +6,7 @@ import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopTable;
 import dev.sixik.sdmshop2.libs.shop.commands.builder.CommandBuilder;
 import dev.sixik.sdmshop2.libs.shop.network.ShopNetworkManager;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.ShopRenderLibExtension;
 import dev.sixik.sdmshop2.tests.economy.EconomyTest;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandBuildContext;
@@ -107,7 +108,8 @@ public class SDMShopCommands {
                 })
                 .register(dispatcher);
 
-        if(Platform.isDevelopmentEnvironment())
+        if(Platform.isDevelopmentEnvironment()) {
             SDMShopCommandsDebug.init(dispatcher);
+        }
     }
 }

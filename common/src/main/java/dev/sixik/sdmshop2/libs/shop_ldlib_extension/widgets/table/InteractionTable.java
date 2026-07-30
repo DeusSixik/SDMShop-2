@@ -1,0 +1,194 @@
+package dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.table;
+
+import com.lowdragmc.lowdraglib.gui.widget.Widget;
+import com.lowdragmc.lowdraglib.utils.Position;
+import com.lowdragmc.lowdraglib.utils.Size;
+import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.gui.GuiGraphics;
+import org.jspecify.annotations.NonNull;
+
+public class InteractionTable extends AbstractTable<Widget, InteractionTable> {
+
+    private boolean recomputingLayout;
+
+    public InteractionTable(int coll, int row) {
+        this(coll, row, Position.ORIGIN, Size.ZERO);
+    }
+
+    public InteractionTable(int coll, int row, Position selfPosition, Size size) {
+        super(coll, row, selfPosition, size);
+    }
+
+    public InteractionTable(int coll, int row, int x, int y, int width, int height) {
+        super(coll, row, x, y, width, height);
+    }
+
+    @Override
+    protected InteractionTable self() {
+        return this;
+    }
+
+    @Override
+    public InteractionTable addElement(Widget widget) {
+        return addElement(widget, 1f);
+    }
+
+    @Override
+    public InteractionTable addElement(Widget widget, float scale) {
+        return addWidget(widgets.size(), widget, scale);
+    }
+
+    @Override
+    public InteractionTable addWidget(Widget widget) {
+        return addWidget(widgets.size(), widget, 1f);
+    }
+
+    @Override
+    public InteractionTable addWidget(int index, Widget widget) {
+        return addWidget(index, widget, 1f);
+    }
+
+    public InteractionTable addWidget(int index, Widget widget, float scale) {
+        if (widget == null) return this;
+
+        elementsScales.add(index, scale);
+        try {
+            super.addWidget(index, widget);
+        } catch (RuntimeException exception) {
+            elementsScales.removeFloat(index);
+            throw exception;
+        }
+
+        updateTableBounds();
+        return this;
+    }
+
+    @Override
+    public InteractionTable addWidgets(Widget... widgets) {
+        for (Widget widget : widgets) {
+            addWidget(widget);
+        }
+        return this;
+    }
+
+    @Override
+    public void removeWidget(Widget widget) {
+        int index = widgets.indexOf(widget);
+        if (index >= 0 && index < elementsScales.size()) {
+            elementsScales.removeFloat(index);
+        }
+        super.removeWidget(widget);
+        updateTableBounds();
+    }
+
+    @Override
+    public void clearAllWidgets() {
+        elementsScales.clear();
+        super.clearAllWidgets();
+        updateTableBounds();
+    }
+
+    @Override
+    protected int getTableElementCount() {
+        return widgets.size();
+    }
+
+    @Override
+    protected void onTableBoundsChanged() {
+        if (recomputingLayout) return;
+        recomputingLayout = true;
+
+        try {
+            for (int i = 0; i < widgets.size(); i++) {
+                Widget widget = widgets.get(i);
+                widget.setSelfPosition(getCellSelfPosition(i));
+                widget.setSize(cellWidth, cellHeight);
+            }
+        } finally {
+            recomputingLayout = false;
+        }
+    }
+
+    @Override
+    protected void onChildSelfPositionUpdate(Widget child) {
+        if (!recomputingLayout) {
+            updateTableBounds();
+        }
+    }
+
+    @Override
+    protected void onChildSizeUpdate(Widget child) {
+        if (!recomputingLayout) {
+            updateTableBounds();
+        }
+    }
+
+    @Override
+    public void drawInBackground(@NonNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        drawTableBackground(graphics, mouseX, mouseY);
+        drawWidgetsBackgroundScaled(graphics, mouseX, mouseY, partialTicks);
+    }
+
+    @Override
+    public void drawInForeground(@NonNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        drawTooltipTexts(mouseX, mouseY);
+        drawWidgetsForegroundScaled(graphics, mouseX, mouseY, partialTicks);
+    }
+
+    @Override
+    public void drawOverlay(@NonNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        if (overlay != null) {
+            overlay.draw(graphics, mouseX, mouseY, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
+        }
+
+        for (int i = 0; i < widgets.size(); i++) {
+            Widget widget = widgets.get(i);
+            if (!widget.isVisible()) continue;
+
+            RenderSystem.setShaderColor(1, 1, 1, 1);
+            RenderSystem.enableBlend();
+            int index = i;
+            withCellScale(graphics, index, () -> widget.drawOverlay(graphics, mouseX, mouseY, partialTicks));
+        }
+    }
+
+    private void drawWidgetsBackgroundScaled(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        for (int i = 0; i < widgets.size(); i++) {
+            Widget widget = widgets.get(i);
+            if (!widget.isVisible()) continue;
+
+            RenderSystem.setShaderColor(1, 1, 1, 1);
+            RenderSystem.enableBlend();
+            int index = i;
+            withCellScale(graphics, index, () -> {
+                if (widget.inAnimate()) {
+                    widget.getAnimation().drawInBackground(graphics, mouseX, mouseY, partialTicks);
+                } else {
+                    widget.drawInBackground(graphics, mouseX, mouseY, partialTicks);
+                }
+            });
+        }
+    }
+
+    private void drawWidgetsForegroundScaled(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        for (int i = 0; i < widgets.size(); i++) {
+            Widget widget = widgets.get(i);
+            if (!widget.isVisible()) continue;
+
+            RenderSystem.setShaderColor(1, 1, 1, 1);
+            RenderSystem.enableBlend();
+            int index = i;
+            withCellScale(graphics, index, () -> {
+                if (widget.inAnimate()) {
+                    widget.getAnimation().drawInForeground(graphics, mouseX, mouseY, partialTicks);
+                } else {
+                    widget.drawInForeground(graphics, mouseX, mouseY, partialTicks);
+                }
+            });
+        }
+    }
+
+    @Override
+    protected void draw(Widget element, GuiGraphics graphics, int mouseX, int mouseY, int x, int y, int cellWidth, int cellHeight) {
+    }
+}

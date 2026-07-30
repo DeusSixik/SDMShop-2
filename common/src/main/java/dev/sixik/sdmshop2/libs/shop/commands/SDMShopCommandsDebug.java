@@ -11,6 +11,7 @@ import dev.sixik.sdmshop2.libs.shop.components.limiter.LimiterComponent;
 import dev.sixik.sdmshop2.libs.shop.generator.DefaultShopGenerator;
 import dev.sixik.sdmshop2.libs.shop.network.ShopNetworkManager;
 import dev.sixik.sdmshop2.libs.shop.scripting.ScriptConditionComponent;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.ShopRenderLibExtension;
 import dev.sixik.sdmshop2.utils.ShopUtils;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.resources.ResourceLocation;
@@ -45,6 +46,10 @@ public class SDMShopCommandsDebug {
     }
 
     public static void init(CommandDispatcher<CommandSourceStack> dispatcher) {
+        CommandBuilder.create("sdm_shop_debug open_ui").executesVoid((cts) -> {
+            ShopRenderLibExtension.openUi();
+        }).register(dispatcher);
+
         CommandBuilder.create("sdm_shop tests send_new_shop")
                 .requires(2)
                 .executesVoid(ctx -> {
