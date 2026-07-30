@@ -64,9 +64,7 @@ public class ShopOffersPanel extends ShopDraggableScrollableWidgetGroup implemen
         int auto_element_h = gui_h / 4;
 
         auto_element_h = Math.max(auto_element_h, ITEM_HEIGHT);
-
-        System.out.println(auto_element_h);
-
+        
         for (ShopOffer value : entriesContainer.getEntryMap().values()) {
             ShopOfferElement offerElement = new ShopOfferElement(value);
 
