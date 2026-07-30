@@ -124,6 +124,85 @@ public class InteractionTable extends AbstractTable<Widget, InteractionTable> {
     }
 
     @Override
+    public Widget getHoverElement(double mouseX, double mouseY) {
+        for (int i = widgets.size() - 1; i >= 0; i--) {
+            Widget widget = widgets.get(i);
+            if (!widget.isVisible()) continue;
+
+            Widget hovered = widget.getHoverElement(getScaledMouseX(i, mouseX), getScaledMouseY(i, mouseY));
+            if (hovered != null) {
+                return hovered;
+            }
+        }
+
+        return isMouseOverElement(mouseX, mouseY) ? this : null;
+    }
+
+    @Override
+    public boolean mouseWheelMove(double mouseX, double mouseY, double wheelDelta) {
+        for (int i = widgets.size() - 1; i >= 0; i--) {
+            Widget widget = widgets.get(i);
+            if (widget.isVisible() && widget.isActive()
+                    && widget.mouseWheelMove(getScaledMouseX(i, mouseX), getScaledMouseY(i, mouseY), wheelDelta)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        for (int i = widgets.size() - 1; i >= 0; i--) {
+            Widget widget = widgets.get(i);
+            if (widget.isVisible() && widget.isActive()
+                    && widget.mouseClicked(getScaledMouseX(i, mouseX), getScaledMouseY(i, mouseY), button)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        for (int i = widgets.size() - 1; i >= 0; i--) {
+            Widget widget = widgets.get(i);
+            if (!widget.isVisible() || !widget.isActive()) continue;
+
+            float scale = getElementScale(i);
+            double scaledDragX = scale == 0f ? dragX : dragX / scale;
+            double scaledDragY = scale == 0f ? dragY : dragY / scale;
+            if (widget.mouseDragged(getScaledMouseX(i, mouseX), getScaledMouseY(i, mouseY), button, scaledDragX, scaledDragY)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        for (int i = widgets.size() - 1; i >= 0; i--) {
+            Widget widget = widgets.get(i);
+            if (widget.isVisible() && widget.isActive()
+                    && widget.mouseReleased(getScaledMouseX(i, mouseX), getScaledMouseY(i, mouseY), button)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public boolean mouseMoved(double mouseX, double mouseY) {
+        for (int i = widgets.size() - 1; i >= 0; i--) {
+            Widget widget = widgets.get(i);
+            if (widget.isVisible() && widget.isActive()
+                    && widget.mouseMoved(getScaledMouseX(i, mouseX), getScaledMouseY(i, mouseY))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
     public void drawInBackground(@NonNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         drawTableBackground(graphics, mouseX, mouseY);
         drawWidgetsBackgroundScaled(graphics, mouseX, mouseY, partialTicks);
@@ -148,7 +227,7 @@ public class InteractionTable extends AbstractTable<Widget, InteractionTable> {
             RenderSystem.setShaderColor(1, 1, 1, 1);
             RenderSystem.enableBlend();
             int index = i;
-            withCellScale(graphics, index, () -> widget.drawOverlay(graphics, mouseX, mouseY, partialTicks));
+            withCellScale(graphics, index, () -> widget.drawOverlay(graphics, getScaledMouseX(index, mouseX), getScaledMouseY(index, mouseY), partialTicks));
         }
     }
 
@@ -162,9 +241,9 @@ public class InteractionTable extends AbstractTable<Widget, InteractionTable> {
             int index = i;
             withCellScale(graphics, index, () -> {
                 if (widget.inAnimate()) {
-                    widget.getAnimation().drawInBackground(graphics, mouseX, mouseY, partialTicks);
+                    widget.getAnimation().drawInBackground(graphics, getScaledMouseX(index, mouseX), getScaledMouseY(index, mouseY), partialTicks);
                 } else {
-                    widget.drawInBackground(graphics, mouseX, mouseY, partialTicks);
+                    widget.drawInBackground(graphics, getScaledMouseX(index, mouseX), getScaledMouseY(index, mouseY), partialTicks);
                 }
             });
         }
@@ -180,12 +259,32 @@ public class InteractionTable extends AbstractTable<Widget, InteractionTable> {
             int index = i;
             withCellScale(graphics, index, () -> {
                 if (widget.inAnimate()) {
-                    widget.getAnimation().drawInForeground(graphics, mouseX, mouseY, partialTicks);
+                    widget.getAnimation().drawInForeground(graphics, getScaledMouseX(index, mouseX), getScaledMouseY(index, mouseY), partialTicks);
                 } else {
-                    widget.drawInForeground(graphics, mouseX, mouseY, partialTicks);
+                    widget.drawInForeground(graphics, getScaledMouseX(index, mouseX), getScaledMouseY(index, mouseY), partialTicks);
                 }
             });
         }
+    }
+
+    private int getScaledMouseX(int index, double mouseX) {
+        float scale = getElementScale(index);
+        if (scale == 1f || scale == 0f) {
+            return (int) mouseX;
+        }
+
+        float pivotX = getCellPositionX(index) + cellWidth * 0.5f;
+        return (int) (pivotX + (mouseX - pivotX) / scale);
+    }
+
+    private int getScaledMouseY(int index, double mouseY) {
+        float scale = getElementScale(index);
+        if (scale == 1f || scale == 0f) {
+            return (int) mouseY;
+        }
+
+        float pivotY = getCellPositionY(index) + cellHeight * 0.5f;
+        return (int) (pivotY + (mouseY - pivotY) / scale);
     }
 
     @Override

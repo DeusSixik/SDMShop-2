@@ -24,6 +24,11 @@ public class TabBox extends WidgetGroup {
         RIGHT
     }
 
+    public enum HighlightMode {
+        OUTLINE,
+        FILL
+    }
+
     protected final List<Tab> tabs = new ArrayList<>();
 
     protected int currentTab = -1;
@@ -42,7 +47,9 @@ public class TabBox extends WidgetGroup {
     protected int activeTabColor = 0xFF3B4252;
     protected int disabledTabColor = 0xFF20202A;
     protected int borderColor = 0xFF5C637A;
-    protected int activeBorderColor = 0xFFFFD166;
+    protected int activeBorderColor = 0xFFFFFFFF;
+    protected int activeHighlightColor = 0xFFFFFFFF;
+    protected HighlightMode activeHighlightMode = HighlightMode.OUTLINE;
     protected int textColor = 0xFFE8E8F0;
     protected int disabledTextColor = 0xFF777D8D;
 
@@ -224,6 +231,28 @@ public class TabBox extends WidgetGroup {
         return this;
     }
 
+    public TabBox setActiveTabOutline(int color) {
+        this.activeHighlightMode = HighlightMode.OUTLINE;
+        this.activeHighlightColor = color;
+        this.activeBorderColor = color;
+        return this;
+    }
+
+    public TabBox setActiveTabFill(int color) {
+        this.activeHighlightMode = HighlightMode.FILL;
+        this.activeHighlightColor = color;
+        return this;
+    }
+
+    public TabBox setActiveTabHighlight(HighlightMode mode, int color) {
+        this.activeHighlightMode = mode == null ? HighlightMode.OUTLINE : mode;
+        this.activeHighlightColor = color;
+        if (this.activeHighlightMode == HighlightMode.OUTLINE) {
+            this.activeBorderColor = color;
+        }
+        return this;
+    }
+
     public TabBox setTextColor(int textColor) {
         this.textColor = textColor;
         return this;
@@ -337,8 +366,10 @@ public class TabBox extends WidgetGroup {
             Tab tab = tabs.get(i);
             Rect rect = getTabRect(i);
             boolean active = i == currentTab;
-            int fill = !tab.enabled ? disabledTabColor : active ? activeTabColor : tabColor;
-            int border = active ? activeBorderColor : borderColor;
+            int fill = !tab.enabled
+                    ? disabledTabColor
+                    : active && activeHighlightMode == HighlightMode.FILL ? activeHighlightColor : active ? activeTabColor : tabColor;
+            int border = active && activeHighlightMode == HighlightMode.OUTLINE ? activeHighlightColor : borderColor;
 
             new ColorRectAndBorderTexture(fill, border, 1)
                     .setRadius(2)

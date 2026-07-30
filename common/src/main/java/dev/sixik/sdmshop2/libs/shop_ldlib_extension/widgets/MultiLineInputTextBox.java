@@ -62,9 +62,24 @@ public class MultiLineInputTextBox extends Widget {
     protected int paddingRight = 4;
     protected int paddingTop = 4;
     protected int paddingBottom = 4;
+    protected int scrollBarWidth = 6;
+    protected int scrollBarPadding = 2;
+    protected int minScrollThumbSize = 12;
+
+    protected boolean showScrollBar = true;
+    protected boolean draggingScrollThumb;
+    protected double dragStartMouseY;
+    protected int dragStartDisplayLine;
+
+    protected int scrollTrackColor = 0x5530303A;
+    protected int scrollThumbColor = 0xFF6D7485;
+    protected int scrollThumbHoverColor = 0xFFAAB2C5;
 
     protected IGuiTexture backgroundTexture = new ColorRectAndBorderTexture(DEFAULT_BACKGROUND_COLOR, DEFAULT_BORDER_COLOR, 1).setRadius(2);
     protected IGuiTexture focusedBackgroundTexture = new ColorRectAndBorderTexture(DEFAULT_BACKGROUND_COLOR, DEFAULT_FOCUSED_BORDER_COLOR, 1).setRadius(2);
+    protected IGuiTexture scrollTrackTexture;
+    protected IGuiTexture scrollThumbTexture;
+    protected IGuiTexture scrollThumbHoverTexture;
 
     public MultiLineInputTextBox() {
         this(0, 0, 120, 64, null, null);
@@ -209,6 +224,43 @@ public class MultiLineInputTextBox extends Widget {
         return this;
     }
 
+    public MultiLineInputTextBox setShowScrollBar(boolean showScrollBar) {
+        this.showScrollBar = showScrollBar;
+        ensureCursorVisible();
+        return this;
+    }
+
+    public MultiLineInputTextBox setScrollBarWidth(int scrollBarWidth) {
+        this.scrollBarWidth = Math.max(0, scrollBarWidth);
+        ensureCursorVisible();
+        return this;
+    }
+
+    public MultiLineInputTextBox setScrollBarPadding(int scrollBarPadding) {
+        this.scrollBarPadding = Math.max(0, scrollBarPadding);
+        ensureCursorVisible();
+        return this;
+    }
+
+    public MultiLineInputTextBox setMinScrollThumbSize(int minScrollThumbSize) {
+        this.minScrollThumbSize = Math.max(1, minScrollThumbSize);
+        return this;
+    }
+
+    public MultiLineInputTextBox setScrollBarColors(int trackColor, int thumbColor, int thumbHoverColor) {
+        this.scrollTrackColor = trackColor;
+        this.scrollThumbColor = thumbColor;
+        this.scrollThumbHoverColor = thumbHoverColor;
+        return this;
+    }
+
+    public MultiLineInputTextBox setScrollBarTextures(IGuiTexture trackTexture, IGuiTexture thumbTexture, IGuiTexture thumbHoverTexture) {
+        this.scrollTrackTexture = trackTexture;
+        this.scrollThumbTexture = thumbTexture;
+        this.scrollThumbHoverTexture = thumbHoverTexture;
+        return this;
+    }
+
     @Override
     public MultiLineInputTextBox setBackground(IGuiTexture... backgroundTexture) {
         super.setBackground(backgroundTexture);
@@ -220,6 +272,20 @@ public class MultiLineInputTextBox extends Widget {
 
     public MultiLineInputTextBox setFocusedBackground(IGuiTexture focusedBackgroundTexture) {
         this.focusedBackgroundTexture = focusedBackgroundTexture;
+        return this;
+    }
+
+    public MultiLineInputTextBox setFocusedOutline(int borderColor) {
+        return setFocusedOutline(DEFAULT_BACKGROUND_COLOR, borderColor);
+    }
+
+    public MultiLineInputTextBox setFocusedOutline(int backgroundColor, int borderColor) {
+        this.focusedBackgroundTexture = new ColorRectAndBorderTexture(backgroundColor, borderColor, 1).setRadius(2);
+        return this;
+    }
+
+    public MultiLineInputTextBox setFocusedFill(int fillColor) {
+        this.focusedBackgroundTexture = new ColorRectAndBorderTexture(fillColor, DEFAULT_BORDER_COLOR, 1).setRadius(2);
         return this;
     }
 
@@ -249,8 +315,42 @@ public class MultiLineInputTextBox extends Widget {
             return hovered;
         }
 
+        if (isMouseOverScrollBar(mouseX, mouseY)) {
+            if (isMouseOverScrollThumb(mouseX, mouseY)) {
+                draggingScrollThumb = true;
+                dragStartMouseY = mouseY;
+                dragStartDisplayLine = displayLine;
+            } else {
+                scrollToMouse(mouseY);
+            }
+            return true;
+        }
+
         moveCursorTo(getCursorAtMouse(mouseX, mouseY), Screen.hasShiftDown());
         return true;
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (draggingScrollThumb && button == 0) {
+            Rect track = getScrollBarTrackRect();
+            Rect thumb = getScrollBarThumbRect();
+            int movable = Math.max(1, track.height - thumb.height);
+            int next = dragStartDisplayLine + (int) Math.round((mouseY - dragStartMouseY) * getMaxDisplayLine() / (double) movable);
+            setDisplayLine(next);
+            return true;
+        }
+
+        return false;
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (draggingScrollThumb && button == 0) {
+            draggingScrollThumb = false;
+            return true;
+        }
+        return false;
     }
 
     @Override
@@ -259,9 +359,11 @@ public class MultiLineInputTextBox extends Widget {
             return false;
         }
 
-        List<LineView> lines = computeLines();
-        int maxDisplayLine = Math.max(0, lines.size() - getVisibleLineCount());
-        displayLine = clamp(displayLine + (wheelDelta < 0 ? 1 : -1), 0, maxDisplayLine);
+        if (!hasVisibleScrollBar()) {
+            return false;
+        }
+
+        setDisplayLine(displayLine + (wheelDelta < 0 ? 1 : -1));
         return true;
     }
 
@@ -414,7 +516,7 @@ public class MultiLineInputTextBox extends Widget {
     @Override
     public void drawInBackground(@NonNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         drawOwnBackground(graphics, mouseX, mouseY);
-        drawTextBox(graphics);
+        drawTextBox(graphics, mouseX, mouseY);
     }
 
     private void drawOwnBackground(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -426,7 +528,7 @@ public class MultiLineInputTextBox extends Widget {
         }
     }
 
-    private void drawTextBox(GuiGraphics graphics) {
+    private void drawTextBox(GuiGraphics graphics, int mouseX, int mouseY) {
         Font font = Minecraft.getInstance().font;
         int textX = getTextAreaX();
         int textY = getTextAreaY();
@@ -464,6 +566,7 @@ public class MultiLineInputTextBox extends Widget {
         }
 
         graphics.disableScissor();
+        drawScrollBar(graphics, mouseX, mouseY);
     }
 
     private void drawSelection(GuiGraphics graphics, Font font, LineView line, int textX, int textY) {
@@ -631,8 +734,15 @@ public class MultiLineInputTextBox extends Widget {
     }
 
     private List<LineView> computeLines(Font font) {
+        return computeLines(font, getTextAreaWidth());
+    }
+
+    private List<LineView> computeLinesForScrollBar(Font font) {
+        return computeLines(font, getBaseTextAreaWidth());
+    }
+
+    private List<LineView> computeLines(Font font, int maxWidth) {
         ArrayList<LineView> lines = new ArrayList<>();
-        int maxWidth = getTextAreaWidth();
         int lineStart = 0;
 
         for (int i = 0; i <= value.length(); i++) {
@@ -709,7 +819,11 @@ public class MultiLineInputTextBox extends Widget {
     }
 
     private int getTextAreaRight() {
-        return getPositionX() + Math.max(paddingLeft, getSizeWidth() - paddingRight);
+        int right = getPositionX() + Math.max(paddingLeft, getSizeWidth() - paddingRight);
+        if (hasVisibleScrollBar()) {
+            right -= scrollBarWidth + scrollBarPadding * 2;
+        }
+        return Math.max(getTextAreaX(), right);
     }
 
     private int getTextAreaBottom() {
@@ -718,6 +832,11 @@ public class MultiLineInputTextBox extends Widget {
 
     private int getTextAreaWidth() {
         return Math.max(0, getTextAreaRight() - getTextAreaX());
+    }
+
+    private int getBaseTextAreaWidth() {
+        int right = getPositionX() + Math.max(paddingLeft, getSizeWidth() - paddingRight);
+        return Math.max(0, right - getTextAreaX());
     }
 
     private int getTextAreaHeight() {
@@ -732,8 +851,104 @@ public class MultiLineInputTextBox extends Widget {
         return Math.max(1, getTextAreaHeight() / getLineHeight(font));
     }
 
+    private int getMaxDisplayLine() {
+        Font font = Minecraft.getInstance().font;
+        List<LineView> lines = computeLines(font);
+        return Math.max(0, lines.size() - getVisibleLineCount(font));
+    }
+
+    private int getMaxDisplayLineForScrollBar() {
+        Font font = Minecraft.getInstance().font;
+        List<LineView> lines = computeLinesForScrollBar(font);
+        return Math.max(0, lines.size() - getVisibleLineCount(font));
+    }
+
+    private void setDisplayLine(int displayLine) {
+        this.displayLine = clamp(displayLine, 0, getMaxDisplayLine());
+    }
+
     private int getLineHeight(Font font) {
         return font.lineHeight + lineSpacing;
+    }
+
+    private boolean hasVisibleScrollBar() {
+        return showScrollBar && scrollBarWidth > 0 && getMaxDisplayLineForScrollBar() > 0;
+    }
+
+    private void drawScrollBar(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (!hasVisibleScrollBar()) return;
+
+        Rect track = getScrollBarTrackRect();
+        Rect thumb = getScrollBarThumbRect();
+
+        if (scrollTrackTexture != null) {
+            scrollTrackTexture.draw(graphics, mouseX, mouseY, track.x, track.y, track.width, track.height);
+        } else {
+            graphics.fill(track.x, track.y, track.x + track.width, track.y + track.height, scrollTrackColor);
+        }
+
+        boolean thumbHovered = draggingScrollThumb || isMouseOverScrollThumb(mouseX, mouseY);
+        IGuiTexture thumbTexture = thumbHovered ? scrollThumbHoverTexture : scrollThumbTexture;
+        int thumbColor = thumbHovered ? scrollThumbHoverColor : scrollThumbColor;
+
+        if (thumbTexture != null) {
+            thumbTexture.draw(graphics, mouseX, mouseY, thumb.x, thumb.y, thumb.width, thumb.height);
+        } else {
+            graphics.fill(thumb.x, thumb.y, thumb.x + thumb.width, thumb.y + thumb.height, thumbColor);
+        }
+    }
+
+    private Rect getScrollBarTrackRect() {
+        if (!hasVisibleScrollBar()) {
+            return new Rect(0, 0, 0, 0);
+        }
+
+        int x = getPositionX() + getSizeWidth() - paddingRight - scrollBarPadding - scrollBarWidth;
+        int y = getPositionY() + paddingTop + scrollBarPadding;
+        int height = Math.max(1, getSizeHeight() - paddingTop - paddingBottom - scrollBarPadding * 2);
+        return new Rect(x, y, scrollBarWidth, height);
+    }
+
+    private Rect getScrollBarThumbRect() {
+        Rect track = getScrollBarTrackRect();
+        if (track.height <= 0) {
+            return track;
+        }
+
+        Font font = Minecraft.getInstance().font;
+        int totalLines = Math.max(1, computeLines(font).size());
+        int visibleLines = Math.min(totalLines, getVisibleLineCount(font));
+        int thumbHeight = clamp(
+                (int) Math.round(track.height * (visibleLines / (double) totalLines)),
+                Math.min(track.height, minScrollThumbSize),
+                track.height
+        );
+
+        int maxDisplayLine = getMaxDisplayLine();
+        int movable = Math.max(0, track.height - thumbHeight);
+        int y = track.y + (maxDisplayLine <= 0 ? 0 : (int) Math.round(movable * (displayLine / (double) maxDisplayLine)));
+        return new Rect(track.x, y, track.width, thumbHeight);
+    }
+
+    private boolean isMouseOverScrollBar(double mouseX, double mouseY) {
+        if (!hasVisibleScrollBar()) return false;
+        Rect track = getScrollBarTrackRect();
+        return isMouseOver(track.x, track.y, track.width, track.height, mouseX, mouseY);
+    }
+
+    private boolean isMouseOverScrollThumb(double mouseX, double mouseY) {
+        if (!hasVisibleScrollBar()) return false;
+        Rect thumb = getScrollBarThumbRect();
+        return isMouseOver(thumb.x, thumb.y, thumb.width, thumb.height, mouseX, mouseY);
+    }
+
+    private void scrollToMouse(double mouseY) {
+        Rect track = getScrollBarTrackRect();
+        Rect thumb = getScrollBarThumbRect();
+        int movable = Math.max(1, track.height - thumb.height);
+        int relative = (int) Math.round(mouseY - track.y - thumb.height / 2.0);
+        int next = (int) Math.round(clamp(relative, 0, movable) * getMaxDisplayLine() / (double) movable);
+        setDisplayLine(next);
     }
 
     private static String normalizeNewlines(String text) {
@@ -760,5 +975,8 @@ public class MultiLineInputTextBox extends Widget {
     }
 
     private record CursorView(int lineIndex, int x) {
+    }
+
+    private record Rect(int x, int y, int width, int height) {
     }
 }

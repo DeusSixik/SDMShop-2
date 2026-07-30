@@ -25,7 +25,7 @@ public class InputTextBox extends Widget {
 
     public static final int DEFAULT_BACKGROUND_COLOR = 0xFF101016;
     public static final int DEFAULT_BORDER_COLOR = 0xFF5C637A;
-    public static final int DEFAULT_FOCUSED_BORDER_COLOR = 0xFFFFD166;
+    public static final int DEFAULT_FOCUSED_BORDER_COLOR = 0xFFFFFFFF;
     public static final int DEFAULT_TEXT_COLOR = 0xFFE8E8F0;
     public static final int DEFAULT_PLACEHOLDER_COLOR = 0xFF777D8D;
     public static final int DEFAULT_SELECTION_COLOR = 0xAA4C8DFF;
@@ -203,6 +203,20 @@ public class InputTextBox extends Widget {
 
     public InputTextBox setFocusedBackground(IGuiTexture focusedBackgroundTexture) {
         this.focusedBackgroundTexture = focusedBackgroundTexture;
+        return this;
+    }
+
+    public InputTextBox setFocusedOutline(int borderColor) {
+        return setFocusedOutline(DEFAULT_BACKGROUND_COLOR, borderColor);
+    }
+
+    public InputTextBox setFocusedOutline(int backgroundColor, int borderColor) {
+        this.focusedBackgroundTexture = new ColorRectAndBorderTexture(backgroundColor, borderColor, 1).setRadius(2);
+        return this;
+    }
+
+    public InputTextBox setFocusedFill(int fillColor) {
+        this.focusedBackgroundTexture = new ColorRectAndBorderTexture(fillColor, DEFAULT_BORDER_COLOR, 1).setRadius(2);
         return this;
     }
 

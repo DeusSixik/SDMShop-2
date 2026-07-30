@@ -21,6 +21,7 @@ import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.InputTextBox;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.MultiLineInputTextBox;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.WidgetScrollBar;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.DropDownBox;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.GridBox;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.HorizontalContainer;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.TabBox;
@@ -43,7 +44,7 @@ import java.util.Set;
 public final class ShopRenderLibExtension {
 
     private static final int DEBUG_CONTENT_WIDTH = 1320;
-    private static final int DEBUG_CONTENT_HEIGHT = 560;
+    private static final int DEBUG_CONTENT_HEIGHT = 660;
     private static final int DEBUG_SCROLL_BAR_SIZE = 8;
     private static final int DEBUG_MIN_VIEWPORT_WIDTH = 360;
     private static final int DEBUG_MIN_VIEWPORT_HEIGHT = 260;
@@ -70,51 +71,61 @@ public final class ShopRenderLibExtension {
         group.setBackground(new ColorRectTexture(0xDD101018));
 
         group.addWidget(label(40, 28, "SDMShop2 LDLib widgets debug", 0xFFFFFFFF));
-        group.addWidget(label(40, 44, "IconsTable / InteractionTable / GridBox / HorizontalContainer / VerticalContainer / ScrollBar", TEXT_MUTED));
+        group.addWidget(label(40, 44, "Inputs / Tables / Containers / DropDownBox / ScrollBar", TEXT_MUTED));
 
         MultiLineInputTextBox multiLineInput = createMultiLineInputDemo();
-        multiLineInput.setSelfPosition(40, 78);
-        group.addWidget(section(28, 64, 330, 160, "MultiLineInputTextBox"));
+        multiLineInput.setSelfPosition(40, 94);
+        group.addWidget(section(28, 64, 330, 150, "MultiLineInputTextBox"));
         group.addWidget(multiLineInput);
 
         InteractionTable interactionTable = createInteractionTable();
-        interactionTable.setSelfPosition(400, 78);
-        group.addWidget(section(388, 64, 226, 160, "InteractionTable"));
+        interactionTable.setSelfPosition(400, 94);
+        group.addWidget(section(388, 64, 250, 160, "InteractionTable widgets"));
         group.addWidget(interactionTable);
 
         VerticalContainer containerDemo = createContainerDemo();
-        containerDemo.setSelfPosition(660, 78);
-        group.addWidget(section(648, 64, 330, 210, "HBox / VBox + our widgets"));
+        containerDemo.setSelfPosition(680, 94);
+        group.addWidget(section(668, 64, 280, 220, "HBox / VBox"));
         group.addWidget(containerDemo);
 
-        HorizontalContainer shopWidgetsRow = createShopWidgetsRow();
-        shopWidgetsRow.setSelfPosition(40, 270);
-        group.addWidget(section(28, 256, 500, 96, "Shop widgets row"));
-        group.addWidget(shopWidgetsRow);
-
-        GridBox gridBox = createGridDemo();
-        gridBox.setSelfPosition(40, 390);
-        group.addWidget(section(28, 376, 330, 126, "GridBox"));
-        group.addWidget(gridBox);
-
-        IconsTable iconsTable = createIconsTable();
-        iconsTable.setSelfPosition(390, 318);
-        group.addWidget(section(378, 304, 138, 160, "IconsTable"));
-        group.addWidget(iconsTable);
-
-        TabBox tabBox = createTabBoxDemo();
-        tabBox.setSelfPosition(600, 78);
-        group.addWidget(section(588, 64, 360, 190, "TabBox"));
-        group.addWidget(tabBox);
-
         WidgetGroup textLabelDemo = createTextLabelDemo();
-        textLabelDemo.setSelfPosition(980, 78);
-        group.addWidget(section(968, 64, 330, 190, "TextLabel"));
+        textLabelDemo.setSelfPosition(990, 94);
+        group.addWidget(section(978, 64, 330, 190, "TextLabel"));
         group.addWidget(textLabelDemo);
 
+        IconsTable iconsTable = createIconsTable();
+        iconsTable.setSelfPosition(40, 282);
+        group.addWidget(section(28, 252, 170, 160, "IconsTable"));
+        group.addWidget(iconsTable);
+
+        InteractionTable interactionItemsTable = createInteractionItemsTable();
+        interactionItemsTable.setSelfPosition(230, 282);
+        group.addWidget(section(218, 252, 210, 160, "InteractionTable items"));
+        group.addWidget(interactionItemsTable);
+
+        HorizontalContainer shopWidgetsRow = createShopWidgetsRow();
+        shopWidgetsRow.setSelfPosition(470, 282);
+        group.addWidget(section(458, 252, 490, 96, "Shop widgets row"));
+        group.addWidget(shopWidgetsRow);
+
+        DropDownBox dropDownBox = createDropDownBoxDemo();
+        dropDownBox.setSelfPosition(990, 306);
+        group.addWidget(section(978, 276, 330, 130, "DropDownBox"));
+        group.addWidget(dropDownBox);
+
+        GridBox gridBox = createGridDemo();
+        gridBox.setSelfPosition(40, 468);
+        group.addWidget(section(28, 438, 330, 126, "GridBox"));
+        group.addWidget(gridBox);
+
+        TabBox tabBox = createTabBoxDemo();
+        tabBox.setSelfPosition(400, 468);
+        group.addWidget(section(388, 438, 360, 190, "TabBox"));
+        group.addWidget(tabBox);
+
         WidgetGroup scrollBarDemo = createScrollBarDemo();
-        scrollBarDemo.setSelfPosition(980, 292);
-        group.addWidget(section(968, 278, 330, 190, "WidgetScrollBar"));
+        scrollBarDemo.setSelfPosition(790, 468);
+        group.addWidget(section(778, 438, 330, 190, "WidgetScrollBar"));
         group.addWidget(scrollBarDemo);
 
         group.rememberCanvasLayout();
@@ -197,8 +208,29 @@ public final class ShopRenderLibExtension {
         return table;
     }
 
+    private static InteractionTable createInteractionItemsTable() {
+        InteractionTable table = new InteractionTable(4, 3)
+                .setCellSize(32, 32)
+                .setSpacing(6, 6);
+
+        table.addElement(itemTableCell(Items.DIAMOND, "Diamond cell; white hover border + tooltip"));
+        table.addElement(itemTableCell(Items.EMERALD, "Emerald cell; real Widget inside InteractionTable"));
+        table.addElement(itemTableCell(Items.GOLD_INGOT, "Gold cell"));
+        table.addElement(itemTableCell(Items.IRON_INGOT, "Iron cell"));
+        table.addElement(itemTableCell(Items.NETHERITE_INGOT, "Scaled down Netherite cell"), 0.75f);
+        table.addElement(itemTableCell(Items.REDSTONE, "Redstone cell"));
+        table.addElement(itemTableCell(Items.LAPIS_LAZULI, "Lapis cell"));
+        table.addElement(itemTableCell(Items.AMETHYST_SHARD, "Scaled up Amethyst cell"), 1.25f);
+        table.addElement(itemTableCell(Items.CHEST, "Chest cell"));
+        table.addElement(itemTableCell(Items.BARRIER, "Barrier cell"));
+
+        table.setElementScale(1, 1.1f);
+        table.setElementScale(6, 0.9f);
+        return table;
+    }
+
     private static String text = "diamond";
-    private static String multilineText = "Unity-like multiline input\nEnter adds new lines\nMouse wheel scrolls";
+    private static String multilineText = "Unity-like multiline input\nEnter adds new lines\nMouse wheel scrolls\nScrollbar appears only when needed\nDrag thumb on the right\nLine 6\nLine 7\nLine 8";
 
     private static InteractionTable createInteractionTable() {
         InteractionTable table = new InteractionTable(2, 3)
@@ -405,6 +437,42 @@ public final class ShopRenderLibExtension {
         return panel;
     }
 
+    private static DropDownBox createDropDownBoxDemo() {
+        DropDownBox dropDown = new DropDownBox(0, 0, 292, 28)
+                .setOptionHeight(30)
+                .setMaxVisibleOptions(4)
+                .setPadding(6, 4)
+                .setRowSpacing(1)
+                .setScrollBarWidth(6)
+                .setScrollBarPadding(2);
+        dropDown.setHoverTexture(new ColorBorderTexture(1, HOVER_BORDER));
+        dropDown.setHoverTooltips(Component.literal("DropDownBox options are real Widget instances; wheel or drag scrollbar"));
+
+        dropDown.addOption(new TextLabel(0, 0, 250, 30, Component.literal("TextLabel option"))
+                .setPadding(6, 0)
+                .setAlignment(TextLabel.HorizontalAlignment.LEFT, TextLabel.VerticalAlignment.CENTER)
+                .setBackground(new ColorRectAndBorderTexture(0xFF262936, PANEL_BORDER, 1)));
+
+        WidgetGroup diamondOption = iconCell(Items.DIAMOND, "WidgetGroup option with item icon");
+        diamondOption.addWidget(new TextLabel(148, 0, 90, 28, Component.literal("selected row"))
+                .setColor(TEXT_MUTED)
+                .setAlignment(TextLabel.HorizontalAlignment.RIGHT, TextLabel.VerticalAlignment.CENTER));
+        dropDown.addOption(diamondOption);
+
+        dropDown.addOption(button("Button row", "ButtonWidget can be used as a DropDownBox option"));
+        dropDown.addOption(iconCell(Items.EMERALD, "Another widget option"));
+        dropDown.addOption(iconCell(Items.GOLD_INGOT, "Mouse wheel scrolls dropdown popup"));
+        dropDown.addOption(new TextLabel(0, 0, 250, 30, Component.literal("Disabled option"))
+                .setPadding(6, 0)
+                .setAlignment(TextLabel.HorizontalAlignment.LEFT, TextLabel.VerticalAlignment.CENTER)
+                .setColor(0xFF777777)
+                .setBackground(new ColorRectAndBorderTexture(0xFF20222A, PANEL_BORDER, 1)));
+        dropDown.setOptionEnabled(5, false);
+        dropDown.setSelectedIndex(1);
+
+        return dropDown;
+    }
+
     private static ButtonWidget button(String text, String tooltip) {
         ButtonWidget button = new ButtonWidget(0, 0, 96, 28,
                 new GuiTextureGroup(ResourceBorderTexture.BUTTON_COMMON, new TextTexture(text)),
@@ -421,6 +489,15 @@ public final class ShopRenderLibExtension {
         cell.setHoverTooltips(Component.literal(tooltip));
         cell.addWidget(new Widget(6, 6, 16, 16).setBackground(new ItemStackTexture(item)));
         cell.addWidget(new LabelWidget(28, 10, item.getDescriptionId()).setTextColor(TEXT_MUTED));
+        return cell;
+    }
+
+    private static WidgetGroup itemTableCell(Item item, String tooltip) {
+        WidgetGroup cell = new WidgetGroup(0, 0, 32, 32);
+        cell.setBackground(new ColorRectAndBorderTexture(0xFF2A2A36, PANEL_BORDER, 1).setRadius(3));
+        cell.setHoverTexture(new ColorBorderTexture(1, 0xFFFFFFFF));
+        cell.setHoverTooltips(Component.literal(tooltip));
+        cell.addWidget(new Widget(8, 8, 16, 16).setBackground(new ItemStackTexture(item)));
         return cell;
     }
 
