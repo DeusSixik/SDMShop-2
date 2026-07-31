@@ -1,13 +1,14 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.theme;
 
 import com.lowdragmc.lowdraglib.gui.texture.ColorBorderTexture;
+import com.lowdragmc.lowdraglib.gui.texture.GuiTextureGroup;
 import com.lowdragmc.lowdraglib.gui.texture.TransformTexture;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ShopBadgeHBoxWidget;
 import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ShopEmptyWidget;
-import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
+import dev.sixik.sdmshop2.libs.shop.client.textures.PixelBevelTexture;
 import dev.sixik.sdmshop2.libs.shop.client.ui.ShopIcons;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.OfferElementContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.OfferElementRender;
@@ -71,7 +72,12 @@ public class DefaultShopOfferElementRender implements OfferElementRender {
 
     @Override
     public void constructor(OfferElementContextRender ctx) {
-        ctx.getOwner().setBackground(new ColorRectAndBorderTexture().setRadius(4));
+        ctx.getOwner().setBackground(new PixelBevelTexture(
+                PixelBevelTexture.PANEL_COLOR,
+                PixelBevelTexture.LINE_LOW_COLOR,
+                PixelBevelTexture.LINE_HIGH_COLOR,
+                1.5f
+        ));
     }
 
     @Override
@@ -116,9 +122,9 @@ public class DefaultShopOfferElementRender implements OfferElementRender {
         }
 
         if (limitBar != null) {
-            limitBar.setSelfPosition(contentPadding / 2, owner.getSize().height - 9);
-            limitBar.setBarHeight(2);
-            limitBar.setSize(owner.getSize().width - contentPadding, 6);
+            limitBar.setBarHeight(4);
+            limitBar.setSelfPosition(contentPadding / 2, owner.getSize().height - limitBar.getSizeHeight());
+            limitBar.setSize(owner.getSize().width - contentPadding, 14);
         }
 
         if (titleLabel != null) {
@@ -236,10 +242,12 @@ public class DefaultShopOfferElementRender implements OfferElementRender {
             return;
         }
 
-        offerElementsTable = new ScrollableInteractionTable()
+        offerElementsTable = (ScrollableInteractionTable) new ScrollableInteractionTable()
                 .setMaxRows(OFFER_ELEMENTS_TABLE_VISIBLE_ROWS)
                 .setWheelRows(1)
-                .reserveScrollBarSpace();
+                .reserveScrollBarSpace()
+                .setBackground(PixelBevelTexture.panel());
+        offerElementsTable.setBackground(PixelBevelTexture.panel());
         ctx.addWidget(offerElementsTable);
 
         for (final ShopComponent rewardComponent : rewardComponents) {
@@ -269,6 +277,7 @@ public class DefaultShopOfferElementRender implements OfferElementRender {
         final int icon_size = Math.max(size_w / 2, DEBUG_SIZE_ELEMENT);
 
         widget.setSize(icon_size, icon_size);
+        widget.setBackground(new GuiTextureGroup(PixelBevelTexture.panel(), widget.getBackgroundTexture()));
         widget.setHoverTexture(new ColorBorderTexture(1, 0xFFFFFFFF));
         ctx.addWidget(offerElement = widget);
     }
@@ -294,7 +303,7 @@ public class DefaultShopOfferElementRender implements OfferElementRender {
         for (Map.Entry<String, List<CostComponent>> entry : costComponents.entrySet()) {
             final List<CostComponent> entries = entry.getValue();
             final HorizontalContainer container = new HorizontalContainer();
-            container.setBackground(new ColorRectAndBorderTexture().setRadius(4));
+            container.setBackground(PixelBevelTexture.panel());
             container.setPadding(4, 2).setSpacing(4);
             container.alignBottom();
             container.pushLastElementToEnd();
@@ -322,6 +331,10 @@ public class DefaultShopOfferElementRender implements OfferElementRender {
             final ButtonWidget buyButton = new ButtonWidget();
             buyButton.setText(Component.translatable("shop.ui.offer_element.button.buy"));
             buyButton.setSizeHeight(test_size);
+            buyButton.setButtonTexture(PixelBevelTexture.accent());
+            buyButton.setHoverTexture(new PixelBevelTexture(0xFFF0BC50, PixelBevelTexture.ACCENT_LOW_COLOR, PixelBevelTexture.ACCENT_HIGH_COLOR, 0.7f));
+            buyButton.setClickedTexture(PixelBevelTexture.accent().pressed());
+            buyButton.setTextColor(PixelBevelTexture.PAGE_COLOR);
             container.addWidget(buyButton);
             container.setDynamicSized(false);
             moneyTypeRows.add(container);
@@ -342,9 +355,16 @@ public class DefaultShopOfferElementRender implements OfferElementRender {
                 .setLeftText(Component.literal("Limit"))
                 .setRightText(Component.literal(playerLimit + " / " + offerLimitCount))
                 .setProgress(Mth.clamp((float) playerLimit / offerLimitCount, 0.0f, 1.0f))
+                .setSegmentCount(offerLimitCount)
                 .setScale(1.0f)
                 .setTextScale(0.4f)
+                .setBarBevelThickness(1f)
+                .setDividerThickness(0.4f)
                 .setTextYOffset(-1);
+        if(offerLimitCount <= 50) {
+            limitBar.setDividersEnabled(true);
+        }
+
         ctx.addWidget(limitBar);
     }
 

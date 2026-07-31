@@ -137,7 +137,7 @@ public abstract class AbstractTable<T, SELF extends AbstractTable<T, SELF>> exte
     }
 
     protected void drawTableBackground(@NonNull GuiGraphics graphics, int mouseX, int mouseY) {
-        new ColorRectAndBorderTexture().draw(graphics, mouseX, mouseY, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
+        backgroundTexture.draw(graphics, mouseX, mouseY, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
     }
 
     @Override

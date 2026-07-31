@@ -1,8 +1,10 @@
 package dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets;
 
-import com.lowdragmc.lowdraglib.gui.texture.ColorRectTexture;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
+import com.lowdragmc.lowdraglib.utils.Rect;
+import dev.sixik.sdmshop2.libs.shop.client.SDMShaders;
 import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
+import dev.sixik.sdmshop2.libs.shop.client.textures.PixelBevelTexture;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -27,10 +29,13 @@ public class ProgressBarWidget extends Widget {
     private static final int DEFAULT_BAR_HEIGHT = 4;
     private static final int DEFAULT_TEXT_GAP = 2;
     private static final int DEFAULT_SPLIT_TEXT_GAP = 4;
-    private static final int DEFAULT_RADIUS = 2;
-    private static final int DEFAULT_TRACK_COLOR = 0xFF2A2A36;
-    private static final int DEFAULT_TRACK_BORDER_COLOR = 0xFF3D3D4E;
-    private static final int DEFAULT_PROGRESS_COLOR = 0xFF5C6BC0;
+    private static final int DEFAULT_RADIUS = 0;
+    private static final int DEFAULT_TRACK_COLOR = PixelBevelTexture.PANEL_COLOR;
+    private static final int DEFAULT_TRACK_BORDER_COLOR = PixelBevelTexture.LINE_HIGH_COLOR;
+    private static final int DEFAULT_PROGRESS_COLOR = PixelBevelTexture.ACCENT_COLOR;
+    private static final int DEFAULT_PROGRESS_HIGHLIGHT_COLOR = PixelBevelTexture.ACCENT_HIGH_COLOR;
+    private static final int DEFAULT_PROGRESS_SHADOW_COLOR = PixelBevelTexture.ACCENT_LOW_COLOR;
+    private static final int DEFAULT_DIVIDER_COLOR = PixelBevelTexture.PANEL_COLOR;
     private static final int DEFAULT_TEXT_COLOR = 0xFFFFFFFF;
 
     protected double progress;
@@ -48,6 +53,14 @@ public class ProgressBarWidget extends Widget {
     protected int trackColor = DEFAULT_TRACK_COLOR;
     protected int trackBorderColor = DEFAULT_TRACK_BORDER_COLOR;
     protected int progressColor = DEFAULT_PROGRESS_COLOR;
+    protected int progressHighlightColor = DEFAULT_PROGRESS_HIGHLIGHT_COLOR;
+    protected int progressShadowColor = DEFAULT_PROGRESS_SHADOW_COLOR;
+    protected int dividerColor = DEFAULT_DIVIDER_COLOR;
+    protected int segmentCount = 0;
+    protected float dividerThickness = 2.0f;
+    protected float barBevelThickness = 2.0f;
+    protected boolean segmented;
+    protected boolean shaderBar = true;
     protected int textColor = DEFAULT_TEXT_COLOR;
     protected boolean textShadow;
     protected float scale = 1.0f;
@@ -157,6 +170,64 @@ public class ProgressBarWidget extends Widget {
     public ProgressBarWidget setProgressColor(int progressColor) {
         this.progressColor = progressColor;
         return this;
+    }
+
+    public ProgressBarWidget setProgressColors(int progressColor, int highlightColor, int shadowColor) {
+        this.progressColor = progressColor;
+        this.progressHighlightColor = highlightColor;
+        this.progressShadowColor = shadowColor;
+        return this;
+    }
+
+    public ProgressBarWidget setDividerColor(int dividerColor) {
+        this.dividerColor = dividerColor;
+        return this;
+    }
+
+    public ProgressBarWidget setSegmentCount(int segmentCount) {
+        this.segmentCount = Math.max(0, segmentCount);
+        this.segmented = this.segmentCount > 1;
+        return this;
+    }
+
+    public ProgressBarWidget segments(int segmentCount) {
+        return setSegmentCount(segmentCount);
+    }
+
+    public ProgressBarWidget setDividersEnabled(boolean segmented) {
+        this.segmented = segmented;
+        return this;
+    }
+
+    public ProgressBarWidget showDividers(boolean segmented) {
+        return setDividersEnabled(segmented);
+    }
+
+    public ProgressBarWidget setSegmented(boolean segmented) {
+        return setDividersEnabled(segmented);
+    }
+
+    public ProgressBarWidget showSegments(boolean segmented) {
+        return setDividersEnabled(segmented);
+    }
+
+    public ProgressBarWidget setDividerThickness(float dividerThickness) {
+        this.dividerThickness = Math.max(0.0f, dividerThickness);
+        return this;
+    }
+
+    public ProgressBarWidget setBarBevelThickness(float barBevelThickness) {
+        this.barBevelThickness = Math.max(0.0f, barBevelThickness);
+        return this;
+    }
+
+    public ProgressBarWidget setShaderBar(boolean shaderBar) {
+        this.shaderBar = shaderBar;
+        return this;
+    }
+
+    public ProgressBarWidget useShaderBar(boolean shaderBar) {
+        return setShaderBar(shaderBar);
     }
 
     public ProgressBarWidget setTextColor(int textColor) {
@@ -274,14 +345,33 @@ public class ProgressBarWidget extends Widget {
 
         if (width <= 0 || height <= 0) return;
 
+        if (shaderBar) {
+            SDMShaders.drawPixelProgressBar(
+                    graphics,
+                    Rect.ofRelative(x, width, y, height),
+                    (float) getProgress(),
+                    getScaledBarBevelThickness(),
+                    trackColor,
+                    trackBorderColor,
+                    PixelBevelTexture.LINE_LOW_COLOR,
+                    progressColor,
+                    progressHighlightColor,
+                    progressShadowColor,
+                    dividerColor,
+                    segmentCount,
+                    dividerThickness,
+                    segmented
+            );
+            return;
+        }
+
         new ColorRectAndBorderTexture(trackColor, trackBorderColor, 1)
                 .setRadius(getScaledRadius())
                 .draw(graphics, mouseX, mouseY, x, y, width, height);
-
         int progressWidth = Math.round(width * (float) getProgress());
         if (progressWidth <= 0) return;
 
-        new ColorRectTexture(progressColor)
+        new ColorRectAndBorderTexture(progressColor, progressShadowColor, 0)
                 .setRadius(getScaledRadius())
                 .draw(graphics, mouseX, mouseY, x, y, Math.min(width, progressWidth), height);
     }
@@ -339,6 +429,10 @@ public class ProgressBarWidget extends Widget {
 
     private int getScaledRadius() {
         return Math.max(0, Math.round(radius * scale));
+    }
+
+    private float getScaledBarBevelThickness() {
+        return Math.max(0.0f, barBevelThickness * scale);
     }
 
     private float getEffectiveTextScale() {
