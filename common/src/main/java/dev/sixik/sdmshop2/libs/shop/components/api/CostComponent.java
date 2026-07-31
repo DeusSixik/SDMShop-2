@@ -75,6 +75,7 @@ public abstract class CostComponent extends ShopComponent {
     }
 
     @Environment(EnvType.CLIENT)
+    @Nullable
     public abstract TransformTexture getRenderIcon();
 
     @Override

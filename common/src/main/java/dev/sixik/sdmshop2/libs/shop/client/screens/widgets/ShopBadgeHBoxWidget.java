@@ -105,6 +105,10 @@ public class ShopBadgeHBoxWidget extends WidgetGroup {
         setDynamicSized(false);
     }
 
+    public boolean isEmpty() {
+        return badges.isEmpty();
+    }
+
     public ShopBadgeHBoxWidget setMaxLength(int maxLength) {
         this.maxLength = Math.max(0, maxLength);
         recomputeLayoutAndSize();

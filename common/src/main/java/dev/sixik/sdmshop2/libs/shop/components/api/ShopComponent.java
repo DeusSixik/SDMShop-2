@@ -2,6 +2,7 @@ package dev.sixik.sdmshop2.libs.shop.components.api;
 
 import com.google.gson.JsonObject;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
+import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.components.api.exceptions.ValidationException;
 import net.fabricmc.api.EnvType;
@@ -122,6 +123,7 @@ public abstract class ShopComponent {
     @Nullable
     @Environment(EnvType.CLIENT)
     public Widget createRender() {
+        SDMShop2.LOGGER.error("Can't create render because {} didn't have implementation of method 'createRender'", getType().getId());
         return null;
     }
 }
