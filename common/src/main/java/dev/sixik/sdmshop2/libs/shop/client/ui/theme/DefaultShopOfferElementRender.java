@@ -25,6 +25,7 @@ import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ProgressBarWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ContextMenuWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.HorizontalContainer;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ModalWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.VerticalContainer;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.table.ScrollableInteractionTable;
 import it.unimi.dsi.fastutil.objects.ObjectList;
@@ -174,6 +175,7 @@ public class DefaultShopOfferElementRender implements OfferElementRender {
                 })
                 .addSeparator()
                 .addItem("Edit", () -> {
+                    ModalWidget.open(ctx.getOwner(), "Title", 220, 140);
 
                 }).scale(0.7f);
 
@@ -295,7 +297,6 @@ public class DefaultShopOfferElementRender implements OfferElementRender {
         moneyTypesContainer = new VerticalContainer();
         moneyTypesContainer.setDynamicSized(false);
         moneyTypesContainer.setSpacing(0);
-        moneyTypesContainer.setScale(oneOfferElement ? 1f : 0.7f);
         ctx.addWidget(moneyTypesContainer);
 
 
