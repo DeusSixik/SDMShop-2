@@ -88,6 +88,11 @@ public class DropDownBox extends WidgetGroup {
     protected IntConsumer selectionChangedListener;
     protected BiConsumer<Integer, Widget> optionSelectedListener;
 
+    protected PopupInputLayer popupInputLayer;
+    protected WidgetGroup popupInputRoot;
+
+    private static DropDownBox activePopup;
+
     private boolean layingOut;
 
     public DropDownBox() {
@@ -170,7 +175,7 @@ public class DropDownBox extends WidgetGroup {
         options.clear();
         selectedIndex = -1;
         scrollIndex = 0;
-        expanded = false;
+        setExpanded(false);
     }
 
     public DropDownBox clearOptions() {
@@ -250,10 +255,24 @@ public class DropDownBox extends WidgetGroup {
     public DropDownBox setExpanded(boolean expanded) {
         if (this.expanded == expanded) return this;
 
+        if (expanded) {
+            if (activePopup != null && activePopup != this) {
+                activePopup.setExpanded(false);
+            }
+            activePopup = this;
+        } else {
+            if (activePopup == this) {
+                activePopup = null;
+            }
+            draggingScrollThumb = false;
+            unregisterPopupInputLayer();
+        }
+
         this.expanded = expanded;
         if (expanded) {
             setFocus(true);
             ensureSelectedVisible();
+            registerPopupInputLayer();
         }
         layoutOptions();
         return this;
@@ -498,6 +517,10 @@ public class DropDownBox extends WidgetGroup {
     @Override
     @Environment(EnvType.CLIENT)
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (popupInputLayer != null && popupInputLayer.isDelegating()) {
+            return handlePopupLayerMouseClicked(mouseX, mouseY, button);
+        }
+
         if (button != 0) {
             return super.mouseClicked(mouseX, mouseY, button);
         }
@@ -548,6 +571,10 @@ public class DropDownBox extends WidgetGroup {
     @Override
     @Environment(EnvType.CLIENT)
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (popupInputLayer != null && popupInputLayer.isDelegating()) {
+            return handlePopupLayerMouseDragged(mouseX, mouseY, button, dragX, dragY);
+        }
+
         if (draggingScrollThumb && button == 0) {
             Rect track = getScrollBarTrackRect();
             Rect thumb = getScrollBarThumbRect();
@@ -563,6 +590,10 @@ public class DropDownBox extends WidgetGroup {
     @Override
     @Environment(EnvType.CLIENT)
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (popupInputLayer != null && popupInputLayer.isDelegating()) {
+            return handlePopupLayerMouseReleased(mouseX, mouseY, button);
+        }
+
         if (draggingScrollThumb && button == 0) {
             draggingScrollThumb = false;
             return true;
@@ -574,6 +605,10 @@ public class DropDownBox extends WidgetGroup {
     @Override
     @Environment(EnvType.CLIENT)
     public boolean mouseWheelMove(double mouseX, double mouseY, double wheelDelta) {
+        if (popupInputLayer != null && popupInputLayer.isDelegating()) {
+            return handlePopupLayerMouseWheel(mouseX, mouseY, wheelDelta);
+        }
+
         if (!expanded || !isMouseOverPopup(mouseX, mouseY) || getVisibleOptionCount() >= options.size()) {
             return false;
         }
@@ -627,7 +662,7 @@ public class DropDownBox extends WidgetGroup {
     @Override
     @Environment(EnvType.CLIENT)
     public void onFocusChanged(@Nullable Widget lastFocus, Widget focus) {
-        if (expanded && focus != this && (focus == null || !focus.isParent(this))) {
+        if (expanded && focus != this && focus != popupInputLayer && (focus == null || !focus.isParent(this))) {
             setExpanded(false);
         }
     }
@@ -645,13 +680,6 @@ public class DropDownBox extends WidgetGroup {
         drawTooltipTexts(mouseX, mouseY);
         drawClosedSelectedWidget(graphics, mouseX, mouseY, partialTicks, false);
         drawArrow(graphics);
-
-        if (expanded) {
-            graphics.pose().pushPose();
-            graphics.pose().translate(0, 0, 240);
-            drawPopup(graphics, mouseX, mouseY, partialTicks);
-            graphics.pose().popPose();
-        }
     }
 
     @Override
@@ -661,6 +689,16 @@ public class DropDownBox extends WidgetGroup {
             super.drawOverlay(graphics, mouseX, mouseY, partialTicks);
             return;
         }
+
+        if (isPopupInputLayerAttachedToExternalRoot()) {
+            return;
+        }
+
+        drawPopupWithOptionOverlays(graphics, mouseX, mouseY, partialTicks);
+    }
+
+    protected void drawPopupWithOptionOverlays(@NonNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        drawPopup(graphics, mouseX, mouseY, partialTicks);
 
         for (int i = scrollIndex; i < getEndVisibleIndex(); i++) {
             Widget widget = options.get(i).widget;
@@ -676,6 +714,150 @@ public class DropDownBox extends WidgetGroup {
         if (id == ACTION_SELECT) {
             setSelectedIndex(buffer.readVarInt(), true, false);
         }
+    }
+
+    protected boolean handlePopupLayerMouseClicked(double mouseX, double mouseY, int button) {
+        if (!expanded) return false;
+
+        if (button != 0) {
+            if (!isMouseOverPopup(mouseX, mouseY) && !isMouseOverHeader(mouseX, mouseY)) {
+                setExpanded(false);
+                setFocus(false);
+                return true;
+            }
+            return super.mouseClicked(mouseX, mouseY, button);
+        }
+
+        if (isMouseOverScrollBar(mouseX, mouseY)) {
+            setFocus(true);
+            if (isMouseOverScrollThumb(mouseX, mouseY)) {
+                draggingScrollThumb = true;
+                dragStartMouseY = mouseY;
+                dragStartScrollIndex = scrollIndex;
+            } else {
+                scrollToMouse(mouseY);
+            }
+            return true;
+        }
+
+        int optionIndex = getOptionAt(mouseX, mouseY);
+        if (optionIndex >= 0) {
+            Widget optionWidget = options.get(optionIndex).widget;
+            if (optionWidget.isVisible() && optionWidget.isActive()) {
+                optionWidget.mouseClicked(mouseX, mouseY, button);
+            }
+            selectFromClient(optionIndex);
+            if (closeOnSelect) {
+                setExpanded(false);
+            }
+            Widget.playButtonClickSound();
+            return true;
+        }
+
+        if (isMouseOverHeader(mouseX, mouseY)) {
+            toggleExpanded();
+            Widget.playButtonClickSound();
+            return true;
+        }
+
+        if (!isMouseOverPopup(mouseX, mouseY)) {
+            setExpanded(false);
+            setFocus(false);
+            return true;
+        }
+
+        return true;
+    }
+
+    protected boolean handlePopupLayerMouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (draggingScrollThumb && button == 0) {
+            Rect track = getScrollBarTrackRect();
+            Rect thumb = getScrollBarThumbRect();
+            int movable = Math.max(1, track.height - thumb.height);
+            int next = dragStartScrollIndex + (int) Math.round((mouseY - dragStartMouseY) * getMaxScrollIndex() / (double) movable);
+            setScrollIndex(next);
+            return true;
+        }
+
+        return expanded && isMouseOverPopup(mouseX, mouseY) && super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    protected boolean handlePopupLayerMouseReleased(double mouseX, double mouseY, int button) {
+        if (draggingScrollThumb && button == 0) {
+            draggingScrollThumb = false;
+            return true;
+        }
+
+        return expanded && isMouseOverPopup(mouseX, mouseY) && super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    protected boolean handlePopupLayerMouseWheel(double mouseX, double mouseY, double wheelDelta) {
+        if (!expanded || !isMouseOverPopup(mouseX, mouseY) || getVisibleOptionCount() >= options.size()) {
+            return false;
+        }
+
+        int delta = wheelDelta < 0 ? 1 : -1;
+        setScrollIndex(scrollIndex + delta);
+        return true;
+    }
+
+    protected void registerPopupInputLayer() {
+        WidgetGroup root = findRootGroup();
+        if (root == null) return;
+
+        if (root == this) {
+            unregisterPopupInputLayer();
+            return;
+        }
+
+        if (popupInputLayer == null) {
+            popupInputLayer = new PopupInputLayer(this);
+        }
+
+        if (popupInputRoot != root) {
+            unregisterPopupInputLayer();
+            popupInputRoot = root;
+            root.addWidget(popupInputLayer);
+        } else if (!root.widgets.contains(popupInputLayer)) {
+            root.addWidget(popupInputLayer);
+        }
+
+        syncPopupInputLayer();
+    }
+
+    protected boolean isPopupInputLayerAttachedToExternalRoot() {
+        return popupInputLayer != null
+                && popupInputRoot != null
+                && popupInputRoot != this
+                && popupInputRoot.widgets.contains(popupInputLayer);
+    }
+
+    protected void unregisterPopupInputLayer() {
+        if (popupInputLayer != null && popupInputRoot != null) {
+            popupInputRoot.removeWidget(popupInputLayer);
+        }
+        popupInputRoot = null;
+    }
+
+    protected void syncPopupInputLayer() {
+        if (popupInputLayer == null || popupInputRoot == null || !expanded) return;
+
+        Minecraft minecraft = Minecraft.getInstance();
+        int width = minecraft == null || minecraft.getWindow() == null ? Math.max(1, popupInputRoot.getSizeWidth()) : minecraft.getWindow().getGuiScaledWidth();
+        int height = minecraft == null || minecraft.getWindow() == null ? Math.max(1, popupInputRoot.getSizeHeight()) : minecraft.getWindow().getGuiScaledHeight();
+        popupInputLayer.setSelfPosition(-popupInputRoot.getPositionX(), -popupInputRoot.getPositionY());
+        popupInputLayer.setSize(Math.max(1, width), Math.max(1, height));
+        popupInputLayer.setVisible(true);
+        popupInputLayer.setActive(true);
+    }
+
+    @Nullable
+    protected WidgetGroup findRootGroup() {
+        Widget root = this;
+        while (root.getParent() != null) {
+            root = root.getParent();
+        }
+        return root instanceof WidgetGroup group ? group : null;
     }
 
     protected void selectFromClient(int optionIndex) {
@@ -725,6 +907,7 @@ public class DropDownBox extends WidgetGroup {
         } finally {
             layingOut = false;
         }
+        syncPopupInputLayer();
     }
 
     protected void drawHeader(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -1069,6 +1252,92 @@ public class DropDownBox extends WidgetGroup {
 
     protected int clamp(int value, int min, int max) {
         return Math.max(min, Math.min(max, value));
+    }
+
+    protected static class PopupInputLayer extends Widget {
+        protected final DropDownBox owner;
+        protected boolean delegating;
+
+        protected PopupInputLayer(DropDownBox owner) {
+            super(0, 0, 1, 1);
+            this.owner = owner;
+        }
+
+        protected boolean isDelegating() {
+            return delegating;
+        }
+
+        @Override
+        public @Nullable Widget getHoverElement(double mouseX, double mouseY) {
+            if (owner == null || !owner.expanded) return null;
+            if (owner.isMouseOverPopup(mouseX, mouseY) || owner.isMouseOverHeader(mouseX, mouseY)) {
+                return owner;
+            }
+            return this;
+        }
+
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            if (owner == null || !owner.expanded) return false;
+
+            delegating = true;
+            try {
+                return owner.handlePopupLayerMouseClicked(mouseX, mouseY, button);
+            } finally {
+                delegating = false;
+            }
+        }
+
+        @Override
+        public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+            if (owner == null || !owner.expanded) return false;
+
+            delegating = true;
+            try {
+                return owner.handlePopupLayerMouseDragged(mouseX, mouseY, button, dragX, dragY);
+            } finally {
+                delegating = false;
+            }
+        }
+
+        @Override
+        public boolean mouseReleased(double mouseX, double mouseY, int button) {
+            if (owner == null || !owner.expanded) return false;
+
+            delegating = true;
+            try {
+                return owner.handlePopupLayerMouseReleased(mouseX, mouseY, button);
+            } finally {
+                delegating = false;
+            }
+        }
+
+        @Override
+        public boolean mouseWheelMove(double mouseX, double mouseY, double wheelDelta) {
+            if (owner == null || !owner.expanded) return false;
+
+            delegating = true;
+            try {
+                return owner.handlePopupLayerMouseWheel(mouseX, mouseY, wheelDelta);
+            } finally {
+                delegating = false;
+            }
+        }
+
+        @Override
+        public void drawInBackground(@NonNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        }
+
+        @Override
+        public void drawInForeground(@NonNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        }
+
+        @Override
+        public void drawOverlay(@NonNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+            if (owner != null && owner.expanded) {
+                owner.drawPopupWithOptionOverlays(graphics, mouseX, mouseY, partialTicks);
+            }
+        }
     }
 
     protected static class Option {

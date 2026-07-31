@@ -12,6 +12,7 @@ import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
 import dev.sixik.sdmshop2.libs.shop.client.ui.ShopIcons;
 import dev.sixik.sdmshop2.libs.shop.components.misc.NameComponent;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.*;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ContextMenuWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.HorizontalContainer;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.table.ScrollableInteractionTable;
 import lombok.Getter;
@@ -221,4 +222,21 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
         return nameLabel.getSelfPositionY() + nameLabel.getSizeHeight() + OFFER_ELEMENTS_TABLE_TOP_GAP;
     }
 
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if(button == 1 && isMouseOverElement(mouseX, mouseY)) {
+            ContextMenuWidget.open(this, (int) mouseX, (int) mouseY, 120)
+                    .addItem("Copy", () -> {
+                        // copy action
+                    })
+                    .addSeparator()
+                    .addItem("Delete", () -> {
+                        // delete action
+                    });
+
+            return true;
+        }
+
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
 }
