@@ -20,6 +20,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
@@ -70,6 +71,11 @@ public class ItemRewardComponent extends RewardComponent {
         return new ShopEmptyWidget().setBackground(
                 new ItemStackTexture(item)
         ).setHoverTooltips(DrawerHelper.getItemToolTip(item));
+    }
+
+    @Override
+    public @Nullable Component getDisplayTitle() {
+        return Component.empty().append(rewardItem.getHoverName()).withStyle(rewardItem.getRarity().color);
     }
 
     private static class Type implements IComponentType<ItemRewardComponent> {

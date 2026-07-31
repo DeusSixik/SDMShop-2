@@ -1,6 +1,9 @@
 package dev.sixik.sdmshop2.libs.shop.components.api;
 
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Абстрактный компонент, представляющий награду.
@@ -19,5 +22,10 @@ public abstract class RewardComponent extends ShopComponent {
     @Override
     public ShopComponentCategory getCategory() {
         return ShopComponentCategory.REWARD;
+    }
+
+    @Nullable
+    public Component getDisplayTitle() {
+        return null;
     }
 }
