@@ -9,11 +9,10 @@ import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ShopBadgeWidget;
 import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ShopEmptyWidget;
 import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.ShopUiElement;
 import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
+import dev.sixik.sdmshop2.libs.shop.client.ui.ShopIcons;
 import dev.sixik.sdmshop2.libs.shop.components.misc.NameComponent;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ProgressBarWidget;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.SelectorList;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.*;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.HorizontalContainer;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.table.ScrollableInteractionTable;
 import lombok.Getter;
 import net.minecraft.client.Minecraft;
@@ -33,7 +32,6 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
     @Nullable
     private final ShopOffer shopEntity;
 
-
     @Nullable
     private TextLabel nameLabel;
     private final ButtonWidget buyButton;
@@ -43,10 +41,15 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
     private final ProgressBarWidget limitBar;
     private final ShopBadgeHBoxWidget badgesBox;
 
+    private final ButtonWidget favoriteButton;
 
     public ShopOfferElement(@Nullable ShopOffer shopEntity) {
         this.shopEntity = shopEntity;
         setBackground(new ColorRectAndBorderTexture());
+
+        addWidget(favoriteButton = new ButtonWidget());
+        favoriteButton.setBackground(ShopIcons.STAR_EMPTY);
+        favoriteButton.setSize(8, 8);
 
         badgesBox = new ShopBadgeHBoxWidget()
                 .scale(0.35f)
@@ -56,8 +59,6 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
             badgesBox.addBadge(new ShopBadgeWidget(Component.literal("Test: " + i)).autoSizeToContent());
         }
         addWidget(badgesBox);
-
-
 
         addWidget(limitBar = new ProgressBarWidget()
                 .setLeftText(Component.literal("Limit"))
@@ -71,7 +72,7 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
         if (shopEntity != null) {
             NameComponent nameComponent = shopEntity.getComponent(NameComponent.class).orElse(null);
             if (nameComponent != null) {
-                addWidget(nameLabel = (TextLabel) new TextLabel(Component.literal("Some Centered Text"))
+                addWidget(nameLabel = (TextLabel) new TextLabel(Component.literal("Some Centered Text big text so big!"))
                         .setAutoSize(false)
                         .setWrapText(false)
                         .setMaxLines(1)
@@ -101,15 +102,41 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
         buyButton = new ButtonWidget(Component.literal("Buy"));
         addWidget(buyButton);
 
-
-
-
         moneyType = new SelectorList();
 
         for (int i = 0; i < 3; i++) {
-            var widget = new ShopEmptyWidget().setBackground(new TextTexture("Test: " + i));
-            widget.setSizeHeight(Minecraft.getInstance().font.lineHeight);
-            moneyType.addOption(widget);
+            PriceWidget widget = new PriceWidget()
+                    .setPriceTexts("100$", "75$")
+                    .setOldPriceScale(0.75f)
+                    .setNewPriceScale(1.0f)
+                    .setGap(3)
+                    .setColors(0xFF888888, 0xFFFFFFFF, 0xFFAAAAAA)
+                    .autoSize()
+                    .setStrikeYRatio(0.40f);
+
+            HorizontalContainer container = new HorizontalContainer();
+            container.setPadding(4, 2).setSpacing(2);
+
+            var icon = new ShopEmptyWidget();
+            icon.setSize(8, 8);
+            icon.setBackground(ShopIcons.STAR_FULL);
+            container.addWidget(icon);
+            container.addWidget(widget);
+
+            PriceWidget widget2 = new PriceWidget()
+                    .setPriceTexts("100$", "75$")
+                    .setOldPriceScale(0.75f)
+                    .setNewPriceScale(1.0f)
+                    .setGap(3)
+                    .setColors(0xFF888888, 0xFFFFFFFF, 0xFFAAAAAA)
+                    .autoSize()
+                    .setStrikeYRatio(0.40f);
+            var icon2 = new ShopEmptyWidget();
+            icon2.setSize(8, 8);
+            icon2.setBackground(ShopIcons.STAR_FULL);
+            container.addWidget(icon2);
+            container.addWidget(widget2);
+            moneyType.addOption(container);
         }
 
         moneyType.allowEmptySelection()
@@ -164,6 +191,8 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
 
         moneyType.setSize(getSizeWidth() - 4, moneyType.getContentHeightWithScale());
         moneyType.setSelfPosition(2, buyButton.getSelfPositionY() + buyButton.getSizeHeight() + 2);
+
+        favoriteButton.setSelfPosition(getSizeWidth() - 4, -4);
     }
 
     private void alightOfferElementsTable() {

@@ -91,12 +91,14 @@ public abstract class LinearContainer<T extends LinearContainer<T>> extends Widg
     @Override
     public T addWidget(Widget widget) {
         super.addWidget(widget);
+        recomputeLayoutAndSize();
         return self();
     }
 
     @Override
     public T addWidget(int index, Widget widget) {
         super.addWidget(index, widget);
+        recomputeLayoutAndSize();
         return self();
     }
 
@@ -106,6 +108,18 @@ public abstract class LinearContainer<T extends LinearContainer<T>> extends Widg
             addWidget(widget);
         }
         return self();
+    }
+
+    @Override
+    public void removeWidget(Widget widget) {
+        super.removeWidget(widget);
+        recomputeLayoutAndSize();
+    }
+
+    @Override
+    public void clearAllWidgets() {
+        super.clearAllWidgets();
+        recomputeLayoutAndSize();
     }
 
     @Override

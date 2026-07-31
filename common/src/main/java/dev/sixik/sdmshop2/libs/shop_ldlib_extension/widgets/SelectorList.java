@@ -4,6 +4,7 @@ import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.utils.Position;
 import com.lowdragmc.lowdraglib.utils.Size;
 import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.LinearContainer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.Minecraft;
@@ -613,6 +614,32 @@ public class SelectorList extends Widget {
         int scaledWidgetHeight = getContentHeight(font, SelectorOption.widget(widget));
         int contentY = bounds.y + Math.max(0, (bounds.height - scaledWidgetHeight) / 2);
 
+        if (widget instanceof LinearContainer<?> linearContainer) {
+            drawLinearContainerOption(graphics, linearContainer, contentX, contentY, contentWidth, bounds, mouseX, mouseY, partialTicks, background, drawScale);
+            return;
+        }
+
+        if (widget instanceof PriceWidget priceWidget) {
+            if (!background) return;
+
+            int scaledWidgetWidth = Math.max(1, Math.round(widget.getSizeWidth() * drawScale));
+            int scaledWidgetHeightForDraw = Math.max(1, Math.round(widget.getSizeHeight() * drawScale));
+            graphics.enableScissor(contentX, bounds.y, bounds.x + bounds.width, bounds.y + bounds.height);
+            try {
+                priceWidget.drawInBackgroundAt(
+                        graphics,
+                        contentX,
+                        contentY,
+                        Math.min(contentWidth, scaledWidgetWidth),
+                        scaledWidgetHeightForDraw,
+                        drawScale
+                );
+            } finally {
+                graphics.disableScissor();
+            }
+            return;
+        }
+
         WidgetRenderState state = captureWidgetState(widget);
         graphics.enableScissor(contentX, bounds.y, bounds.x + bounds.width, bounds.y + bounds.height);
         try {
@@ -637,6 +664,77 @@ public class SelectorList extends Widget {
         } finally {
             restoreWidgetState(widget, state);
             graphics.disableScissor();
+        }
+    }
+
+    private void drawLinearContainerOption(
+            GuiGraphics graphics,
+            LinearContainer<?> container,
+            int contentX,
+            int contentY,
+            int contentWidth,
+            OptionBounds bounds,
+            int mouseX,
+            int mouseY,
+            float partialTicks,
+            boolean background,
+            float drawScale
+    ) {
+        graphics.enableScissor(contentX, bounds.y, bounds.x + bounds.width, bounds.y + bounds.height);
+        try {
+            for (Widget child : container.widgets) {
+                if (child == null || !child.isVisible()) continue;
+
+                int childX = contentX + Math.round(child.getSelfPositionX() * drawScale);
+                int childY = contentY + Math.round(child.getSelfPositionY() * drawScale);
+                int childWidth = Math.max(1, Math.round(child.getSizeWidth() * drawScale));
+                int childHeight = Math.max(1, Math.round(child.getSizeHeight() * drawScale));
+
+                if (child instanceof PriceWidget priceWidget) {
+                    if (background) {
+                        int availableChildWidth = Math.max(0, bounds.x + bounds.width - childX);
+                        priceWidget.drawInBackgroundAt(graphics, childX, childY, Math.min(availableChildWidth, childWidth), childHeight, drawScale);
+                    }
+                    continue;
+                }
+
+                drawChildWidgetAt(graphics, child, childX, childY, mouseX, mouseY, partialTicks, background, drawScale);
+            }
+        } finally {
+            graphics.disableScissor();
+        }
+    }
+
+    private void drawChildWidgetAt(
+            GuiGraphics graphics,
+            Widget child,
+            int x,
+            int y,
+            int mouseX,
+            int mouseY,
+            float partialTicks,
+            boolean background,
+            float drawScale
+    ) {
+        int childPositionX = child.getPositionX();
+        int childPositionY = child.getPositionY();
+        float translatedX = x - childPositionX * drawScale;
+        float translatedY = y - childPositionY * drawScale;
+
+        graphics.pose().pushPose();
+        try {
+            graphics.pose().translate(translatedX, translatedY, 0);
+            graphics.pose().scale(drawScale, drawScale, 1.0f);
+
+            int scaledMouseX = Math.round((mouseX - translatedX) / drawScale);
+            int scaledMouseY = Math.round((mouseY - translatedY) / drawScale);
+            if (background) {
+                child.drawInBackground(graphics, scaledMouseX, scaledMouseY, partialTicks);
+            } else {
+                child.drawInForeground(graphics, scaledMouseX, scaledMouseY, partialTicks);
+            }
+        } finally {
+            graphics.pose().popPose();
         }
     }
 

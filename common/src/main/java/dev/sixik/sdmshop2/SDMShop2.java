@@ -22,6 +22,7 @@ import dev.sixik.sdmshop2.libs.shop.register.ShopRegister;
 import dev.sixik.sdmshop2.libs.shop.scripting.events.ShopScriptEvents;
 import dev.sixik.sdmshop2.tests.economy.EconomyTest;
 import lombok.Getter;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.shadowking21.shadowconfig.config.ConfigSide;
 import net.shadowking21.shadowconfig.config.exstensions.yaml.SCYamlConfig;
@@ -91,5 +92,13 @@ public final class SDMShop2 {
 
     public static ShopConfig getConfig() {
         return TEMP_CONFIG;
+    }
+
+    public static ResourceLocation resource(String path) {
+        return ResourceLocation.tryBuild(MODID, path);
+    }
+
+    public static ResourceLocation resourceTexture(String path) {
+        return ResourceLocation.tryBuild(MODID, "textures/" + path);
     }
 }
