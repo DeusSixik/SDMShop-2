@@ -60,7 +60,7 @@ public class ShopOffersPanel extends ShopDraggableScrollableWidgetGroup implemen
         final Window window = minecraft.getWindow();
         final int gui_w = window.getGuiScaledWidth();
         final int gui_h = window.getGuiScaledHeight();
-        final int auto_element_w = gui_w / 5 + 20;
+        final int auto_element_w = gui_w / 4 + 20;
         int auto_element_h = gui_h / 4;
 
         auto_element_h = Math.max(auto_element_h, ITEM_HEIGHT);

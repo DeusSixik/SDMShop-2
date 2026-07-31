@@ -13,16 +13,15 @@ import java.util.Objects;
 @Getter
 public final class ShopOfferRenderBuilder {
 
+    @Nullable
+    private String title;
     private final ObjectArrayList<Badge> badges = new ObjectArrayList<>();
+    private final ObjectArrayList<Price> prices = new ObjectArrayList<>();
 
     public ShopOfferRenderBuilder() { }
 
-    public ShopOfferRenderBuilder addBadge(@Nullable Object icon, @Nullable String text) {
-        return addBadge(new Badge(icon, text));
-    }
-
-    public ShopOfferRenderBuilder addBadge(Badge badge) {
-        this.badges.add(badge);
+    public ShopOfferRenderBuilder title(String title) {
+        this.title = title;
         return this;
     }
 
@@ -36,4 +35,11 @@ public final class ShopOfferRenderBuilder {
                 throw new NullPointerException("Can't 'icon' and 'text' be null. Someone one must have value");
         }
     }
+
+    /**
+     * @param type {@code 0} is base price, {@code 1} is groups price
+     * @param icon can be {@link ItemStack}, {@link Item}, {@link Ingredient}, {@link ResourceLocation}
+     * @param parents if {@code type} == {@code 0} is always null if {@code type} == {@code 1} he contains others {@link Price}
+     */
+    public record Price(byte type, @Nullable Object icon, @Nullable String text, @Nullable Object... parents) { }
 }

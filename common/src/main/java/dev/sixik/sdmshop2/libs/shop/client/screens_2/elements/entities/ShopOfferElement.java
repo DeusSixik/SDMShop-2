@@ -53,7 +53,7 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
         favoriteButton.setSize(8, 8);
 
         badgesBox = new ShopBadgeHBoxWidget()
-                .scale(0.35f)
+                .scale(0.45f)
                 .scaleTooltipWithHBox()
                 .setSpacing(2);
         for (int i = 0; i < 10; i++) {
@@ -84,6 +84,8 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
             if (nameComponent != null) {
                 final String name = nameComponent.getName();
                 nameLabel.setText(I18n.exists(name) ? Component.translatable(name) : Component.literal(name));
+            } else {
+                nameLabel.setText(Component.literal("Hello fobos from Test"));
             }
         }
 
