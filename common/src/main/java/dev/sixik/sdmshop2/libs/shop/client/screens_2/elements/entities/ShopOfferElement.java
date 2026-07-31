@@ -17,6 +17,7 @@ import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.Horizonta
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.table.ScrollableInteractionTable;
 import lombok.Getter;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Items;
 import org.jetbrains.annotations.Nullable;
@@ -33,8 +34,7 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
     @Nullable
     private final ShopOffer shopEntity;
 
-    @Nullable
-    private TextLabel nameLabel;
+    private final TextLabel nameLabel;
     private final ButtonWidget buyButton;
     private final SelectorList moneyType;
 
@@ -70,17 +70,20 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
                 .setTextYOffset(-1)
         );
 
+        addWidget(nameLabel = (TextLabel) new TextLabel(Component.empty())
+                .setAutoSize(false)
+                .setWrapText(false)
+                .setMaxLines(1)
+                .setLineSpacing(0)
+                .setPadding(0)
+                .scaleToFit()
+                .setAlignment(TextLabel.HorizontalAlignment.CENTER, TextLabel.VerticalAlignment.CENTER));
+
         if (shopEntity != null) {
             NameComponent nameComponent = shopEntity.getComponent(NameComponent.class).orElse(null);
             if (nameComponent != null) {
-                addWidget(nameLabel = (TextLabel) new TextLabel(Component.literal("Some Centered Text big text so big!"))
-                        .setAutoSize(false)
-                        .setWrapText(false)
-                        .setMaxLines(1)
-                        .setLineSpacing(0)
-                        .setPadding(0)
-                        .scaleToFit()
-                        .setAlignment(TextLabel.HorizontalAlignment.CENTER, TextLabel.VerticalAlignment.CENTER));
+                final String name = nameComponent.getName();
+                nameLabel.setText(I18n.exists(name) ? Component.translatable(name) : Component.literal(name));
             }
         }
 
@@ -232,7 +235,7 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
                     .addSeparator()
                     .addItem("Delete", () -> {
                         // delete action
-                    });
+                    }).scale(0.7f);
 
             return true;
         }

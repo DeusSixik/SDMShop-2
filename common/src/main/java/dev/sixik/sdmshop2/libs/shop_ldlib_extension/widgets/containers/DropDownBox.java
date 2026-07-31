@@ -1330,13 +1330,13 @@ public class DropDownBox extends WidgetGroup {
 
         @Override
         public void drawInForeground(@NonNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+            if (owner != null && owner.expanded) {
+                owner.drawPopupWithOptionOverlays(graphics, mouseX, mouseY, partialTicks);
+            }
         }
 
         @Override
         public void drawOverlay(@NonNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-            if (owner != null && owner.expanded) {
-                owner.drawPopupWithOptionOverlays(graphics, mouseX, mouseY, partialTicks);
-            }
         }
     }
 

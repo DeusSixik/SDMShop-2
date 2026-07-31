@@ -10,7 +10,11 @@ import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import org.jetbrains.annotations.Nullable;
 import org.jspecify.annotations.NonNull;
+
+import java.util.IdentityHashMap;
+import java.util.Map;
 
 public class ContextMenuWidget extends WidgetGroup {
 
@@ -45,7 +49,9 @@ public class ContextMenuWidget extends WidgetGroup {
     protected boolean closeOnSelect = true;
     protected boolean closeOnOutsideClick = true;
     protected boolean closeOnFocusLost = true;
+    protected float scale = 1.0f;
     protected WidgetGroup attachedParent;
+    protected final Map<Widget, Integer> baseWidgetHeights = new IdentityHashMap<>();
 
     private boolean recomputingLayout;
     private boolean closing;
@@ -107,6 +113,30 @@ public class ContextMenuWidget extends WidgetGroup {
         return this;
     }
 
+    public ContextMenuWidget setScale(float scale) {
+        this.scale = Math.max(0.01f, scale);
+        applyBackground();
+        updateItemStyles();
+        recomputeLayoutAndSize();
+        return this;
+    }
+
+    public ContextMenuWidget scale(float scale) {
+        return setScale(scale);
+    }
+
+    public float getScale() {
+        return scale;
+    }
+
+    public int getScaledWidth() {
+        return scaleAtLeastOne(menuWidth);
+    }
+
+    public int getScaledHeight() {
+        return Math.max(1, getSizeHeight());
+    }
+
     public ContextMenuWidget close() {
         if (closing) return this;
         closing = true;
@@ -144,7 +174,7 @@ public class ContextMenuWidget extends WidgetGroup {
     }
 
     public ContextMenuWidget addSeparator() {
-        Widget separator = new Widget(0, 0, Math.max(1, getContentWidth()), Math.max(1, separatorHeight));
+        Widget separator = new Widget(0, 0, Math.max(1, getBaseContentWidth()), Math.max(1, separatorHeight));
         separator.setBackground(new ColorRectTexture(separatorColor));
         addMenuWidget(separator);
         return this;
@@ -153,6 +183,7 @@ public class ContextMenuWidget extends WidgetGroup {
     public ContextMenuWidget addMenuWidget(Widget widget) {
         if (widget == null) return this;
 
+        rememberBaseWidgetHeight(widget);
         super.addWidget(widget);
         recomputeLayoutAndSize();
         return this;
@@ -167,6 +198,7 @@ public class ContextMenuWidget extends WidgetGroup {
     public ContextMenuWidget addWidget(int index, Widget widget) {
         if (widget == null) return this;
 
+        rememberBaseWidgetHeight(widget);
         super.addWidget(index, widget);
         recomputeLayoutAndSize();
         return this;
@@ -185,12 +217,14 @@ public class ContextMenuWidget extends WidgetGroup {
     @Override
     public void removeWidget(Widget widget) {
         super.removeWidget(widget);
+        baseWidgetHeights.remove(widget);
         recomputeLayoutAndSize();
     }
 
     @Override
     public void clearAllWidgets() {
         super.clearAllWidgets();
+        baseWidgetHeights.clear();
         recomputeLayoutAndSize();
     }
 
@@ -301,6 +335,46 @@ public class ContextMenuWidget extends WidgetGroup {
     }
 
     @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (!isMouseOverElement(mouseX, mouseY)) return false;
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseWheelMove(double mouseX, double mouseY, double wheelDelta) {
+        if (!isMouseOverElement(mouseX, mouseY)) return false;
+        return super.mouseWheelMove(mouseX, mouseY, wheelDelta);
+    }
+
+    @Override
+    public boolean mouseMoved(double mouseX, double mouseY) {
+        if (!isMouseOverElement(mouseX, mouseY)) return false;
+        return super.mouseMoved(mouseX, mouseY);
+    }
+
+    @Override
+    public boolean isMouseOverElement(double mouseX, double mouseY) {
+        int x = getPositionX();
+        int y = getPositionY();
+        return mouseX >= x
+                && mouseY >= y
+                && mouseX < x + getScaledWidth()
+                && mouseY < y + getScaledHeight();
+    }
+
+    @Override
+    public @Nullable Widget getHoverElement(double mouseX, double mouseY) {
+        if (!isVisible() || !isMouseOverElement(mouseX, mouseY)) return null;
+        Widget hovered = super.getHoverElement(mouseX, mouseY);
+        return hovered == null ? this : hovered;
+    }
+
+    @Override
     public void onFocusChanged(Widget lastFocus, Widget focus) {
         if (!closing && closeOnFocusLost && !isFocus()) {
             close();
@@ -312,8 +386,18 @@ public class ContextMenuWidget extends WidgetGroup {
         super.drawInBackground(graphics, mouseX, mouseY, partialTicks);
     }
 
+    @Override
+    public void drawInForeground(@NonNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        super.drawInForeground(graphics, mouseX, mouseY, partialTicks);
+    }
+
+    @Override
+    public void drawOverlay(@NonNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        super.drawOverlay(graphics, mouseX, mouseY, partialTicks);
+    }
+
     private ButtonWidget createItemButton(Component text, Runnable action) {
-        ButtonWidget button = new ButtonWidget(0, 0, getContentWidth(), rowHeight, text, clickData -> {
+        ButtonWidget button = new ButtonWidget(0, 0, getBaseContentWidth(), rowHeight, text, clickData -> {
             if (closeOnSelect) {
                 close();
             }
@@ -323,7 +407,7 @@ public class ContextMenuWidget extends WidgetGroup {
         });
         button.setTextColor(textColor)
                 .setDisabledTextColor(disabledTextColor)
-                .setTextPadding(4)
+                .setTextPadding(getScaledButtonTextPadding())
                 .setButtonColors(rowFillColor, rowFillColor)
                 .setHoverColors(rowHoverFillColor, rowHoverFillColor)
                 .setClickedColors(rowHoverFillColor, rowHoverFillColor)
@@ -343,15 +427,18 @@ public class ContextMenuWidget extends WidgetGroup {
         recomputingLayout = true;
 
         try {
-            int y = padding;
+            int y = getScaledPadding();
             int contentWidth = getContentWidth();
 
             for (Widget widget : widgets) {
                 if (widget == null || !widget.isVisible()) continue;
 
-                widget.setSelfPosition(padding, y);
-                widget.setSize(contentWidth, widget instanceof ButtonWidget ? rowHeight : Math.max(1, widget.getSizeHeight()));
-                y += widget.getSizeHeight() + rowSpacing;
+                widget.setSelfPosition(getScaledPadding(), y);
+                widget.setSize(contentWidth, getScaledWidgetHeight(widget));
+                if (widget instanceof ButtonWidget button) {
+                    button.setTextPadding(getScaledButtonTextPadding());
+                }
+                y += widget.getSizeHeight() + getScaledRowSpacing();
             }
         } finally {
             recomputingLayout = false;
@@ -375,34 +462,39 @@ public class ContextMenuWidget extends WidgetGroup {
     @Override
     protected void onChildSizeUpdate(Widget child) {
         if (!recomputingLayout) {
+            updateBaseWidgetHeight(child);
             recomputeLayoutAndSize();
         }
     }
 
     private void recomputeSizeToContent() {
-        int height = padding * 2;
+        int height = getScaledPadding() * 2;
         int visibleWidgets = 0;
 
         for (Widget widget : widgets) {
             if (widget == null || !widget.isVisible()) continue;
 
-            height += widget.getSizeHeight();
+            height += getScaledWidgetHeight(widget);
             visibleWidgets++;
         }
 
         if (visibleWidgets > 1) {
-            height += rowSpacing * (visibleWidgets - 1);
+            height += getScaledRowSpacing() * (visibleWidgets - 1);
         }
 
-        setSize(menuWidth, Math.max(1, height));
+        setSize(getScaledWidth(), Math.max(1, height));
     }
 
     private int getContentWidth() {
+        return Math.max(1, getScaledWidth() - getScaledPadding() * 2);
+    }
+
+    private int getBaseContentWidth() {
         return Math.max(1, menuWidth - padding * 2);
     }
 
     private void applyBackground() {
-        setBackground(new ColorRectAndBorderTexture(fillColor, borderColor, 1).setRadius(radius));
+        setBackground(new ColorRectAndBorderTexture(fillColor, borderColor, Math.max(1, scaleAtLeastOne(1))).setRadius(radius * scale));
     }
 
     private void updateItemStyles() {
@@ -410,6 +502,7 @@ public class ContextMenuWidget extends WidgetGroup {
             if (widget instanceof ButtonWidget button) {
                 button.setTextColor(textColor)
                         .setDisabledTextColor(disabledTextColor)
+                        .setTextPadding(getScaledButtonTextPadding())
                         .setButtonColors(rowFillColor, rowFillColor)
                         .setHoverColors(rowHoverFillColor, rowHoverFillColor)
                         .setClickedColors(rowHoverFillColor, rowHoverFillColor)
@@ -425,9 +518,46 @@ public class ContextMenuWidget extends WidgetGroup {
         int screenWidth = minecraft.getWindow().getGuiScaledWidth();
         int screenHeight = minecraft.getWindow().getGuiScaledHeight();
 
-        int x = Math.max(0, Math.min(getSelfPositionX(), Math.max(0, screenWidth - getSizeWidth())));
-        int y = Math.max(0, Math.min(getSelfPositionY(), Math.max(0, screenHeight - getSizeHeight())));
+        int x = Math.max(0, Math.min(getSelfPositionX(), Math.max(0, screenWidth - getScaledWidth())));
+        int y = Math.max(0, Math.min(getSelfPositionY(), Math.max(0, screenHeight - getScaledHeight())));
         setSelfPosition(x, y);
+    }
+
+    private void rememberBaseWidgetHeight(Widget widget) {
+        if (widget == null || baseWidgetHeights.containsKey(widget)) return;
+        baseWidgetHeights.put(widget, Math.max(1, widget.getSizeHeight()));
+    }
+
+    private void updateBaseWidgetHeight(Widget widget) {
+        if (widget == null || widget instanceof ButtonWidget) return;
+        baseWidgetHeights.put(widget, Math.max(1, widget.getSizeHeight()));
+    }
+
+    private int getScaledWidgetHeight(Widget widget) {
+        int baseHeight = widget instanceof ButtonWidget
+                ? rowHeight
+                : baseWidgetHeights.getOrDefault(widget, Math.max(1, widget.getSizeHeight()));
+        return scaleAtLeastOne(baseHeight);
+    }
+
+    private int getScaledPadding() {
+        return scaleNonNegative(padding);
+    }
+
+    private int getScaledRowSpacing() {
+        return scaleNonNegative(rowSpacing);
+    }
+
+    private int getScaledButtonTextPadding() {
+        return scaleNonNegative(4);
+    }
+
+    private int scaleAtLeastOne(int value) {
+        return Math.max(1, Math.round(Math.max(1, value) * scale));
+    }
+
+    private int scaleNonNegative(int value) {
+        return Math.max(0, Math.round(Math.max(0, value) * scale));
     }
 
     private static void closeExistingContextMenus(WidgetGroup mainGroup) {
