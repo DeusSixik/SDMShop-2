@@ -14,6 +14,7 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.ShopIcons;
 import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentCategory;
+import dev.sixik.sdmshop2.libs.shop.components.limiter.LimiterComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.NameComponent;
 import dev.sixik.sdmshop2.libs.shop.components.utils.ShopComponentsUtils;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.*;
@@ -26,9 +27,11 @@ import lombok.Getter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 import net.minecraft.world.item.Items;
 import org.jetbrains.annotations.Nullable;
 
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +44,8 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
     private static final int OFFER_ELEMENTS_TABLE_VISIBLE_ROWS = 2;
     private static final int OFFER_ELEMENTS_TABLE_PADDING = 4;
     private static final int OFFER_ELEMENTS_TABLE_TOP_GAP = 4;
+
+    protected static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("#.##");
 
     @Getter
     @Nullable
@@ -139,9 +144,8 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
                         icon.setBackground(texture);
                         container.addWidget(icon);
                     }
-
                     final PriceWidget widget = new PriceWidget()
-                            .setPriceTexts(null, String.valueOf(component.getBaseAmount()))
+                            .setPriceTexts(null, DECIMAL_FORMAT.format(component.getBaseAmount()))
                             .setOldPriceScale(0.75f)
                             .setNewPriceScale(1.0f)
                             .setGap(3)
@@ -161,8 +165,24 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
         } else
             moneyTypesContainer = null;
 
+        final @Nullable LimiterComponent limiter_component = shopEntity.getComponent(LimiterComponent.class).orElse(null);
+        if(limiter_component != null) {
+            final int offer_limit_count = limiter_component.getCount();
+            final int player_limit = Math.max(0, limiter_component.getLimit(Minecraft.getInstance().player));
+
+            addWidget(limitBar = new ProgressBarWidget()
+                .setLeftText(Component.literal("Limit"))
+                .setRightText(Component.literal(player_limit + " / " + offer_limit_count))
+                .setProgress(Mth.clamp((float) player_limit / offer_limit_count, 0.0f, 1.0f))
+                .setScale(1.0f)
+                .setTextScale(0.4f)
+                .setTextYOffset(-1)
+        );
+        } else {
+            limitBar = null;
+        }
+
         badgesBox = null;
-        limitBar = null;
 
 //        for (int i = 0; i < 10; i++) {
 //            badgesBox.addBadge(new ShopBadgeWidget(Component.literal("Test: " + i)).autoSizeToContent());
@@ -184,74 +204,78 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
 
     @Override
     public void alightWidget() {
-        int space_x = 4;
-        int space_y = 4;
-
-        int headerWidth = this.getSizeWidth() - space_x * 2;
-        int headerHeight = this.getSizeHeight() / 4;
-
-        int badgeWidth = 26;
-        int badgeHeight = 10;
+        int contentPadding = 4;
+        int currentY = 4;
+        int contentWidth = Math.max(1, getSizeWidth() - contentPadding * 2);
 
         if (badgesBox != null) {
             badgesBox.setSelfPositionY(-2);
-            badgesBox.setSelfPositionX(2);
-            int badgesBoxWidth = Math.max(0, getSizeWidth() - 4);
+            badgesBox.setSelfPositionX(contentPadding / 2);
+            int badgesBoxWidth = Math.max(1, getSizeWidth() - contentPadding);
             badgesBox.setMaxLength(badgesBoxWidth);
-            badgesBox.setSize(badgesBoxWidth, badgeHeight + 4);
+            badgesBox.setSize(badgesBoxWidth, 14);
+            currentY = Math.max(currentY, badgesBox.getSelfPositionY() + badgesBox.getHeightWithScale() + OFFER_ELEMENTS_TABLE_TOP_GAP);
         }
 
-        if(limitBar != null) {
-            limitBar.setSelfPosition(2, getSize().height - 9);
+        if (limitBar != null) {
+            limitBar.setSelfPosition(contentPadding / 2, getSize().height - 9);
             limitBar.setBarHeight(2);
-            limitBar.setSize(getSize().width - 4, 6);
+            limitBar.setSize(getSize().width - contentPadding, 6);
         }
+
         if (nameLabel != null) {
-
-            int screen_w = this.getSizeWidth();
-            int title_y = 4 + (badgesBox == null ? 0 : badgesBox.getHeightWithScale());
-
-            nameLabel.setSelfPosition(0, title_y);
-            nameLabel.setSize(screen_w, Minecraft.getInstance().font.lineHeight);
+            nameLabel.setSelfPosition(0, currentY);
+            nameLabel.setSize(getSizeWidth(), Minecraft.getInstance().font.lineHeight);
+            currentY = nameLabel.getSelfPositionY() + nameLabel.getSizeHeight() + OFFER_ELEMENTS_TABLE_TOP_GAP;
         }
 
-        alightOfferElementsTable();
+        currentY = alightOfferElementsTable(currentY, contentPadding, contentWidth);
 
-        int moneyTypesVisualWidth = Math.max(1, getSizeWidth() - 4);
-        int moneyTypesLogicalWidth = Math.max(1, Math.round(moneyTypesVisualWidth / moneyTypesContainer.getScale()));
-        moneyTypesContainer.setSize(moneyTypesLogicalWidth, 100);
-        moneyTypesContainer.setSelfPosition(2, offerElementsTable.getSelfPositionY() + offerElementsTable.getSizeHeight() + 2);
-        for (HorizontalContainer row : moneyTypeRows) {
-            row.setSize(moneyTypesLogicalWidth, Math.max(1, row.getSizeHeight()));
+        if (moneyTypesContainer != null) {
+            int moneyTypesVisualWidth = Math.max(1, getSizeWidth() - contentPadding);
+            int moneyTypesLogicalWidth = Math.max(1, Math.round(moneyTypesVisualWidth / moneyTypesContainer.getScale()));
+            int moneyTypesY = currentY + 2;
+            int availableBottom = limitBar == null
+                    ? getSizeHeight() - contentPadding
+                    : limitBar.getSelfPositionY() - contentPadding;
+            int moneyTypesVisualHeight = Math.max(1, availableBottom - moneyTypesY);
+            int moneyTypesLogicalHeight = Math.max(1, Math.round(moneyTypesVisualHeight / moneyTypesContainer.getScale()));
+
+            moneyTypesContainer.setSize(moneyTypesLogicalWidth, moneyTypesLogicalHeight);
+            moneyTypesContainer.setSelfPosition(contentPadding / 2, moneyTypesY);
+            for (HorizontalContainer row : moneyTypeRows) {
+                row.setSize(moneyTypesLogicalWidth, Math.max(1, row.getSizeHeight()));
+            }
         }
 
-        favoriteButton.setSelfPosition(getSizeWidth() - 4, -4);
+        if (favoriteButton != null) {
+            favoriteButton.setSelfPosition(getSizeWidth() - favoriteButton.getSizeWidth() / 2, -favoriteButton.getSizeHeight() / 2);
+        }
     }
 
-    private void alightOfferElementsTable() {
-        int tableAvailableWidth = Math.max(1, getSizeWidth() - OFFER_ELEMENTS_TABLE_PADDING * 2);
-        int tableTop = getOfferElementsTableTop();
-        int tableBottom = Math.max(tableTop, limitBar.getSelfPositionY() - OFFER_ELEMENTS_TABLE_PADDING);
+    private int alightOfferElementsTable(int currentY, int contentPadding, int contentWidth) {
+        if (offerElementsTable == null) {
+            return currentY;
+        }
 
-        int yOffset = nameLabel == null ? 0 : nameLabel.getSizeHeight() + 4;
+        int tableAvailableWidth = Math.max(1, Math.min(contentWidth, getSizeWidth() - OFFER_ELEMENTS_TABLE_PADDING * 2));
+        int bottomLimit = limitBar == null
+                ? getSizeHeight() - contentPadding
+                : limitBar.getSelfPositionY() - OFFER_ELEMENTS_TABLE_PADDING;
+        int tableMaxRows = Math.max(1, Math.min(
+                OFFER_ELEMENTS_TABLE_VISIBLE_ROWS,
+                Math.max(1, (bottomLimit - currentY) / Math.max(1, DEBUG_SIZE_ELEMENT))
+        ));
 
         offerElementsTable
                 .setCellSize(DEBUG_SIZE_ELEMENT, DEBUG_SIZE_ELEMENT)
                 .setColumnsToFitWidth(tableAvailableWidth)
-                .setMaxRows(OFFER_ELEMENTS_TABLE_VISIBLE_ROWS);
+                .setMaxRows(tableMaxRows);
 
         int tableX = Math.max(0, (getSizeWidth() - offerElementsTable.getSizeWidth()) / 2);
-        int tableY = (badgesBox != null ? badgesBox.getHeightWithScale() : 0) + 4 + yOffset;
+        offerElementsTable.setSelfPosition(tableX, currentY);
 
-        offerElementsTable.setSelfPosition(tableX, tableY);
-    }
-
-    private int getOfferElementsTableTop() {
-        if (nameLabel == null) {
-            return 4 + (badgesBox != null ? badgesBox.getHeightWithScale() : 0) + OFFER_ELEMENTS_TABLE_TOP_GAP;
-        }
-
-        return nameLabel.getSelfPositionY() + nameLabel.getSizeHeight() + OFFER_ELEMENTS_TABLE_TOP_GAP;
+        return offerElementsTable.getSelfPositionY() + offerElementsTable.getSizeHeight();
     }
 
     @Override

@@ -10,59 +10,53 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 
+import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
-public class BlobTransfer {
+public final class BlobTransfer {
 
     public static final ResourceLocation CHANNEL = new ResourceLocation("sdm_platform_mod", "blob_channel");
 
-    /**
-     * Optimal chunk size: 50 KB.
-     * Too little = overhead on headers. Too much (1MB+) = network freezes.
-     */
     private static final int CHUNK_SIZE = 50 * 1024;
+    private static final int MAX_BLOB_SIZE = 32 * 1024 * 1024;
+    private static final long RECEIVER_TIMEOUT_MS = 30_000L;
 
-    private static class BlobReceiver {
-        final ByteBuf buffer = Unpooled.buffer();
-        int receivedChunks = 0;
-        long lastUpdateTime = System.currentTimeMillis();
-    }
-
-    private static final Map<Long, BlobReceiver> INCOMING_BUFFERS = new ConcurrentHashMap<>();
-    private static final ScheduledExecutorService CLEANUP_SCHEDULER = Executors.newSingleThreadScheduledExecutor();
+    private static final Map<BlobKey, BlobReceiver> INCOMING_BUFFERS = new ConcurrentHashMap<>();
+    private static final ScheduledExecutorService CLEANUP_SCHEDULER = Executors.newSingleThreadScheduledExecutor(daemonThreadFactory("sdm-blob-cleanup"));
+    private static final AtomicBoolean SERVER_INITIALIZED = new AtomicBoolean();
+    private static final AtomicBoolean CLIENT_INITIALIZED = new AtomicBoolean();
 
     static {
         CLEANUP_SCHEDULER.scheduleAtFixedRate(() -> {
             long now = System.currentTimeMillis();
-            INCOMING_BUFFERS.entrySet().removeIf(entry -> {
-                if (now - entry.getValue().lastUpdateTime > 30000) {
-                    entry.getValue().buffer.release();
-                    return true;
-                }
-                return false;
-            });
+            INCOMING_BUFFERS.entrySet().removeIf(entry -> now - entry.getValue().lastUpdateTime > RECEIVER_TIMEOUT_MS);
         }, 10, 10, TimeUnit.SECONDS);
     }
 
     public static void initServer() {
-        NetworkManager.registerReceiver(NetworkManager.Side.C2S, CHANNEL, BlobTransfer::onPacket);
+        if (SERVER_INITIALIZED.compareAndSet(false, true)) {
+            NetworkManager.registerReceiver(NetworkManager.Side.C2S, CHANNEL, BlobTransfer::onPacket);
+        }
     }
 
     @Environment(EnvType.CLIENT)
     public static void initClient() {
-        NetworkManager.registerReceiver(NetworkManager.Side.S2C, CHANNEL, BlobTransfer::onPacket);
+        if (CLIENT_INITIALIZED.compareAndSet(false, true)) {
+            NetworkManager.registerReceiver(NetworkManager.Side.S2C, CHANNEL, BlobTransfer::onPacket);
+        }
     }
 
-    /**
-     * Sends large amounts of data. Returns a Future that will complete when (theoretically) the transfer is finished.
-     * But for “request-response,” how we receive the data is more important to us.
-     */
     public static void sendToPlayer(ServerPlayer player, long responseId, FriendlyByteBuf hugeData) {
+        Objects.requireNonNull(player, "player");
         sendInternal(hugeData, responseId, buf -> NetworkManager.sendToPlayer(player, CHANNEL, buf));
     }
 
@@ -71,66 +65,147 @@ public class BlobTransfer {
     }
 
     private static void sendInternal(ByteBuf data, long id, Consumer<FriendlyByteBuf> sender) {
-        int totalSize = data.readableBytes();
-        int chunks = (int) Math.ceil((double) totalSize / CHUNK_SIZE);
+        Objects.requireNonNull(data, "data");
+        Objects.requireNonNull(sender, "sender");
 
-        /*
-             We use slice to avoid copying memory (Zero-Copy when reading)
-         */
-        for (int i = 0; i < chunks; i++) {
-            int offset = i * CHUNK_SIZE;
+        int totalSize = data.readableBytes();
+        if (totalSize > MAX_BLOB_SIZE) {
+            throw new IllegalArgumentException("Blob is too large: " + totalSize + " bytes, max " + MAX_BLOB_SIZE);
+        }
+
+        int totalChunks = Math.max(1, (int) Math.ceil((double) totalSize / CHUNK_SIZE));
+        int baseReaderIndex = data.readerIndex();
+
+        for (int chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+            int offset = chunkIndex * CHUNK_SIZE;
             int length = Math.min(CHUNK_SIZE, totalSize - offset);
 
             FriendlyByteBuf packet = new FriendlyByteBuf(Unpooled.buffer());
-            packet.writeLong(id);       // Request ID
-            packet.writeInt(i);         // Current chunk index
-            packet.writeInt(chunks);    // Total pieces
-
-            /*
-                We record a piece of data
-             */
-            packet.writeBytes(data, offset, length);
+            packet.writeLong(id);
+            packet.writeInt(chunkIndex);
+            packet.writeInt(totalChunks);
+            packet.writeInt(totalSize);
+            if (length > 0) {
+                packet.writeBytes(data, baseReaderIndex + offset, length);
+            }
 
             sender.accept(packet);
         }
-
-        data.release();
     }
 
     private static void onPacket(FriendlyByteBuf buf, NetworkManager.PacketContext context) {
+        if (buf.readableBytes() < Long.BYTES + Integer.BYTES * 3) {
+            SDMShop2.LOGGER.warn("Received malformed BlobTransfer packet: {} readable bytes", buf.readableBytes());
+            return;
+        }
+
         long id = buf.readLong();
         int chunkIndex = buf.readInt();
         int totalChunks = buf.readInt();
+        int totalSize = buf.readInt();
+        BlobKey key = BlobKey.of(context, id);
 
-        /*
-            Obtain or create a buffer for assembly
-         */
-        BlobReceiver receiver = INCOMING_BUFFERS.computeIfAbsent(id, k -> new BlobReceiver());
-        receiver.lastUpdateTime = System.currentTimeMillis();
+        if (!isHeaderValid(id, chunkIndex, totalChunks, totalSize, buf.readableBytes())) {
+            failTransfer(key, id, "Invalid BlobTransfer header");
+            return;
+        }
 
-        /*
-            IMPORTANT: Netty packets may arrive out of order (rarely, but it happens in UDP; in TCP, MC
-            guarantees order, but it is better to write to the end, relying on sequential sending).
-            Here, we simply write to the end, since TCP guarantees byte order.
-         */
-        receiver.buffer.writeBytes(buf);
-        receiver.receivedChunks++;
+        BlobReceiver receiver = INCOMING_BUFFERS.computeIfAbsent(key, ignored -> new BlobReceiver(totalChunks, totalSize));
+        FriendlyByteBuf completedData = null;
+        String failure = null;
 
-        /*
-            If this is the last piece
-         */
-        if (receiver.receivedChunks == totalChunks) {
-            INCOMING_BUFFERS.remove(id);
+        synchronized (receiver) {
+            if (receiver.totalChunks != totalChunks || receiver.totalSize != totalSize) {
+                failure = "BlobTransfer metadata changed during transfer";
+            } else if (receiver.chunks[chunkIndex] != null) {
+                receiver.lastUpdateTime = System.currentTimeMillis();
+                return;
+            } else {
+                int payloadSize = buf.readableBytes();
+                byte[] payload = new byte[payloadSize];
+                buf.readBytes(payload);
+                receiver.chunks[chunkIndex] = payload;
+                receiver.receivedChunks++;
+                receiver.lastUpdateTime = System.currentTimeMillis();
 
-            /*
-                If this was a response to our AsyncBridge request -> we complete it
-             */
-            FriendlyByteBuf fullData = new FriendlyByteBuf(receiver.buffer);
-            context.queue(() -> completeBridgeRequest(id, fullData));
+                if (receiver.receivedChunks == receiver.totalChunks) {
+                    completedData = receiver.assemble();
+                }
+            }
+        }
+
+        if (failure != null) {
+            failTransfer(key, id, failure);
+            return;
+        }
+
+        if (completedData != null) {
+            INCOMING_BUFFERS.remove(key, receiver);
+            FriendlyByteBuf finalData = completedData;
+            context.queue(() -> AsyncBridge.completeExternal(id, finalData));
         }
     }
 
-    private static void completeBridgeRequest(long id, FriendlyByteBuf data) {
-        AsyncBridge.completeExternal(id, data);
+    private static boolean isHeaderValid(long id, int chunkIndex, int totalChunks, int totalSize, int payloadSize) {
+        if (totalChunks <= 0 || chunkIndex < 0 || chunkIndex >= totalChunks) return false;
+        if (totalSize < 0 || totalSize > MAX_BLOB_SIZE) return false;
+        if (payloadSize > CHUNK_SIZE) return false;
+        if (totalChunks != Math.max(1, (int) Math.ceil((double) totalSize / CHUNK_SIZE))) return false;
+
+        int expectedPayloadSize = totalSize == 0
+                ? 0
+                : Math.min(CHUNK_SIZE, totalSize - chunkIndex * CHUNK_SIZE);
+        return expectedPayloadSize == payloadSize;
+    }
+
+    private static void failTransfer(BlobKey key, long id, String message) {
+        INCOMING_BUFFERS.remove(key);
+        SDMShop2.LOGGER.warn("{} for id {}", message, id);
+        AsyncBridge.failExternal(id, new IllegalStateException(message));
+    }
+
+    private static ThreadFactory daemonThreadFactory(String name) {
+        return runnable -> {
+            Thread thread = new Thread(runnable, name);
+            thread.setDaemon(true);
+            return thread;
+        };
+    }
+
+    private static final class BlobReceiver {
+        private final byte[][] chunks;
+        private final int totalChunks;
+        private final int totalSize;
+        private int receivedChunks;
+        private long lastUpdateTime = System.currentTimeMillis();
+
+        private BlobReceiver(int totalChunks, int totalSize) {
+            this.totalChunks = totalChunks;
+            this.totalSize = totalSize;
+            this.chunks = new byte[totalChunks][];
+        }
+
+        private FriendlyByteBuf assemble() {
+            ByteBuf byteBuf = Unpooled.buffer(totalSize);
+            for (byte[] chunk : chunks) {
+                if (chunk != null && chunk.length > 0) {
+                    byteBuf.writeBytes(chunk);
+                }
+            }
+            Arrays.fill(chunks, null);
+            return new FriendlyByteBuf(byteBuf);
+        }
+    }
+
+    private record BlobKey(UUID playerId, long id) {
+        private static BlobKey of(NetworkManager.PacketContext context, long id) {
+            if (context.getPlayer() instanceof ServerPlayer serverPlayer) {
+                return new BlobKey(serverPlayer.getUUID(), id);
+            }
+            return new BlobKey(null, id);
+        }
+    }
+
+    private BlobTransfer() {
     }
 }

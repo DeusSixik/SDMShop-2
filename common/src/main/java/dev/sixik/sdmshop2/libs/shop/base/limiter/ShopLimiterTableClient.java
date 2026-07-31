@@ -36,7 +36,7 @@ public final class ShopLimiterTableClient implements ShopLimiterTable {
 
     @Override
     public ShopLimiterPlayerData getPlayerData(Player player) {
-        return getPlayerData(player);
+        return getPlayerData(player.getGameProfile().getId());
     }
 
     /**

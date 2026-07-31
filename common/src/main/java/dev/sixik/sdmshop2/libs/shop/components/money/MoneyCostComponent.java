@@ -4,6 +4,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.lowdragmc.lowdraglib.gui.texture.ItemStackTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ResourceTexture;
+import com.lowdragmc.lowdraglib.gui.texture.TextTexture;
 import com.lowdragmc.lowdraglib.gui.texture.TransformTexture;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import dev.sixik.sdmshop2.SDMShop2;
@@ -122,30 +123,23 @@ public class MoneyCostComponent extends CostComponent {
         TransformTexture texture = null;
         switch (icon.type()) {
             case NONE -> {
-                break;
             }
             case ITEM -> {
                 if(icon_object instanceof Item item) {
                     texture = new ItemStackTexture(item);
-                    break;
-                }
-                if(icon_object instanceof ItemStack item) {
+                } else if(icon_object instanceof ItemStack item) {
                     texture = new ItemStackTexture(item);
-                    break;
+                } else if(icon_object instanceof Ingredient ingredient) {
+                    texture = new ItemStackTexture(ingredient.getItems());
                 }
-
-                Ingredient ingredient = (Ingredient) icon_object;
-                texture = new ItemStackTexture(ingredient.getItems());
             }
             case TEXTURE -> {
                 if(icon_object instanceof ResourceLocation location) {
                     texture = new ResourceTexture(location);
-                    break;
-                }
-
-                if(icon_object instanceof String location) {
-                    texture = new ResourceTexture(location);
-                    break;
+                } else if(icon_object instanceof String location) {
+                    if(ResourceLocation.isValidResourceLocation(location))
+                        texture = new ResourceTexture(location);
+                    else texture = new TextTexture(location);
                 }
             }
         }

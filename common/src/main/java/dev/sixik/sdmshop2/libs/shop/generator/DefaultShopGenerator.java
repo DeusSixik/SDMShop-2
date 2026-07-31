@@ -9,6 +9,7 @@ import dev.sixik.sdmshop2.libs.shop.base.ShopTable;
 import dev.sixik.sdmshop2.libs.shop.builder.ShopBuilder;
 import dev.sixik.sdmshop2.libs.shop.builder.ShopOfferBuilder;
 import dev.sixik.sdmshop2.libs.shop.components.ItemRewardComponent;
+import dev.sixik.sdmshop2.libs.shop.components.limiter.LimiterComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.NameComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
@@ -108,6 +109,7 @@ public class DefaultShopGenerator {
                 ShopOfferBuilder.builder(RARES_GROUP)
                         .addComponent(new ItemRewardComponent(new ItemStack(Items.DRAGON_EGG), 1))
                         .addComponent(new NameComponent("My World Name"))
+                        .addComponent(new LimiterComponent(LimiterComponent.LimiterType.Player, 50))
                         .addPrice(NETHERITE_MONEY, 2)
                         .addPrice(DIAMOND_MONEY, 10)
                         .addPrice(GOLD_MONEY, 32)

@@ -143,6 +143,20 @@ public class LimiterComponent extends ShopComponent {
         }
     }
 
+    /**
+     * Возвращает оставшийся лимит у игрока для данного товара
+     */
+    public int getLimit(Player player) {
+        final ShopLimiterTable limiterTable = ShopUtils.getLimiterTable(player.isLocalPlayer()).orElse(null);
+        if(limiterTable == null)
+            return count;
+
+        final int limit = limiterType == LimiterType.Player ?
+                limiterTable.getPlayerData(player).getData(this.rootId).get() :
+                limiterTable.getOfferDatga(this.rootId).get();
+        return count - limit;
+    }
+
     @Override
     public IComponentType<?> getType() {
         return TYPE;

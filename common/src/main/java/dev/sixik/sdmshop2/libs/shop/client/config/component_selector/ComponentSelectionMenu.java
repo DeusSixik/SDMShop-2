@@ -366,7 +366,9 @@ public class ComponentSelectionMenu {
                 else if (componentIconObject instanceof SimpleTexture simpleTexture)
                     yield new ResourceTexture(((SimpleTextureAccessor) simpleTexture).getLocation());
                 else if (componentIconObject instanceof String id)
-                    yield new ResourceTexture(ResourceLocation.tryParse(id));
+                    if(ResourceLocation.isValidResourceLocation(id))
+                        yield new ResourceTexture(ResourceLocation.tryParse(id));
+                    else yield new TextTexture(id);
                 else
                     yield new ItemStackTexture((ItemStack) CurrencyIcon.ICE.icon());
             }
