@@ -14,7 +14,7 @@ import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ProgressBarWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.SelectorList;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.table.InteractionTable;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.table.ScrollableInteractionTable;
 import lombok.Getter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
@@ -23,8 +23,9 @@ import org.jetbrains.annotations.Nullable;
 
 public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
 
-    private static final int DEBUG_COUNTS_ELEMENTS = 24;
+    private static final int DEBUG_COUNTS_ELEMENTS = 50;
     private static final int DEBUG_SIZE_ELEMENT = 8;
+    private static final int OFFER_ELEMENTS_TABLE_VISIBLE_ROWS = 2;
     private static final int OFFER_ELEMENTS_TABLE_PADDING = 4;
     private static final int OFFER_ELEMENTS_TABLE_TOP_GAP = 4;
 
@@ -38,7 +39,7 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
     private final ButtonWidget buyButton;
     private final SelectorList moneyType;
 
-    private final InteractionTable offerElementsTable;
+    private final ScrollableInteractionTable offerElementsTable;
     private final ProgressBarWidget limitBar;
     private final ShopBadgeHBoxWidget badgesBox;
 
@@ -81,7 +82,10 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
             }
         }
 
-        addWidget(offerElementsTable = new InteractionTable());
+        addWidget(offerElementsTable = new ScrollableInteractionTable()
+                .setMaxRows(OFFER_ELEMENTS_TABLE_VISIBLE_ROWS)
+                .setWheelRows(1)
+                .reserveScrollBarSpace());
 
         for (int i = 0; i < DEBUG_COUNTS_ELEMENTS; i++) {
 
@@ -167,14 +171,12 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
         int tableTop = getOfferElementsTableTop();
         int tableBottom = Math.max(tableTop, limitBar.getSelfPositionY() - OFFER_ELEMENTS_TABLE_PADDING);
 
-        int columns = calculateOfferElementsColumns(tableAvailableWidth);
-        int rows = calculateOfferElementsRows(columns);
-
         int yOffset = nameLabel == null ? 0 : nameLabel.getSizeHeight() + 4;
 
         offerElementsTable
                 .setCellSize(DEBUG_SIZE_ELEMENT, DEBUG_SIZE_ELEMENT)
-                .setCollAndRow(columns, rows);
+                .setColumnsToFitWidth(tableAvailableWidth)
+                .setMaxRows(OFFER_ELEMENTS_TABLE_VISIBLE_ROWS);
 
         int tableX = Math.max(0, (getSizeWidth() - offerElementsTable.getSizeWidth()) / 2);
         int tableY = badgesBox.getHeightWithScale() + 4 + yOffset;
@@ -190,12 +192,4 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
         return nameLabel.getSelfPositionY() + nameLabel.getSizeHeight() + OFFER_ELEMENTS_TABLE_TOP_GAP;
     }
 
-    private int calculateOfferElementsColumns(int availableWidth) {
-        int maxColumns = Math.max(1, availableWidth / Math.max(1, DEBUG_SIZE_ELEMENT));
-        return Math.max(1, Math.min(DEBUG_COUNTS_ELEMENTS, maxColumns));
-    }
-
-    private int calculateOfferElementsRows(int columns) {
-        return Math.max(1, (DEBUG_COUNTS_ELEMENTS + Math.max(1, columns) - 1) / Math.max(1, columns));
-    }
 }
