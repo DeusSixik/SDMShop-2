@@ -71,7 +71,7 @@ public class DefaultShopOfferElementRender implements OfferElementRender {
 
     @Override
     public void constructor(OfferElementContextRender ctx) {
-        ctx.getOwner().setBackground(new ColorRectAndBorderTexture());
+        ctx.getOwner().setBackground(new ColorRectAndBorderTexture().setRadius(4));
     }
 
     @Override
@@ -294,6 +294,7 @@ public class DefaultShopOfferElementRender implements OfferElementRender {
         for (Map.Entry<String, List<CostComponent>> entry : costComponents.entrySet()) {
             final List<CostComponent> entries = entry.getValue();
             final HorizontalContainer container = new HorizontalContainer();
+            container.setBackground(new ColorRectAndBorderTexture().setRadius(4));
             container.setPadding(4, 2).setSpacing(4);
             container.alignBottom();
             container.pushLastElementToEnd();
