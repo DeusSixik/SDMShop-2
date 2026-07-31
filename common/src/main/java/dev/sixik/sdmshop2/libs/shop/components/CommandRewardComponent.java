@@ -1,17 +1,25 @@
 package dev.sixik.sdmshop2.libs.shop.components;
 
 import com.google.gson.JsonObject;
+import com.lowdragmc.lowdraglib.gui.texture.ItemStackTexture;
+import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.IconType;
+import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ShopEmptyWidget;
+import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.entities.ShopOfferElement;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
 import lombok.Getter;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Items;
+import org.jetbrains.annotations.Nullable;
 
 public class CommandRewardComponent extends RewardComponent {
 
@@ -19,6 +27,8 @@ public class CommandRewardComponent extends RewardComponent {
     public static final String DEFAULT_COMMAND = "/time set day";
 
     public static final IComponentType<CommandRewardComponent> TYPE = new Type();
+
+    protected static final ItemStackTexture DEFAULT_TEXTURE = new ItemStackTexture(Items.COMMAND_BLOCK);
 
     @Getter
     @ComponentConfig(translationKey = "shop.component.reward.command.display_name")
@@ -52,6 +62,13 @@ public class CommandRewardComponent extends RewardComponent {
     @Override
     public IComponentType<?> getType() {
         return TYPE;
+    }
+
+    @Override
+    @Environment(EnvType.CLIENT)
+    public @Nullable Widget createRender() {
+        return new ShopEmptyWidget().setBackground(DEFAULT_TEXTURE)
+                .setHoverTooltips(Component.translatable("shop.ui.offer_element.component.reward.command", command));
     }
 
     private static class Type implements IComponentType<CommandRewardComponent> {

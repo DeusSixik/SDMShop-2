@@ -275,18 +275,25 @@ public class TextLabel extends Widget {
 
     @Override
     public void drawInBackground(@NonNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-        super.drawInBackground(graphics, mouseX, mouseY, partialTicks);
-        drawHighlight(graphics, mouseX, mouseY);
+        drawInBackgroundAt(graphics, mouseX, mouseY, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight(), 1.0f);
+    }
+
+    public void drawInBackgroundAt(@NonNull GuiGraphics graphics, int mouseX, int mouseY, int x, int y, int width, int height, float externalScale) {
+        drawBackgroundTextureAt(graphics, mouseX, mouseY, x, y, width, height);
+        drawHighlight(graphics, x, y, width, height, externalScale);
         ensureLayout();
         if (renderLines.isEmpty()) return;
 
-        int contentX = getPositionX() + paddingLeft;
-        int contentY = getPositionY() + paddingTop;
-        int contentWidth = getContentWidth();
-        int contentHeight = getContentHeight();
+        float safeExternalScale = Math.max(0.01f, externalScale);
+        int contentX = x + Math.round(paddingLeft * safeExternalScale);
+        int contentY = y + Math.round(paddingTop * safeExternalScale);
+        int contentWidth = Math.max(0, width - Math.round((paddingLeft + paddingRight) * safeExternalScale));
+        int contentHeight = Math.max(0, height - Math.round((paddingTop + paddingBottom) * safeExternalScale));
+        if (contentWidth <= 0 || contentHeight <= 0) return;
 
-        int blockWidth = Math.round(textBlockWidth * renderScale);
-        int blockHeight = Math.round(textBlockHeight * renderScale);
+        float drawScale = renderScale * safeExternalScale;
+        int blockWidth = Math.round(textBlockWidth * drawScale);
+        int blockHeight = Math.round(textBlockHeight * drawScale);
         int drawX = switch (horizontalAlignment) {
             case CENTER -> contentX + Math.max(0, (contentWidth - blockWidth) / 2);
             case RIGHT -> contentX + Math.max(0, contentWidth - blockWidth);
@@ -303,7 +310,7 @@ public class TextLabel extends Widget {
         PoseStack poseStack = graphics.pose();
         poseStack.pushPose();
         poseStack.translate(drawX, drawY, 0);
-        poseStack.scale(renderScale, renderScale, 1.0f);
+        poseStack.scale(drawScale, drawScale, 1.0f);
 
         Font font = Minecraft.getInstance().font;
         int lineStep = font.lineHeight + lineSpacing;
@@ -322,15 +329,27 @@ public class TextLabel extends Widget {
         graphics.disableScissor();
     }
 
-    private void drawHighlight(GuiGraphics graphics, int mouseX, int mouseY) {
-        if (!highlighted || highlightColor == 0 || getSizeWidth() <= 0 || getSizeHeight() <= 0) return;
+    private void drawBackgroundTextureAt(GuiGraphics graphics, int mouseX, int mouseY, int x, int y, int width, int height) {
+        if (width <= 0 || height <= 0) return;
+
+        boolean hovered = isMouseOver(x, y, width, height, mouseX, mouseY);
+        if (backgroundTexture != null && (!hovered || drawBackgroundWhenHover)) {
+            backgroundTexture.draw(graphics, mouseX, mouseY, x, y, width, height);
+        }
+        if (hoverTexture != null && hovered && isActive()) {
+            hoverTexture.draw(graphics, mouseX, mouseY, x, y, width, height);
+        }
+    }
+
+    private void drawHighlight(GuiGraphics graphics, int x, int y, int width, int height, float externalScale) {
+        if (!highlighted || highlightColor == 0 || width <= 0 || height <= 0) return;
 
         if (highlightMode == HighlightMode.FILL) {
-            graphics.fill(getPositionX(), getPositionY(), getPositionX() + getSizeWidth(), getPositionY() + getSizeHeight(), highlightColor);
+            graphics.fill(x, y, x + width, y + height, highlightColor);
             return;
         }
 
-        drawOutline(graphics, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight(), highlightColor, 1);
+        drawOutline(graphics, x, y, width, height, highlightColor, Math.max(1, Math.round(externalScale)));
     }
 
     private void drawOutline(GuiGraphics graphics, int x, int y, int width, int height, int color, int thickness) {

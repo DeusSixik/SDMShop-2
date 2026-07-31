@@ -1,10 +1,14 @@
 package dev.sixik.sdmshop2.libs.shop.components.api;
 
 import com.google.gson.JsonObject;
+import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.components.api.exceptions.ValidationException;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Базовый класс для всех компонентов магазина.
@@ -41,6 +45,13 @@ public abstract class ShopComponent {
      * @return Объект типа компонента
      */
     public abstract IComponentType<?> getType();
+
+    /**
+     * Возвращает категорию компонента для сортировоки и поиска
+     */
+    public ShopComponentCategory getCategory() {
+        return ShopComponentCategory.MISC;
+    }
 
     /**
      * Возвращает корневую сущность, которой принадлежит данный компонент.
@@ -107,4 +118,10 @@ public abstract class ShopComponent {
     public void additionalToNetwork(FriendlyByteBuf buf) { }
 
     public void additionalFromNetwork(FriendlyByteBuf buf) { }
+
+    @Nullable
+    @Environment(EnvType.CLIENT)
+    public Widget createRender() {
+        return null;
+    }
 }

@@ -2,14 +2,20 @@ package dev.sixik.sdmshop2.libs.shop.components;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
+import com.lowdragmc.lowdraglib.gui.texture.ItemStackTexture;
+import com.lowdragmc.lowdraglib.gui.util.DrawerHelper;
+import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.IconType;
+import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ShopEmptyWidget;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentNumberRange;
 import dev.sixik.sdmshop2.utils.ShopItemHelper;
 import lombok.Getter;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
@@ -19,6 +25,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import org.jetbrains.annotations.Nullable;
 
 public class ItemRewardComponent extends RewardComponent {
 
@@ -54,6 +61,15 @@ public class ItemRewardComponent extends RewardComponent {
     @Override
     public IComponentType<?> getType() {
         return TYPE;
+    }
+
+    @Override
+    @Environment(EnvType.CLIENT)
+    public @Nullable Widget createRender() {
+        final ItemStack item = rewardItem.copyWithCount(amount);
+        return new ShopEmptyWidget().setBackground(
+                new ItemStackTexture(item)
+        ).setHoverTooltips(DrawerHelper.getItemToolTip(item));
     }
 
     private static class Type implements IComponentType<ItemRewardComponent> {

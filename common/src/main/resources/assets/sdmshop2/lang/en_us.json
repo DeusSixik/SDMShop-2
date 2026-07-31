@@ -74,5 +74,9 @@
   "component.sdm.caregory.reward" : "Rewards",
   "component.sdm.caregory.cost" : "Costs",
   "component.sdm.caregory.promo" : "Promo",
-  "component.sdm.caregory.promo_effect" : "Promo Effects"
+  "component.sdm.caregory.promo_effect" : "Promo Effects",
+
+  "shop.ui.offer_element.button.buy" : "Buy",
+  "shop.ui.offer_element.button.sell" : "Sell",
+  "shop.ui.offer_element.component.reward.command" : "Reward execute %s command"
 }

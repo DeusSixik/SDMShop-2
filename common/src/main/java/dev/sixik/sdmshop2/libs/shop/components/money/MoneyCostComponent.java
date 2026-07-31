@@ -2,17 +2,29 @@ package dev.sixik.sdmshop2.libs.shop.components.money;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
+import com.lowdragmc.lowdraglib.gui.texture.ItemStackTexture;
+import com.lowdragmc.lowdraglib.gui.texture.ResourceTexture;
+import com.lowdragmc.lowdraglib.gui.texture.TransformTexture;
+import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.sdmeconomy.*;
+import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
+import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ShopEmptyWidget;
 import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentNumberRange;
 import lombok.Getter;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.Ingredient;
+import org.jetbrains.annotations.Nullable;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -92,6 +104,53 @@ public class MoneyCostComponent extends CostComponent {
     @Override
     public IComponentType<?> getType() {
         return TYPE;
+    }
+
+    @Override
+    @Environment(EnvType.CLIENT)
+    public TransformTexture getRenderIcon() {
+        final Map<ResourceLocation, IExternalCurrency> cur_map = SDMEconomyCurrencyRegistry.getCurrenciesMap();
+        if(!cur_map.containsKey(moneyId)) {
+            SDMShop2.LOGGER.error("Can't find money with id '{}' and can't create render widget", moneyId);
+            return null;
+        }
+
+        final IExternalCurrency money = cur_map.get(moneyId);
+        final CurrencyIcon icon = money.getIcon();
+        final Object icon_object = icon.icon();
+
+        TransformTexture texture = null;
+        switch (icon.type()) {
+            case NONE -> {
+                break;
+            }
+            case ITEM -> {
+                if(icon_object instanceof Item item) {
+                    texture = new ItemStackTexture(item);
+                    break;
+                }
+                if(icon_object instanceof ItemStack item) {
+                    texture = new ItemStackTexture(item);
+                    break;
+                }
+
+                Ingredient ingredient = (Ingredient) icon_object;
+                texture = new ItemStackTexture(ingredient.getItems());
+            }
+            case TEXTURE -> {
+                if(icon_object instanceof ResourceLocation location) {
+                    texture = new ResourceTexture(location);
+                    break;
+                }
+
+                if(icon_object instanceof String location) {
+                    texture = new ResourceTexture(location);
+                    break;
+                }
+            }
+        }
+
+        return texture;
     }
 
     private static class Type implements IComponentType<MoneyCostComponent> {

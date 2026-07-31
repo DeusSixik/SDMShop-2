@@ -1,11 +1,15 @@
 package dev.sixik.sdmshop2.libs.shop.components.api;
 
 import com.google.gson.JsonObject;
+import com.lowdragmc.lowdraglib.gui.texture.TransformTexture;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
 import lombok.Getter;
 import lombok.Setter;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.player.Player;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Абстрактный компонент, представляющий стоимость покупки.
@@ -68,5 +72,13 @@ public abstract class CostComponent extends ShopComponent {
     @Override
     public void additionalFromNetwork(FriendlyByteBuf buf) {
         groupId = buf.readUtf();
+    }
+
+    @Environment(EnvType.CLIENT)
+    public abstract TransformTexture getRenderIcon();
+
+    @Override
+    public ShopComponentCategory getCategory() {
+        return ShopComponentCategory.COST;
     }
 }

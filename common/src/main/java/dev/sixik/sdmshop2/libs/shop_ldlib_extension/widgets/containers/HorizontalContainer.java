@@ -21,6 +21,18 @@ public class HorizontalContainer extends LinearContainer<HorizontalContainer> {
         super(true, x, y, width, height);
     }
 
+    public HorizontalContainer alignTop() {
+        return setCrossAxisAlignment(CrossAxisAlignment.START);
+    }
+
+    public HorizontalContainer alignMiddle() {
+        return setCrossAxisAlignment(CrossAxisAlignment.CENTER);
+    }
+
+    public HorizontalContainer alignBottom() {
+        return setCrossAxisAlignment(CrossAxisAlignment.END);
+    }
+
     @Override
     protected HorizontalContainer self() {
         return this;

@@ -47,4 +47,9 @@ public abstract class PromoComponent extends ShopComponent {
     public void additionalToNetwork(FriendlyByteBuf buf) {
         buf.writeUtf(promoId);
     }
+
+    @Override
+    public ShopComponentCategory getCategory() {
+        return ShopComponentCategory.PROMO;
+    }
 }

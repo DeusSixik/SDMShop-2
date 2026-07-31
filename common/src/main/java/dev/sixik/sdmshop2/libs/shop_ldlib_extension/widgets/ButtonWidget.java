@@ -224,34 +224,44 @@ public class ButtonWidget extends Widget {
     @Override
     @Environment(EnvType.CLIENT)
     public void drawInBackground(@NonNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-        super.drawInBackground(graphics, mouseX, mouseY, partialTicks);
-        drawText(graphics);
+        drawInBackgroundAt(graphics, mouseX, mouseY, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight(), 1.0f);
+    }
+
+    public void drawInBackgroundAt(@NonNull GuiGraphics graphics, int mouseX, int mouseY, int x, int y, int width, int height, float externalScale) {
+        drawButtonBackgroundAt(graphics, mouseX, mouseY, x, y, width, height);
+        drawTextAt(graphics, x, y, width, height, externalScale);
     }
 
     @Override
     @Environment(EnvType.CLIENT)
     protected void drawBackgroundTexture(@NonNull GuiGraphics graphics, int mouseX, int mouseY) {
+        drawButtonBackgroundAt(graphics, mouseX, mouseY, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
+    }
+
+    private void drawButtonBackgroundAt(GuiGraphics graphics, int mouseX, int mouseY, int x, int y, int width, int height) {
+        if (width <= 0 || height <= 0) return;
+
         RenderSystem.setShaderColor(1, 1, 1, 1);
         RenderSystem.enableBlend();
 
-        drawTexture(buttonTexture, graphics, mouseX, mouseY);
+        drawTextureAt(buttonTexture, graphics, mouseX, mouseY, x, y, width, height);
 
         if (!isActive()) {
             if (disabledTexture != null) {
-                drawTexture(disabledTexture, graphics, mouseX, mouseY);
+                drawTextureAt(disabledTexture, graphics, mouseX, mouseY, x, y, width, height);
             } else {
-                graphics.fill(getPositionX(), getPositionY(), getPositionX() + getSizeWidth(), getPositionY() + getSizeHeight(), DEFAULT_DISABLED_OVERLAY_COLOR);
+                graphics.fill(x, y, x + width, y + height, DEFAULT_DISABLED_OVERLAY_COLOR);
             }
             return;
         }
 
         if (isClicked && clickedTexture != null) {
-            drawTexture(clickedTexture, graphics, mouseX, mouseY);
+            drawTextureAt(clickedTexture, graphics, mouseX, mouseY, x, y, width, height);
             return;
         }
 
-        if (isMouseOverElement(mouseX, mouseY) && hoverTexture != null) {
-            drawTexture(hoverTexture, graphics, mouseX, mouseY);
+        if (isMouseOver(x, y, width, height, mouseX, mouseY) && hoverTexture != null) {
+            drawTextureAt(hoverTexture, graphics, mouseX, mouseY, x, y, width, height);
         }
     }
 
@@ -260,36 +270,49 @@ public class ButtonWidget extends Widget {
         texture.draw(graphics, mouseX, mouseY, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
     }
 
+    private void drawTextureAt(IGuiTexture texture, GuiGraphics graphics, int mouseX, int mouseY, int x, int y, int width, int height) {
+        if (texture == null || width <= 0 || height <= 0) return;
+        texture.draw(graphics, mouseX, mouseY, x, y, width, height);
+    }
+
     private void drawText(GuiGraphics graphics) {
-        if (text == null || text.getString().isEmpty() || getSizeWidth() <= 0 || getSizeHeight() <= 0) {
+        drawTextAt(graphics, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight(), 1.0f);
+    }
+
+    private void drawTextAt(GuiGraphics graphics, int x, int y, int width, int height, float externalScale) {
+        if (text == null || text.getString().isEmpty() || width <= 0 || height <= 0) {
             return;
         }
 
+        float safeExternalScale = Math.max(0.01f, externalScale);
         Font font = Minecraft.getInstance().font;
         FormattedCharSequence orderedText = text.getVisualOrderText();
         int rawWidth = font.width(orderedText);
         if (rawWidth <= 0) return;
 
-        int contentX = getPositionX() + textPadding;
-        int contentY = getPositionY() + textPadding;
-        int contentWidth = Math.max(1, getSizeWidth() - textPadding * 2);
-        int contentHeight = Math.max(1, getSizeHeight() - textPadding * 2);
+        int scaledPadding = Math.round(textPadding * safeExternalScale);
+        int contentX = x + scaledPadding;
+        int contentY = y + scaledPadding;
+        int contentWidth = Math.max(1, width - scaledPadding * 2);
+        int contentHeight = Math.max(1, height - scaledPadding * 2);
 
         float widthScale = contentWidth / (float) rawWidth;
         float heightScale = contentHeight / (float) font.lineHeight;
-        float drawScale = Math.min(textScale, Math.min(widthScale, heightScale));
-        drawScale = Math.max(Math.min(textScale, minTextScale), drawScale);
+        float targetTextScale = textScale * safeExternalScale;
+        float minDrawScale = Math.min(textScale, minTextScale) * safeExternalScale;
+        float drawScale = Math.min(targetTextScale, Math.min(widthScale, heightScale));
+        drawScale = Math.max(minDrawScale, drawScale);
 
         float scaledWidth = rawWidth * drawScale;
         float scaledHeight = font.lineHeight * drawScale;
-        float x = contentX + Math.max(0, (contentWidth - scaledWidth) / 2f);
-        float y = contentY + Math.max(0, (contentHeight - scaledHeight) / 2f) + textYOffset;
+        float drawX = contentX + Math.max(0, (contentWidth - scaledWidth) / 2f);
+        float drawY = contentY + Math.max(0, (contentHeight - scaledHeight) / 2f) + textYOffset * safeExternalScale;
 
         graphics.enableScissor(contentX, contentY, contentX + contentWidth, contentY + contentHeight);
         try {
             graphics.pose().pushPose();
             try {
-                graphics.pose().translate(x, y, 0);
+                graphics.pose().translate(drawX, drawY, 0);
                 graphics.pose().scale(drawScale, drawScale, 1.0f);
                 graphics.drawString(font, orderedText, 0, 0, isActive() ? textColor : disabledTextColor, textShadow);
             } finally {

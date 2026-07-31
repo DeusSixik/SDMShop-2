@@ -86,4 +86,9 @@ public abstract class PromoEffectComponent extends ShopComponent {
             applyGroups.add(buf.readUtf());
         }
     }
+
+    @Override
+    public ShopComponentCategory getCategory() {
+        return ShopComponentCategory.PROMO_EFFECT;
+    }
 }

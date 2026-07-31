@@ -14,6 +14,7 @@ import dev.sixik.sdmshop2.libs.shop.components.misc.NameComponent;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.*;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ContextMenuWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.HorizontalContainer;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.VerticalContainer;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.table.ScrollableInteractionTable;
 import lombok.Getter;
 import net.minecraft.client.Minecraft;
@@ -21,6 +22,9 @@ import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Items;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
 
@@ -35,8 +39,8 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
     private final ShopOffer shopEntity;
 
     private final TextLabel nameLabel;
-    private final ButtonWidget buyButton;
-    private final SelectorList moneyType;
+    private final VerticalContainer moneyTypesContainer;
+    private final List<HorizontalContainer> moneyTypeRows = new ArrayList<>();
 
     private final ScrollableInteractionTable offerElementsTable;
     private final ProgressBarWidget limitBar;
@@ -105,10 +109,10 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
             offerElementsTable.addElement(widget);
         }
 
-        buyButton = new ButtonWidget(Component.literal("Buy"));
-        addWidget(buyButton);
-
-        moneyType = new SelectorList();
+        moneyTypesContainer = new VerticalContainer();
+        moneyTypesContainer.setDynamicSized(false);
+        moneyTypesContainer.setSpacing(0);
+        moneyTypesContainer.setScale(0.7f);
 
         for (int i = 0; i < 3; i++) {
             PriceWidget widget = new PriceWidget()
@@ -121,7 +125,9 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
                     .setStrikeYRatio(0.40f);
 
             HorizontalContainer container = new HorizontalContainer();
-            container.setPadding(4, 2).setSpacing(2);
+            container.setPadding(4, 2).setSpacing(4);
+            container.alignBottom();
+            container.pushLastElementToEnd();
 
             var icon = new ShopEmptyWidget();
             icon.setSize(8, 8);
@@ -142,18 +148,16 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
             icon2.setBackground(ShopIcons.STAR_FULL);
             container.addWidget(icon2);
             container.addWidget(widget2);
-            moneyType.addOption(container);
-        }
+            ButtonWidget buyButton = new ButtonWidget();
+            buyButton.setText(Component.translatable("shop.ui.offer_element.button.buy"));
+            buyButton.setSizeHeight(Minecraft.getInstance().font.lineHeight + 3);
+            container.addWidget(buyButton);
 
-        moneyType.allowEmptySelection()
-                .vertical()
-                .onSelectionChanged(index -> {
-                    // -1 = ничего не выбрано
-                });
-        moneyType.scale(0.5f);
-        moneyType.allowEmptySelection();
-        moneyType.preventDeselect();
-        addWidget(moneyType);
+            container.setDynamicSized(false);
+            moneyTypeRows.add(container);
+            moneyTypesContainer.addWidget(container);
+        }
+        addWidget(moneyTypesContainer);
     }
 
     @Override
@@ -192,11 +196,13 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement {
 
         alightOfferElementsTable();
 
-        buyButton.setSize(getSizeWidth() - 4, 14);
-        buyButton.setSelfPosition(2, offerElementsTable.getSelfPositionY() + offerElementsTable.getSizeHeight() + 2);
-
-        moneyType.setSize(getSizeWidth() - 4, moneyType.getContentHeightWithScale());
-        moneyType.setSelfPosition(2, buyButton.getSelfPositionY() + buyButton.getSizeHeight() + 2);
+        int moneyTypesVisualWidth = Math.max(1, getSizeWidth() - 4);
+        int moneyTypesLogicalWidth = Math.max(1, Math.round(moneyTypesVisualWidth / moneyTypesContainer.getScale()));
+        moneyTypesContainer.setSize(moneyTypesLogicalWidth, 100);
+        moneyTypesContainer.setSelfPosition(2, offerElementsTable.getSelfPositionY() + offerElementsTable.getSizeHeight() + 2);
+        for (HorizontalContainer row : moneyTypeRows) {
+            row.setSize(moneyTypesLogicalWidth, Math.max(1, row.getSizeHeight()));
+        }
 
         favoriteButton.setSelfPosition(getSizeWidth() - 4, -4);
     }

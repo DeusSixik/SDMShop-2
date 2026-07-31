@@ -24,4 +24,9 @@ public abstract class ConditionComponent extends ShopComponent {
     public boolean verifiedOnClient() {
         return true;
     }
+
+    @Override
+    public ShopComponentCategory getCategory() {
+        return ShopComponentCategory.CONDITION;
+    }
 }

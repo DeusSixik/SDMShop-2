@@ -30,6 +30,20 @@ public class ShopComponentRegistry {
     }
 
     /**
+     * Регистрирует тип компонента и его категорию за один вызов.
+     * Удобно для аддонов, которым нужно добавить собственный компонент в кастомную категорию.
+     *
+     * @param type           Тип компонента для регистрации
+     * @param componentClass Класс компонента, который будет попадать в категорию
+     * @param category       Категория компонента
+     * @param <T>            Тип компонента
+     */
+    public static <T extends ShopComponent> void register(IComponentType<T> type, Class<T> componentClass, ShopComponentCategory category) {
+        register(type);
+        ShopComponentCategory.registerComponent(componentClass, category);
+    }
+
+    /**
      * Возвращает тип компонента по его идентификатору.
      *
      * @param id Идентификатор типа
