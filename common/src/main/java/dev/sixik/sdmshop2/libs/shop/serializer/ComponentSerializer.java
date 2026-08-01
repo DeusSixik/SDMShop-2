@@ -212,7 +212,7 @@ public final class ComponentSerializer<T extends ShopComponent> {
      * Добавляет int-поле с ручным выбором сетевой синхронизации.
      */
     public ComponentSerializer<T> addInt(String key, ToIntFunction<T> getter, ObjIntConsumer<T> setter, boolean shouldSyncNet) {
-        return add(key, FieldCodecs.INT, component -> getter.applyAsInt(component), (component, value) -> setter.accept(component, value), shouldSyncNet);
+        return add(key, FieldCodecs.INT, getter::applyAsInt, setter::accept, shouldSyncNet);
     }
 
     /**
@@ -226,7 +226,7 @@ public final class ComponentSerializer<T extends ShopComponent> {
      * Добавляет defaulted int-поле с ручным выбором сетевой синхронизации.
      */
     public ComponentSerializer<T> addDefaultedInt(String key, ToIntFunction<T> getter, ObjIntConsumer<T> setter, int defaultValue, boolean shouldSyncNet) {
-        return addDefaulted(key, FieldCodecs.INT, component -> getter.applyAsInt(component), (component, value) -> setter.accept(component, value), defaultValue, shouldSyncNet);
+        return addDefaulted(key, FieldCodecs.INT, getter::applyAsInt, setter::accept, defaultValue, shouldSyncNet);
     }
 
     /**
@@ -240,7 +240,7 @@ public final class ComponentSerializer<T extends ShopComponent> {
      * Добавляет long-поле с ручным выбором сетевой синхронизации.
      */
     public ComponentSerializer<T> addLong(String key, ToLongFunction<T> getter, ObjLongConsumer<T> setter, boolean shouldSyncNet) {
-        return add(key, FieldCodecs.LONG, component -> getter.applyAsLong(component), (component, value) -> setter.accept(component, value), shouldSyncNet);
+        return add(key, FieldCodecs.LONG, getter::applyAsLong, setter::accept, shouldSyncNet);
     }
 
     /**
@@ -254,7 +254,7 @@ public final class ComponentSerializer<T extends ShopComponent> {
      * Добавляет defaulted long-поле с ручным выбором сетевой синхронизации.
      */
     public ComponentSerializer<T> addDefaultedLong(String key, ToLongFunction<T> getter, ObjLongConsumer<T> setter, long defaultValue, boolean shouldSyncNet) {
-        return addDefaulted(key, FieldCodecs.LONG, component -> getter.applyAsLong(component), (component, value) -> setter.accept(component, value), defaultValue, shouldSyncNet);
+        return addDefaulted(key, FieldCodecs.LONG, getter::applyAsLong, setter::accept, defaultValue, shouldSyncNet);
     }
 
     /**
@@ -310,7 +310,7 @@ public final class ComponentSerializer<T extends ShopComponent> {
      * Добавляет double-поле с ручным выбором сетевой синхронизации.
      */
     public ComponentSerializer<T> addDouble(String key, ToDoubleFunction<T> getter, ObjDoubleConsumer<T> setter, boolean shouldSyncNet) {
-        return add(key, FieldCodecs.DOUBLE, component -> getter.applyAsDouble(component), (component, value) -> setter.accept(component, value), shouldSyncNet);
+        return add(key, FieldCodecs.DOUBLE, getter::applyAsDouble, setter::accept, shouldSyncNet);
     }
 
     /**
@@ -324,7 +324,7 @@ public final class ComponentSerializer<T extends ShopComponent> {
      * Добавляет defaulted double-поле с ручным выбором сетевой синхронизации.
      */
     public ComponentSerializer<T> addDefaultedDouble(String key, ToDoubleFunction<T> getter, ObjDoubleConsumer<T> setter, double defaultValue, boolean shouldSyncNet) {
-        return addDefaulted(key, FieldCodecs.DOUBLE, component -> getter.applyAsDouble(component), (component, value) -> setter.accept(component, value), defaultValue, shouldSyncNet);
+        return addDefaulted(key, FieldCodecs.DOUBLE, getter::applyAsDouble, setter::accept, defaultValue, shouldSyncNet);
     }
 
     /**
