@@ -33,7 +33,7 @@ public final class FieldCodecs {
     public static final FieldCodec<Boolean> BOOL = FieldCodec.<Boolean>builder()
             .schema("bool")
             .json(
-                    (json, key, value) -> json.addProperty(key, value),
+                    JsonObject::addProperty,
                     (json, key, defaultValue) -> json.has(key) ? json.get(key).getAsBoolean() : defaultValue
             )
             .jsonElement(
@@ -47,7 +47,7 @@ public final class FieldCodecs {
     public static final FieldCodec<Integer> INT = FieldCodec.<Integer>builder()
             .schema("int")
             .json(
-                    (json, key, value) -> json.addProperty(key, value),
+                    JsonObject::addProperty,
                     (json, key, defaultValue) -> json.has(key) ? json.get(key).getAsInt() : defaultValue
             )
             .jsonElement(
@@ -61,7 +61,7 @@ public final class FieldCodecs {
     public static final FieldCodec<Long> LONG = FieldCodec.<Long>builder()
             .schema("long")
             .json(
-                    (json, key, value) -> json.addProperty(key, value),
+                    JsonObject::addProperty,
                     (json, key, defaultValue) -> json.has(key) ? json.get(key).getAsLong() : defaultValue
             )
             .jsonElement(
@@ -75,7 +75,7 @@ public final class FieldCodecs {
     public static final FieldCodec<Float> FLOAT = FieldCodec.<Float>builder()
             .schema("float")
             .json(
-                    (json, key, value) -> json.addProperty(key, value),
+                    JsonObject::addProperty,
                     (json, key, defaultValue) -> json.has(key) ? json.get(key).getAsFloat() : defaultValue
             )
             .jsonElement(
@@ -89,7 +89,7 @@ public final class FieldCodecs {
     public static final FieldCodec<Double> DOUBLE = FieldCodec.<Double>builder()
             .schema("double")
             .json(
-                    (json, key, value) -> json.addProperty(key, value),
+                    JsonObject::addProperty,
                     (json, key, defaultValue) -> json.has(key) ? json.get(key).getAsDouble() : defaultValue
             )
             .jsonElement(
@@ -416,7 +416,7 @@ public final class FieldCodecs {
                         }
                 )
                 .network(
-                        (buf, value) -> buf.writeEnum(value),
+                        FriendlyByteBuf::writeEnum,
                         buf -> buf.readEnum(enumClass)
                 )
                 .build();
