@@ -223,49 +223,65 @@ public interface FieldCodec<Value> {
         }
     }
 
-    /** Функция записи значения в JSON. */
+    /**
+     * Функция записи значения в JSON.
+     */
     @FunctionalInterface
     interface JsonWriter<Value> {
         void write(JsonObject json, String key, Value value);
     }
 
-    /** Функция чтения значения из JSON. */
+    /**
+     * Функция чтения значения из JSON.
+     */
     @FunctionalInterface
     interface JsonReader<Value> {
         Value read(JsonObject json, String key, Value defaultValue);
     }
 
-    /** Функция записи значения как JSON element. */
+    /**
+     * Функция записи значения как JSON element.
+     */
     @FunctionalInterface
     interface JsonElementWriter<Value> {
         JsonElement write(Value value);
     }
 
-    /** Функция чтения значения из JSON element. */
+    /**
+     * Функция чтения значения из JSON element.
+     */
     @FunctionalInterface
     interface JsonElementReader<Value> {
         Value read(JsonElement element, Value defaultValue);
     }
 
-    /** Функция записи значения в сетевой буфер. */
+    /**
+     * Функция записи значения в сетевой буфер.
+     */
     @FunctionalInterface
     interface NetworkWriter<Value> {
         void write(FriendlyByteBuf buf, Value value);
     }
 
-    /** Функция чтения значения из сетевого буфера. */
+    /**
+     * Функция чтения значения из сетевого буфера.
+     */
     @FunctionalInterface
     interface NetworkReader<Value> {
         Value read(FriendlyByteBuf buf);
     }
 
-    /** Функция копирования значения. */
+    /**
+     * Функция копирования значения.
+     */
     @FunctionalInterface
     interface ValueCopier<Value> {
         Value copy(Value value);
     }
 
-    /** Функция сравнения двух значений. */
+    /**
+     * Функция сравнения двух значений.
+     */
     @FunctionalInterface
     interface ValueEquality<Value> {
         boolean areEqual(Value first, Value second);

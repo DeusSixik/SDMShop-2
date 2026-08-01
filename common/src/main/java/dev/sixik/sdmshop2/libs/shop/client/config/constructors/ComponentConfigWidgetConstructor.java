@@ -1,5 +1,8 @@
 package dev.sixik.sdmshop2.libs.shop.client.config.constructors;
 
+import com.lowdragmc.lowdraglib.gui.editor.ColorPattern;
+import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
+import com.lowdragmc.lowdraglib.gui.widget.DraggableScrollableWidgetGroup;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import com.lowdragmc.lowdraglib.gui.widget.layout.Layout;
@@ -20,6 +23,7 @@ import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.InputTextBox;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.DropDownBox;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ModalWidget;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -37,6 +41,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -175,6 +180,7 @@ public class ComponentConfigWidgetConstructor extends WidgetGroup {
             DropDownBox dropDownBox = new DropDownBox(0, 0, DEFAULT_W, style.editorHeight())
                     .setOptionHeight(style.editorHeight())
                     .setMaxVisibleOptions(style.dropdownMaxVisibleOptions())
+                    .setShowScrollBar(true)
                     .setPadding(4, 1)
                     .setColors(
                             style.dropdownHeaderFill(),
@@ -269,9 +275,14 @@ public class ComponentConfigWidgetConstructor extends WidgetGroup {
             ));
         }
 
+        if (options.size() > style.optionsDialogThreshold()) {
+            return createOptionsPickerButton(type, currentValue, field, options, onChange);
+        }
+
         DropDownBox dropDownBox = new DropDownBox(0, 0, DEFAULT_W, style.editorHeight())
                 .setOptionHeight(style.editorHeight())
                 .setMaxVisibleOptions(style.dropdownMaxVisibleOptions())
+                .setShowScrollBar(true)
                 .setPadding(4, 1)
                 .setColors(
                         style.dropdownHeaderFill(),
@@ -285,31 +296,178 @@ public class ComponentConfigWidgetConstructor extends WidgetGroup {
         dropDownBox.setClientSideWidget();
 
         for (ComponentConfigOptionProviders.Option option : options) {
+            dropDownBox.addOption(createOptionWidget(option));
+        }
+
+        dropDownBox.setSelectedIndex(Math.max(0, selectedIndex), false);
+        dropDownBox.setSelectionChangedListener(index -> {
+            if (index < 0 || index >= options.size()) return;
+            applySelectedOption(type, field, options.get(index).value(), onChange);
+        });
+        return dropDownBox;
+    }
+
+    private Widget createOptionWidget(ComponentConfigOptionProviders.Option option) {
+        if (option.icon() == null) {
             TextLabel label = new TextLabel(option.label())
                     .setAutoSize(false)
                     .setPadding(4, 0)
                     .setOverflowMode(TextLabel.OverflowMode.ELLIPSIS)
                     .alignMiddle();
             label.setSize(DEFAULT_W, style.editorHeight());
-            dropDownBox.addOption(label);
+            return label;
         }
 
-        dropDownBox.setSelectedIndex(Math.max(0, selectedIndex), false);
-        dropDownBox.setSelectionChangedListener(index -> {
-            if (index < 0 || index >= options.size()) return;
+        return new OptionRowWidget(option.label(), option.icon(), DEFAULT_W, style.editorHeight());
+    }
 
-            Object selectedValue = options.get(index).value();
-            if (ComponentConfigOptionProviders.applyOption(targetComponent, field, selectedValue)) {
-                invokeUpdate(targetComponent);
-                return;
-            }
+    private ButtonWidget createOptionsPickerButton(
+            Class<?> type,
+            @Nullable Object currentValue,
+            ComponentConfigAccess.CachedField field,
+            List<ComponentConfigOptionProviders.Option> options,
+            Consumer<Object> onChange
+    ) {
+        ButtonWidget button = createActionButton(selectedOptionLabel(currentValue, options), ignored -> { });
+        button.setOnPressCallback(ignored -> openOptionsPickerModal(type, field, options, onChange, button));
+        return button;
+    }
 
-            Object converted = convertOptionValue(type, selectedValue);
-            if (converted != null || !type.isPrimitive()) {
-                onChange.accept(converted);
+    private void openOptionsPickerModal(
+            Class<?> type,
+            ComponentConfigAccess.CachedField field,
+            List<ComponentConfigOptionProviders.Option> options,
+            Consumer<Object> onChange,
+            ButtonWidget sourceButton
+    ) {
+        ModalWidget modal = new ModalWidget(style.optionsDialogWidth(), style.optionsDialogHeight())
+                .setTitle(Component.translatable(field.translationKey()));
+        ModalWidget opened = ModalWidget.openNested(this, modal);
+        if (opened == null) return;
+
+        int contentWidth = Math.max(1, opened.getContentWidth());
+        int contentHeight = Math.max(1, opened.getContentHeight());
+        int gap = 4;
+        int searchHeight = style.editorHeight();
+        int listY = searchHeight + gap;
+        int listHeight = Math.max(1, contentHeight - listY);
+        int scrollBarWidth = 4;
+        int listWidth = Math.max(1, contentWidth - scrollBarWidth - 2);
+
+        InputTextBox search = new InputTextBox(0, 0, contentWidth, searchHeight);
+        applyInputStyle(search);
+        search.setPlaceholder(Component.literal("Поиск..."));
+        search.setClientSideWidget();
+
+        DraggableScrollableWidgetGroup scroll = new DraggableScrollableWidgetGroup(0, listY, contentWidth, listHeight);
+        scroll.setScrollWheelDirection(DraggableScrollableWidgetGroup.ScrollWheelDirection.VERTICAL);
+        scroll.setLayout(Layout.NONE);
+        scroll.setYScrollBarWidth(scrollBarWidth);
+        scroll.setYBarStyle(null, ColorPattern.WHITE.rectTexture().setRadius(2));
+        scroll.setClientSideWidget();
+
+        WidgetGroup list = new WidgetGroup(0, 0, listWidth, 1);
+        list.setLayout(Layout.NONE);
+        list.setDynamicSized(false);
+        scroll.addWidget(list);
+
+        final Runnable[] rebuild = new Runnable[1];
+        rebuild[0] = () -> rebuildOptionsPickerList(
+                type,
+                field,
+                options,
+                onChange,
+                opened,
+                sourceButton,
+                list,
+                listWidth,
+                search.getCurrentString()
+        );
+        search.setTextResponder(ignored -> rebuild[0].run());
+
+        opened.addWidget(search);
+        opened.addWidget(scroll);
+        rebuild[0].run();
+    }
+
+    private void rebuildOptionsPickerList(
+            Class<?> type,
+            ComponentConfigAccess.CachedField field,
+            List<ComponentConfigOptionProviders.Option> options,
+            Consumer<Object> onChange,
+            ModalWidget modal,
+            ButtonWidget sourceButton,
+            WidgetGroup list,
+            int listWidth,
+            @Nullable String query
+    ) {
+        list.clearAllWidgets();
+
+        String filter = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        int y = 0;
+        int spacing = Math.max(0, style.collectionRowSpacing());
+
+        for (ComponentConfigOptionProviders.Option option : options) {
+            if (!matchesOption(option, filter)) continue;
+
+            ButtonWidget row = createActionButton(option.label(), ignored -> {
+                applySelectedOption(type, field, option.value(), onChange);
+                sourceButton.setText(option.label());
+                modal.close();
+            });
+            row.setSelfPosition(0, y);
+            row.setSize(listWidth, style.editorHeight());
+            list.addWidget(row);
+            y += style.editorHeight() + spacing;
+        }
+
+        if (list.widgets.isEmpty()) {
+            TextLabel empty = new TextLabel(Component.literal("Ничего не найдено"))
+                    .setAutoSize(false)
+                    .setPadding(4, 0)
+                    .setOverflowMode(TextLabel.OverflowMode.ELLIPSIS)
+                    .alignMiddle();
+            empty.setSelfPosition(0, 0);
+            empty.setSize(listWidth, style.editorHeight());
+            list.addWidget(empty);
+            y = style.editorHeight();
+        } else if (spacing > 0) {
+            y -= spacing;
+        }
+
+        list.setSize(listWidth, Math.max(1, y));
+    }
+
+    private boolean matchesOption(ComponentConfigOptionProviders.Option option, String filter) {
+        if (filter == null || filter.isEmpty()) return true;
+
+        String label = option.label().getString().toLowerCase(Locale.ROOT);
+        String value = option.value() == null ? "" : String.valueOf(option.value()).toLowerCase(Locale.ROOT);
+        return label.contains(filter) || value.contains(filter);
+    }
+
+    private Component selectedOptionLabel(@Nullable Object value, List<ComponentConfigOptionProviders.Option> options) {
+        for (ComponentConfigOptionProviders.Option option : options) {
+            if (Objects.equals(option.value(), value)) {
+                return option.label();
             }
-        });
-        return dropDownBox;
+        }
+
+        return value == null
+                ? Component.literal("Выбрать...")
+                : Component.literal(String.valueOf(value));
+    }
+
+    private void applySelectedOption(Class<?> type, ComponentConfigAccess.CachedField field, @Nullable Object selectedValue, Consumer<Object> onChange) {
+        if (ComponentConfigOptionProviders.applyOption(targetComponent, field, selectedValue)) {
+            invokeUpdate(targetComponent);
+            return;
+        }
+
+        Object converted = convertOptionValue(type, selectedValue);
+        if (converted != null || !type.isPrimitive()) {
+            onChange.accept(converted);
+        }
     }
 
     private ButtonWidget createDisabledOptionsButton() {
@@ -681,6 +839,55 @@ public class ComponentConfigWidgetConstructor extends WidgetGroup {
     private record CollectionState(List<Object> values, @Nullable Object source) {
     }
 
+    private static class OptionRowWidget extends WidgetGroup {
+
+        private static final int ICON_PADDING = 2;
+        private static final int ICON_TEXT_GAP = 3;
+
+        private final Widget iconWidget;
+        private final TextLabel label;
+
+        private OptionRowWidget(Component text, IGuiTexture icon, int width, int height) {
+            super(0, 0, width, height);
+            setClientSideWidget();
+            setLayout(Layout.NONE);
+            setDynamicSized(false);
+
+            iconWidget = new Widget(0, 0, 1, 1);
+            iconWidget.setBackground(icon);
+            iconWidget.setClientSideWidget();
+            addWidget(iconWidget);
+
+            label = new TextLabel(text)
+                    .setAutoSize(false)
+                    .setPadding(2, 0)
+                    .setOverflowMode(TextLabel.OverflowMode.ELLIPSIS)
+                    .alignMiddle();
+            label.setClientSideWidget();
+            addWidget(label);
+
+            layout(width, height);
+        }
+
+        @Override
+        public void setSize(Size size) {
+            super.setSize(size);
+            layout(size.width, size.height);
+        }
+
+        private void layout(int width, int height) {
+            int iconSize = Math.max(1, Math.min(16, height - ICON_PADDING * 2));
+            int iconX = ICON_PADDING;
+            int iconY = Math.max(0, (height - iconSize) / 2);
+            iconWidget.setSelfPosition(iconX, iconY);
+            iconWidget.setSize(iconSize, iconSize);
+
+            int labelX = iconX + iconSize + ICON_TEXT_GAP;
+            label.setSelfPosition(labelX, 0);
+            label.setSize(Math.max(1, width - labelX), height);
+        }
+    }
+
     private Object getDefaultValue(Class<?> type) {
         if (type == String.class) return "";
         if (type == int.class || type == Integer.class) return 0;
@@ -704,6 +911,9 @@ public class ComponentConfigWidgetConstructor extends WidgetGroup {
         private int collectionButtonWidth = 18;
         private int collectionGap = 2;
         private int dropdownMaxVisibleOptions = 6;
+        private int optionsDialogThreshold = 10;
+        private int optionsDialogWidth = 260;
+        private int optionsDialogHeight = 220;
         private int radius = 3;
 
         private int inputFill = 0xFF101016;
@@ -741,6 +951,9 @@ public class ComponentConfigWidgetConstructor extends WidgetGroup {
             copy.collectionButtonWidth = collectionButtonWidth;
             copy.collectionGap = collectionGap;
             copy.dropdownMaxVisibleOptions = dropdownMaxVisibleOptions;
+            copy.optionsDialogThreshold = optionsDialogThreshold;
+            copy.optionsDialogWidth = optionsDialogWidth;
+            copy.optionsDialogHeight = optionsDialogHeight;
             copy.radius = radius;
             copy.inputFill = inputFill;
             copy.inputBorder = inputBorder;
@@ -808,6 +1021,33 @@ public class ComponentConfigWidgetConstructor extends WidgetGroup {
 
         public Style setDropdownMaxVisibleOptions(int dropdownMaxVisibleOptions) {
             this.dropdownMaxVisibleOptions = Math.max(1, dropdownMaxVisibleOptions);
+            return this;
+        }
+
+        public int optionsDialogThreshold() {
+            return optionsDialogThreshold;
+        }
+
+        public Style setOptionsDialogThreshold(int optionsDialogThreshold) {
+            this.optionsDialogThreshold = Math.max(1, optionsDialogThreshold);
+            return this;
+        }
+
+        public int optionsDialogWidth() {
+            return optionsDialogWidth;
+        }
+
+        public Style setOptionsDialogWidth(int optionsDialogWidth) {
+            this.optionsDialogWidth = Math.max(1, optionsDialogWidth);
+            return this;
+        }
+
+        public int optionsDialogHeight() {
+            return optionsDialogHeight;
+        }
+
+        public Style setOptionsDialogHeight(int optionsDialogHeight) {
+            this.optionsDialogHeight = Math.max(1, optionsDialogHeight);
             return this;
         }
 

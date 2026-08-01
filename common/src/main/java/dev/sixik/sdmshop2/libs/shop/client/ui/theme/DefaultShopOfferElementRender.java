@@ -67,6 +67,8 @@ public class DefaultShopOfferElementRender implements WidgetRender {
     private ButtonWidget favoriteButton;
 
     private boolean oneOfferElement = false;
+    private int lastOfferElementWidth = -1;
+    private int lastOfferElementHeight = -1;
 
     public DefaultShopOfferElementRender() {
     }
@@ -160,13 +162,20 @@ public class DefaultShopOfferElementRender implements WidgetRender {
     }
 
     private void clearWidgetsState() {
+        if (offerElement != null) {
+            lastOfferElementWidth = offerElement.getSizeWidth();
+            lastOfferElementHeight = offerElement.getSizeHeight();
+        }
+
         titleLabel = null;
         moneyTypesContainer = null;
         moneyTypeRows.clear();
         offerElementsTable = null;
+        offerElement = null;
         limitBar = null;
         badgesBox = null;
         favoriteButton = null;
+        oneOfferElement = false;
     }
 
     private void addNameLabel(
@@ -252,10 +261,13 @@ public class DefaultShopOfferElementRender implements WidgetRender {
         if (widget == null)
             return;
 
-        final int size_w = ctx.getOwner().getSizeWidth();
-        final int icon_size = Math.max(size_w / 2, DEBUG_SIZE_ELEMENT);
-
-        widget.setSize(icon_size, icon_size);
+        if (lastOfferElementWidth > 0 && lastOfferElementHeight > 0) {
+            widget.setSize(lastOfferElementWidth, lastOfferElementHeight);
+        } else {
+            final int size_w = ctx.getOwner().getSizeWidth();
+            final int icon_size = Math.max(size_w / 2, DEBUG_SIZE_ELEMENT);
+            widget.setSize(icon_size, icon_size);
+        }
         widget.setBackground(new GuiTextureGroup(PixelBevelTexture.panel(), widget.getBackgroundTexture()));
         widget.setHoverTexture(new ColorBorderTexture(1, 0xFFFFFFFF));
         ctx.addWidget(offerElement = widget);
@@ -381,7 +393,8 @@ public class DefaultShopOfferElementRender implements WidgetRender {
 
         final int offer_pos_x = Math.max(0, (owner.getSizeWidth() - offerElement.getSizeWidth()) / 2);
         final int space_y = 2;
-        offerElement.setSelfPosition(offer_pos_x, titleLabel.getSelfPositionY() + titleLabel.getSizeHeight() + space_y);
+        final int titleBottom = titleLabel == null ? currentY : titleLabel.getSelfPositionY() + titleLabel.getSizeHeight();
+        offerElement.setSelfPosition(offer_pos_x, titleBottom + space_y);
 
         return offerElement.getSelfPositionY() + offerElement.getSizeHeight();
     }

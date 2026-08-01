@@ -21,21 +21,33 @@ public class ShopEntityEditorElement extends ModalWidget implements WidgetContex
     private final ShopEntity shopEntity;
 
     protected final WidgetRender render;
+    @Nullable
+    protected final Runnable onEdit;
+    protected boolean editCallbackInvoked;
 
     public static ShopEntityEditorElement open(Widget owner, @Nullable ShopEntity shopEntity) {
         return open(owner, shopEntity, null);
     }
 
     public static ShopEntityEditorElement open(Widget owner, @Nullable ShopEntity shopEntity, @Nullable Runnable onEdit) {
-        return ModalWidget.open(owner, new ShopEntityEditorElement(owner, shopEntity));
+        return ModalWidget.open(owner, new ShopEntityEditorElement(owner, shopEntity, onEdit));
     }
 
     protected ShopEntityEditorElement(Widget owner, @Nullable ShopEntity shopEntity) {
-        this(owner, shopEntity, ThemeApi.getDefaultTheme(ThemeApi.Category.Editor).get());
+        this(owner, shopEntity, (Runnable) null);
+    }
+
+    protected ShopEntityEditorElement(Widget owner, @Nullable ShopEntity shopEntity, @Nullable Runnable onEdit) {
+        this(owner, shopEntity, ThemeApi.getDefaultTheme(ThemeApi.Category.Editor).get(), onEdit);
     }
 
     protected ShopEntityEditorElement(Widget owner, @Nullable ShopEntity shopEntity, WidgetRender render) {
+        this(owner, shopEntity, render, null);
+    }
+
+    protected ShopEntityEditorElement(Widget owner, @Nullable ShopEntity shopEntity, WidgetRender render, @Nullable Runnable onEdit) {
         this.shopEntity = shopEntity;
+        this.onEdit = onEdit;
 
         this.render = Objects.requireNonNull(render, "render");
         this.render.constructor(this);
@@ -52,6 +64,19 @@ public class ShopEntityEditorElement extends ModalWidget implements WidgetContex
             throw new IllegalArgumentException("Owner widget its not a WidgetGroup");
 
         onSizeUpdate();
+    }
+
+    @Override
+    public ShopEntityEditorElement close() {
+        final boolean shouldInvokeCallback = !editCallbackInvoked && onEdit != null && (getParent() != null || attachedParent != null);
+        super.close();
+
+        if (shouldInvokeCallback) {
+            editCallbackInvoked = true;
+            onEdit.run();
+        }
+
+        return this;
     }
 
     @Override

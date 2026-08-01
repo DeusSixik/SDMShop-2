@@ -129,6 +129,11 @@ public class InputTextBox extends Widget {
         return this;
     }
 
+    public InputTextBox setCurrentStringSilently(Object value) {
+        setValueSilently(value == null ? "" : value.toString());
+        return this;
+    }
+
     public InputTextBox setValue(String value) {
         String oldValue = this.value;
         setValueSilently(value);

@@ -104,6 +104,14 @@ public class ModalWidget extends WidgetGroup {
     }
 
     public static <MODAL extends ModalWidget> MODAL open(Widget owner, MODAL modal) {
+        return open(owner, modal, true);
+    }
+
+    public static <MODAL extends ModalWidget> MODAL openNested(Widget owner, MODAL modal) {
+        return open(owner, modal, false);
+    }
+
+    private static <MODAL extends ModalWidget> MODAL open(Widget owner, MODAL modal, boolean closeExisting) {
         if (owner == null || modal == null) return null;
 
         Widget root = owner;
@@ -115,9 +123,53 @@ public class ModalWidget extends WidgetGroup {
             return null;
         }
 
-        closeExistingModals(mainGroup);
+        if (closeExisting) {
+            closeExistingModals(mainGroup);
+        }
+        DropDownBox.closeActivePopup();
         modal.attachTo(mainGroup);
         return modal;
+    }
+
+    public static boolean isCoveredByHigherModal(Widget widget, double mouseX, double mouseY) {
+        if (widget == null) return false;
+
+        Widget root = widget;
+        while (root.getParent() != null) {
+            root = root.getParent();
+        }
+
+        if (!(root instanceof WidgetGroup mainGroup)) {
+            return false;
+        }
+
+        for (int i = mainGroup.widgets.size() - 1; i >= 0; i--) {
+            Widget candidate = mainGroup.widgets.get(i);
+            if (!(candidate instanceof ModalWidget modal) || !modal.isVisible()) {
+                continue;
+            }
+
+            if (isAncestorOrSelf(modal, widget)) {
+                return false;
+            }
+
+            if (modal.isMouseOverElement(mouseX, mouseY)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean isAncestorOrSelf(Widget ancestor, Widget widget) {
+        Widget current = widget;
+        while (current != null) {
+            if (current == ancestor) {
+                return true;
+            }
+            current = current.getParent();
+        }
+        return false;
     }
 
     public ModalWidget attachTo(WidgetGroup parent) {

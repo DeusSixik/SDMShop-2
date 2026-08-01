@@ -29,7 +29,9 @@ import java.util.UUID;
  */
 public final class FieldCodecs {
 
-    /** Codec для boolean значений. */
+    /**
+     * Codec для boolean значений.
+     */
     public static final FieldCodec<Boolean> BOOL = FieldCodec.<Boolean>builder()
             .schema("bool")
             .json(
@@ -43,7 +45,9 @@ public final class FieldCodecs {
             .network(FriendlyByteBuf::writeBoolean, FriendlyByteBuf::readBoolean)
             .build();
 
-    /** Codec для int значений через VarInt в сети. */
+    /**
+     * Codec для int значений через VarInt в сети.
+     */
     public static final FieldCodec<Integer> INT = FieldCodec.<Integer>builder()
             .schema("int")
             .json(
@@ -57,7 +61,9 @@ public final class FieldCodecs {
             .network(FriendlyByteBuf::writeVarInt, FriendlyByteBuf::readVarInt)
             .build();
 
-    /** Codec для long значений через VarLong в сети. */
+    /**
+     * Codec для long значений через VarLong в сети.
+     */
     public static final FieldCodec<Long> LONG = FieldCodec.<Long>builder()
             .schema("long")
             .json(
@@ -71,7 +77,9 @@ public final class FieldCodecs {
             .network(FriendlyByteBuf::writeVarLong, FriendlyByteBuf::readVarLong)
             .build();
 
-    /** Codec для float значений. */
+    /**
+     * Codec для float значений.
+     */
     public static final FieldCodec<Float> FLOAT = FieldCodec.<Float>builder()
             .schema("float")
             .json(
@@ -85,7 +93,9 @@ public final class FieldCodecs {
             .network(FriendlyByteBuf::writeFloat, FriendlyByteBuf::readFloat)
             .build();
 
-    /** Codec для double значений. */
+    /**
+     * Codec для double значений.
+     */
     public static final FieldCodec<Double> DOUBLE = FieldCodec.<Double>builder()
             .schema("double")
             .json(
@@ -99,7 +109,9 @@ public final class FieldCodecs {
             .network(FriendlyByteBuf::writeDouble, FriendlyByteBuf::readDouble)
             .build();
 
-    /** Codec для строк. null записывается как пустая строка. */
+    /**
+     * Codec для строк. null записывается как пустая строка.
+     */
     public static final FieldCodec<String> STRING = FieldCodec.<String>builder()
             .schema("string")
             .json(
@@ -116,7 +128,9 @@ public final class FieldCodecs {
             )
             .build();
 
-    /** Codec для ResourceLocation. */
+    /**
+     * Codec для ResourceLocation.
+     */
     public static final FieldCodec<ResourceLocation> RESOURCE_LOCATION = FieldCodec.<ResourceLocation>builder()
             .schema("resource_location")
             .json(
@@ -132,7 +146,9 @@ public final class FieldCodecs {
             .network(FriendlyByteBuf::writeResourceLocation, FriendlyByteBuf::readResourceLocation)
             .build();
 
-    /** Codec для UUID. */
+    /**
+     * Codec для UUID.
+     */
     public static final FieldCodec<UUID> UUID_CODEC = FieldCodec.<UUID>builder()
             .schema("uuid")
             .json(
@@ -148,7 +164,9 @@ public final class FieldCodecs {
             .network(FriendlyByteBuf::writeUUID, FriendlyByteBuf::readUUID)
             .build();
 
-    /** Codec для ItemStack в полном NBT-представлении. */
+    /**
+     * Codec для ItemStack в полном NBT-представлении.
+     */
     public static final FieldCodec<ItemStack> ITEM_STACK = FieldCodec.<ItemStack>builder()
             .schema("item_stack")
             .json(FieldCodecs::writeItemStackJson, FieldCodecs::readItemStackJson)
@@ -165,7 +183,9 @@ public final class FieldCodecs {
             })
             .build();
 
-    /** Codec для ItemStack как id предмета + отдельный nbt, совместимый со старым JSON форматом item reward. */
+    /**
+     * Codec для ItemStack как id предмета + отдельный nbt, совместимый со старым JSON форматом item reward.
+     */
     public static final FieldCodec<ItemStack> ITEM_STACK_ID_NBT = FieldCodec.<ItemStack>builder()
             .schema("item_stack_id_nbt")
             .json(FieldCodecs::writeItemStackIdNbtJson, FieldCodecs::readItemStackIdNbtJson)
@@ -182,7 +202,9 @@ public final class FieldCodecs {
             })
             .build();
 
-    /** Codec для вложенного ShopOffer. */
+    /**
+     * Codec для вложенного ShopOffer.
+     */
     public static final FieldCodec<ShopOffer> SHOP_OFFER = FieldCodec.<ShopOffer>builder()
             .schema("shop_offer")
             .json(
@@ -224,7 +246,9 @@ public final class FieldCodecs {
             )
             .build();
 
-    /** Codec для вложенного ShopInstance. */
+    /**
+     * Codec для вложенного ShopInstance.
+     */
     public static final FieldCodec<ShopInstance> SHOP_INSTANCE = FieldCodec.<ShopInstance>builder()
             .schema("shop_instance")
             .json(

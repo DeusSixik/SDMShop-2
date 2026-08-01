@@ -1,11 +1,13 @@
 package dev.sixik.sdmshop2.libs.shop.client.config.constructors;
 
+import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.sdmeconomy.IExternalCurrency;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
 import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
+import dev.sixik.sdmshop2.utils.ShopUtils;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -82,7 +84,7 @@ public final class ComponentConfigOptionProviders {
                     IExternalCurrency currency = entry.getValue();
                     Component label = currency.getDisplayName().copy()
                             .append(Component.literal(" §8(" + id + ")"));
-                    options.add(new Option(id, label));
+                    options.add(new Option(id, label, ShopUtils.getCurrencyTexture(currency)));
                 });
         return options;
     }
@@ -140,6 +142,10 @@ public final class ComponentConfigOptionProviders {
         }
     }
 
-    public record Option(Object value, Component label) {
+    public record Option(Object value, Component label, @Nullable IGuiTexture icon) {
+
+        public Option(Object value, Component label) {
+            this(value, label, null);
+        }
     }
 }

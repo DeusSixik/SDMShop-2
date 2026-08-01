@@ -5,6 +5,7 @@ import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import com.lowdragmc.lowdraglib.gui.widget.layout.Layout;
 import com.lowdragmc.lowdraglib.utils.Position;
 import com.lowdragmc.lowdraglib.utils.Size;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.DropDownBox;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.client.Minecraft;
@@ -12,6 +13,9 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import org.jspecify.annotations.NonNull;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class CollapsedGroupWidget extends WidgetGroup {
 
@@ -150,6 +154,25 @@ public class CollapsedGroupWidget extends WidgetGroup {
     /**
      * Обработка клика по шапке
      */
+    @Override
+    public void drawInForeground(@NonNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        if (!getTooltipTexts().isEmpty()
+                && isMouseOverElement(mouseX, mouseY)
+                && DropDownBox.isActivePopupCovering(mouseX, mouseY)) {
+            List<Component> tooltip = new ArrayList<>(getTooltipTexts());
+            getTooltipTexts().clear();
+            try {
+                super.drawInForeground(graphics, mouseX, mouseY, partialTicks);
+            } finally {
+                getTooltipTexts().clear();
+                getTooltipTexts().addAll(tooltip);
+            }
+            return;
+        }
+
+        super.drawInForeground(graphics, mouseX, mouseY, partialTicks);
+    }
+
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         int x = getPositionX();

@@ -7,11 +7,13 @@ import com.lowdragmc.lowdraglib.utils.Position;
 import com.lowdragmc.lowdraglib.utils.Size;
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 import org.jspecify.annotations.NonNull;
 import org.lwjgl.glfw.GLFW;
@@ -92,6 +94,18 @@ public class DropDownBox extends WidgetGroup {
     protected WidgetGroup popupInputRoot;
 
     private static DropDownBox activePopup;
+
+    public static boolean isActivePopupCovering(double mouseX, double mouseY) {
+        return activePopup != null
+                && activePopup.expanded
+                && (activePopup.isMouseOverPopup(mouseX, mouseY) || activePopup.isMouseOverHeader(mouseX, mouseY));
+    }
+
+    public static void closeActivePopup() {
+        if (activePopup != null) {
+            activePopup.setExpanded(false);
+        }
+    }
 
     private boolean layingOut;
 
@@ -671,15 +685,17 @@ public class DropDownBox extends WidgetGroup {
     @Environment(EnvType.CLIENT)
     public void drawInBackground(@NonNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         drawHeader(graphics, mouseX, mouseY);
-        drawClosedSelectedWidget(graphics, mouseX, mouseY, partialTicks, true);
+        drawHeaderSelectedWidget(graphics, mouseX, mouseY, partialTicks, true);
+        drawArrow(graphics);
     }
 
     @Override
     @Environment(EnvType.CLIENT)
     public void drawInForeground(@NonNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         drawTooltipTexts(mouseX, mouseY);
-        drawClosedSelectedWidget(graphics, mouseX, mouseY, partialTicks, false);
-        drawArrow(graphics);
+        if (!expanded || !isPopupInputLayerAttachedToExternalRoot()) {
+            drawOverflowTooltip(graphics, mouseX, mouseY);
+        }
     }
 
     @Override
@@ -706,6 +722,86 @@ public class DropDownBox extends WidgetGroup {
                 widget.drawOverlay(graphics, mouseX, mouseY, partialTicks);
             }
         }
+    }
+
+    protected void drawOverflowTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (ModalWidget.isCoveredByHigherModal(this, mouseX, mouseY)) {
+            return;
+        }
+
+        Component tooltip = getOverflowTooltip(mouseX, mouseY);
+        if (tooltip != null) {
+            graphics.renderTooltip(Minecraft.getInstance().font, tooltip, mouseX, mouseY);
+        }
+    }
+
+    protected @Nullable Component getOverflowTooltip(int mouseX, int mouseY) {
+        if (isMouseOverHeader(mouseX, mouseY)) {
+            return getHeaderOverflowTooltip(mouseX, mouseY);
+        }
+
+        if (expanded) {
+            int optionIndex = getOptionAt(mouseX, mouseY);
+            if (optionIndex >= 0 && optionIndex < options.size()) {
+                return findOverflowingText(options.get(optionIndex).widget, mouseX, mouseY);
+            }
+        }
+
+        return null;
+    }
+
+    protected @Nullable Component getHeaderOverflowTooltip(int mouseX, int mouseY) {
+        if (selectedIndex < 0 || selectedIndex >= options.size()) return null;
+
+        Widget selected = options.get(selectedIndex).widget;
+        int oldX = selected.getSelfPositionX();
+        int oldY = selected.getSelfPositionY();
+        int oldWidth = selected.getSizeWidth();
+        int oldHeight = selected.getSizeHeight();
+        boolean oldVisible = selected.isVisible();
+        boolean oldActive = selected.isActive();
+        boolean oldLayingOut = layingOut;
+
+        layingOut = true;
+        try {
+            if (resizeOptionsToRow) {
+                selected.setSize(getHeaderContentWidth(), getHeaderContentHeight());
+            }
+            selected.setSelfPosition(
+                    paddingLeft,
+                    paddingTop + Math.max(0, (getHeaderContentHeight() - selected.getSizeHeight()) / 2)
+            );
+            selected.setVisible(true);
+            selected.setActive(selectedWidgetActiveWhenClosed);
+            return findOverflowingText(selected, mouseX, mouseY);
+        } finally {
+            selected.setVisible(oldVisible);
+            selected.setActive(oldActive);
+            selected.setSelfPosition(oldX, oldY);
+            selected.setSize(new Size(oldWidth, oldHeight));
+            layingOut = oldLayingOut;
+        }
+    }
+
+    protected @Nullable Component findOverflowingText(Widget widget, int mouseX, int mouseY) {
+        if (widget == null || !widget.isVisible() || !widget.isMouseOverElement(mouseX, mouseY)) {
+            return null;
+        }
+
+        if (widget instanceof TextLabel label && label.isTextOverflowing()) {
+            return label.getText();
+        }
+
+        if (widget instanceof WidgetGroup group) {
+            for (int i = group.widgets.size() - 1; i >= 0; i--) {
+                Component tooltip = findOverflowingText(group.widgets.get(i), mouseX, mouseY);
+                if (tooltip != null) {
+                    return tooltip;
+                }
+            }
+        }
+
+        return null;
     }
 
     @Override
@@ -933,18 +1029,43 @@ public class DropDownBox extends WidgetGroup {
         graphics.drawString(font, arrow, x, y, arrowColor, false);
     }
 
-    protected void drawClosedSelectedWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks, boolean background) {
-        if (expanded || selectedIndex < 0 || selectedIndex >= options.size()) return;
+    protected void drawHeaderSelectedWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks, boolean background) {
+        if (selectedIndex < 0 || selectedIndex >= options.size()) return;
 
         Widget selected = options.get(selectedIndex).widget;
-        if (!selected.isVisible()) return;
+        int oldX = selected.getSelfPositionX();
+        int oldY = selected.getSelfPositionY();
+        int oldWidth = selected.getSizeWidth();
+        int oldHeight = selected.getSizeHeight();
+        boolean oldVisible = selected.isVisible();
+        boolean oldActive = selected.isActive();
+        boolean oldLayingOut = layingOut;
 
         RenderSystem.setShaderColor(1, 1, 1, 1);
         RenderSystem.enableBlend();
-        if (background) {
-            selected.drawInBackground(graphics, mouseX, mouseY, partialTicks);
-        } else {
-            selected.drawInForeground(graphics, mouseX, mouseY, partialTicks);
+        layingOut = true;
+        try {
+            if (resizeOptionsToRow) {
+                selected.setSize(getHeaderContentWidth(), getHeaderContentHeight());
+            }
+            selected.setSelfPosition(
+                    paddingLeft,
+                    paddingTop + Math.max(0, (getHeaderContentHeight() - selected.getSizeHeight()) / 2)
+            );
+            selected.setVisible(true);
+            selected.setActive(selectedWidgetActiveWhenClosed);
+
+            if (background) {
+                selected.drawInBackground(graphics, mouseX, mouseY, partialTicks);
+            } else {
+                selected.drawInForeground(graphics, mouseX, mouseY, partialTicks);
+            }
+        } finally {
+            selected.setVisible(oldVisible);
+            selected.setActive(oldActive);
+            selected.setSelfPosition(oldX, oldY);
+            selected.setSize(new Size(oldWidth, oldHeight));
+            layingOut = oldLayingOut;
         }
     }
 
@@ -1332,6 +1453,7 @@ public class DropDownBox extends WidgetGroup {
         public void drawInForeground(@NonNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
             if (owner != null && owner.expanded) {
                 owner.drawPopupWithOptionOverlays(graphics, mouseX, mouseY, partialTicks);
+                owner.drawOverflowTooltip(graphics, mouseX, mouseY);
             }
         }
 

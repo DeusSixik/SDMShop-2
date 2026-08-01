@@ -372,6 +372,21 @@ public class TextLabel extends Widget {
         return textBlockHeight;
     }
 
+    public boolean isTextOverflowing() {
+        ensureLayout();
+
+        Font font = Minecraft.getInstance().font;
+        if (!wrapText) {
+            return Math.round(font.width(text.getString()) * renderScale) > getContentWidth();
+        }
+
+        int splitWidth = Math.max(1, Math.round(getContentWidth() / Math.max(0.01f, renderScale)));
+        if (maxLines > 0 && font.split(text, splitWidth).size() > maxLines) {
+            return true;
+        }
+        return isLayoutOverflowing(renderScale);
+    }
+
     private void ensureLayout() {
         if (!layoutDirty) return;
         layoutDirty = false;

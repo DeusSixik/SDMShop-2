@@ -3,8 +3,14 @@ package dev.sixik.sdmshop2.utils;
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUIGuiContainer;
+import com.lowdragmc.lowdraglib.gui.texture.ItemStackTexture;
+import com.lowdragmc.lowdraglib.gui.texture.ResourceTexture;
+import com.lowdragmc.lowdraglib.gui.texture.TextTexture;
+import com.lowdragmc.lowdraglib.gui.texture.TransformTexture;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import com.mojang.blaze3d.systems.RenderSystem;
+import dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency;
+import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
 import dev.sixik.sdmshop2.libs.shop.base.limiter.ShopLimiterTable;
 import dev.sixik.sdmshop2.libs.shop.base.limiter.ShopLimiterTableClient;
 import dev.sixik.sdmshop2.libs.shop.base.limiter.ShopLimiterTableServer;
@@ -20,6 +26,10 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.Ingredient;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -89,5 +99,38 @@ public class ShopUtils {
             minecraft.setScreen(ModularUIGuiContainer);
             entityPlayer.containerMenu = ModularUIGuiContainer.getMenu();
         });
+    }
+
+    @Nullable
+    @Environment(EnvType.CLIENT)
+    public static TransformTexture getCurrencyTexture(ICurrency currency) {
+        final CurrencyIcon icon = currency.getIcon();
+        final Object icon_object = icon.icon();
+
+        TransformTexture texture = null;
+        switch (icon.type()) {
+            case NONE -> {
+            }
+            case ITEM -> {
+                if(icon_object instanceof Item item) {
+                    texture = new ItemStackTexture(item);
+                } else if(icon_object instanceof ItemStack item) {
+                    texture = new ItemStackTexture(item);
+                } else if(icon_object instanceof Ingredient ingredient) {
+                    texture = new ItemStackTexture(ingredient.getItems());
+                }
+            }
+            case TEXTURE -> {
+                if(icon_object instanceof ResourceLocation location) {
+                    texture = new ResourceTexture(location);
+                } else if(icon_object instanceof String location) {
+                    if(ResourceLocation.isValidResourceLocation(location))
+                        texture = new ResourceTexture(location);
+                    else texture = new TextTexture(location);
+                }
+            }
+        }
+
+        return texture;
     }
 }

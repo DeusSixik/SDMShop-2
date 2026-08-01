@@ -13,6 +13,7 @@ import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.EnumMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -32,16 +33,48 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement, Widg
     public ShopOfferElement(@Nullable ShopOffer shopEntity, WidgetRender render) {
         this.shopEntity = shopEntity;
         this.render = Objects.requireNonNull(render, "render");
-        this.render.constructor(this);
-        this.render.addWidgets(this);
-
         this.callbacks = new EnumMap<>(CallbackType.class);
         this.callbacks.put(CallbackType.InvokeBuy, (money_group) -> onBuy((String) money_group));
+
+        this.render.constructor(this);
+        refresh(false);
     }
 
     @Override
     public void alightWidget() {
         render.alightWidgets(this);
+    }
+
+    /**
+     * Пересобирает внутренние виджеты карточки из текущего состояния {@link ShopOffer}.
+     * Удобно вызывать после редактирования компонентов, чтобы обновить текст, цену, предметы и бейджи.
+     *
+     * @return этот же виджет для цепочки вызовов
+     */
+    public ShopOfferElement refresh() {
+        return refresh(true);
+    }
+
+    /**
+     * Пересобирает внутренние виджеты карточки и опционально сразу применяет layout.
+     *
+     * @param relayout если true, после пересборки сразу вызывается {@link #alightWidget()}
+     * @return этот же виджет для цепочки вызовов
+     */
+    public ShopOfferElement refresh(boolean relayout) {
+        clearAllWidgets();
+        render.addWidgets(this);
+
+        if (relayout) {
+            alightWidget();
+        }
+
+        return this;
+    }
+
+    @Override
+    public Map<CallbackType, Consumer<?>> getCallbacks() {
+        return callbacks;
     }
 
     @Override
@@ -73,7 +106,7 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement, Widg
     protected void addDefaultContextMenu(ContextMenuWidget menuWidget) {
         menuWidget
                 .addItem(Component.translatable("shop.ui.offer_element.context_menu.edit"), () -> {
-                    ShopUIUtils.createEditMenu(this, shopEntity, () -> {});
+                    ShopUIUtils.createEditMenu(this, shopEntity, this::refresh);
                 }).addSeparator()
                 .addItem(Component.translatable("shop.ui.offer_element.context_menu.copy"), () -> {
 
