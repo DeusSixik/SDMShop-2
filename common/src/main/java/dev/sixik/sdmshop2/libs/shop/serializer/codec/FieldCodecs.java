@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
@@ -35,6 +36,10 @@ public final class FieldCodecs {
                     (json, key, value) -> json.addProperty(key, value),
                     (json, key, defaultValue) -> json.has(key) ? json.get(key).getAsBoolean() : defaultValue
             )
+            .jsonElement(
+                    value -> value == null ? JsonNull.INSTANCE : new JsonPrimitive(value),
+                    (element, defaultValue) -> element.getAsBoolean()
+            )
             .network(FriendlyByteBuf::writeBoolean, FriendlyByteBuf::readBoolean)
             .build();
 
@@ -44,6 +49,10 @@ public final class FieldCodecs {
             .json(
                     (json, key, value) -> json.addProperty(key, value),
                     (json, key, defaultValue) -> json.has(key) ? json.get(key).getAsInt() : defaultValue
+            )
+            .jsonElement(
+                    value -> value == null ? JsonNull.INSTANCE : new JsonPrimitive(value),
+                    (element, defaultValue) -> element.getAsInt()
             )
             .network(FriendlyByteBuf::writeVarInt, FriendlyByteBuf::readVarInt)
             .build();
@@ -55,6 +64,10 @@ public final class FieldCodecs {
                     (json, key, value) -> json.addProperty(key, value),
                     (json, key, defaultValue) -> json.has(key) ? json.get(key).getAsLong() : defaultValue
             )
+            .jsonElement(
+                    value -> value == null ? JsonNull.INSTANCE : new JsonPrimitive(value),
+                    (element, defaultValue) -> element.getAsLong()
+            )
             .network(FriendlyByteBuf::writeVarLong, FriendlyByteBuf::readVarLong)
             .build();
 
@@ -64,6 +77,10 @@ public final class FieldCodecs {
             .json(
                     (json, key, value) -> json.addProperty(key, value),
                     (json, key, defaultValue) -> json.has(key) ? json.get(key).getAsFloat() : defaultValue
+            )
+            .jsonElement(
+                    value -> value == null ? JsonNull.INSTANCE : new JsonPrimitive(value),
+                    (element, defaultValue) -> element.getAsFloat()
             )
             .network(FriendlyByteBuf::writeFloat, FriendlyByteBuf::readFloat)
             .build();
@@ -75,6 +92,10 @@ public final class FieldCodecs {
                     (json, key, value) -> json.addProperty(key, value),
                     (json, key, defaultValue) -> json.has(key) ? json.get(key).getAsDouble() : defaultValue
             )
+            .jsonElement(
+                    value -> value == null ? JsonNull.INSTANCE : new JsonPrimitive(value),
+                    (element, defaultValue) -> element.getAsDouble()
+            )
             .network(FriendlyByteBuf::writeDouble, FriendlyByteBuf::readDouble)
             .build();
 
@@ -84,6 +105,10 @@ public final class FieldCodecs {
             .json(
                     (json, key, value) -> json.addProperty(key, value == null ? "" : value),
                     (json, key, defaultValue) -> json.has(key) ? json.get(key).getAsString() : defaultValue
+            )
+            .jsonElement(
+                    value -> new JsonPrimitive(value == null ? "" : value),
+                    (element, defaultValue) -> element.getAsString()
             )
             .network(
                     (buf, value) -> buf.writeUtf(value == null ? "" : value),
@@ -100,6 +125,10 @@ public final class FieldCodecs {
                     },
                     (json, key, defaultValue) -> json.has(key) ? ResourceLocation.tryParse(json.get(key).getAsString()) : defaultValue
             )
+            .jsonElement(
+                    value -> value == null ? JsonNull.INSTANCE : new JsonPrimitive(value.toString()),
+                    (element, defaultValue) -> ResourceLocation.tryParse(element.getAsString())
+            )
             .network(FriendlyByteBuf::writeResourceLocation, FriendlyByteBuf::readResourceLocation)
             .build();
 
@@ -112,6 +141,10 @@ public final class FieldCodecs {
                     },
                     (json, key, defaultValue) -> json.has(key) ? UUID.fromString(json.get(key).getAsString()) : defaultValue
             )
+            .jsonElement(
+                    value -> value == null ? JsonNull.INSTANCE : new JsonPrimitive(value.toString()),
+                    (element, defaultValue) -> UUID.fromString(element.getAsString())
+            )
             .network(FriendlyByteBuf::writeUUID, FriendlyByteBuf::readUUID)
             .build();
 
@@ -119,6 +152,7 @@ public final class FieldCodecs {
     public static final FieldCodec<ItemStack> ITEM_STACK = FieldCodec.<ItemStack>builder()
             .schema("item_stack")
             .json(FieldCodecs::writeItemStackJson, FieldCodecs::readItemStackJson)
+            .jsonElement(FieldCodecs::writeItemStackJsonElement, FieldCodecs::readItemStackJsonElement)
             .network(
                     (buf, value) -> buf.writeItem(value == null ? ItemStack.EMPTY : value),
                     FriendlyByteBuf::readItem
@@ -135,6 +169,7 @@ public final class FieldCodecs {
     public static final FieldCodec<ItemStack> ITEM_STACK_ID_NBT = FieldCodec.<ItemStack>builder()
             .schema("item_stack_id_nbt")
             .json(FieldCodecs::writeItemStackIdNbtJson, FieldCodecs::readItemStackIdNbtJson)
+            .jsonElement(FieldCodecs::writeItemStackIdNbtJsonElement, FieldCodecs::readItemStackIdNbtJsonElement)
             .network(
                     (buf, value) -> buf.writeItem(value == null ? ItemStack.EMPTY : value),
                     FriendlyByteBuf::readItem
@@ -166,6 +201,17 @@ public final class FieldCodecs {
                         return offer;
                     }
             )
+            .jsonElement(
+                    value -> value == null ? JsonNull.INSTANCE : value.serialize(),
+                    (element, defaultValue) -> {
+                        JsonObject object = element.getAsJsonObject();
+                        ShopOffer offer = ShopOffer.create(object.has("uuid")
+                                ? UUID.fromString(object.get("uuid").getAsString())
+                                : UUID.randomUUID(), true);
+                        offer.deserialize(object);
+                        return offer;
+                    }
+            )
             .network(
                     (buf, value) -> {
                         if (value == null) {
@@ -189,6 +235,10 @@ public final class FieldCodecs {
                     },
                     (json, key, defaultValue) -> json.has(key) ? ShopInstance.fromJson(json.get(key)) : defaultValue
             )
+            .jsonElement(
+                    value -> value == null ? JsonNull.INSTANCE : value.serialize(),
+                    (element, defaultValue) -> ShopInstance.fromJson(element)
+            )
             .network(
                     (buf, value) -> {
                         if (value == null) {
@@ -209,23 +259,17 @@ public final class FieldCodecs {
         return FieldCodec.<Value>builder()
                 .schema("nullable(" + codec.schemaName() + ")")
                 .json(
-                        (json, key, value) -> {
-                            if (value == null) {
-                                json.add(key, JsonNull.INSTANCE);
-                            } else {
-                                JsonObject nested = new JsonObject();
-                                codec.toJson(nested, "value", value);
-                                json.add(key, nested.get("value"));
-                            }
-                        },
+                        (json, key, value) -> json.add(key, value == null ? JsonNull.INSTANCE : codec.toJsonElement(value)),
                         (json, key, defaultValue) -> {
                             if (!json.has(key)) return defaultValue;
                             JsonElement element = json.get(key);
                             if (element == null || element.isJsonNull()) return null;
-                            JsonObject nested = new JsonObject();
-                            nested.add("value", element);
-                            return codec.fromJson(nested, "value", defaultValue);
+                            return codec.fromJsonElement(element, defaultValue);
                         }
+                )
+                .jsonElement(
+                        value -> value == null ? JsonNull.INSTANCE : codec.toJsonElement(value),
+                        (element, defaultValue) -> element == null || element.isJsonNull() ? null : codec.fromJsonElement(element, defaultValue)
                 )
                 .network(
                         (buf, value) -> {
@@ -247,28 +291,15 @@ public final class FieldCodecs {
         return FieldCodec.<List<Element>>builder()
                 .schema("list(" + elementCodec.schemaName() + ")")
                 .json(
-                        (json, key, value) -> {
-                            JsonArray array = new JsonArray();
-                            if (value != null) {
-                                for (Element element : value) {
-                                    JsonObject nested = new JsonObject();
-                                    elementCodec.toJson(nested, "value", element);
-                                    array.add(nested.get("value"));
-                                }
-                            }
-                            json.add(key, array);
-                        },
+                        (json, key, value) -> json.add(key, writeListJsonElement(value, elementCodec)),
                         (json, key, defaultValue) -> {
                             if (!json.has(key)) return defaultValue;
-                            JsonArray array = json.getAsJsonArray(key);
-                            List<Element> list = new ArrayList<>(array.size());
-                            for (JsonElement element : array) {
-                                JsonObject nested = new JsonObject();
-                                nested.add("value", element);
-                                list.add(elementCodec.fromJson(nested, "value", null));
-                            }
-                            return list;
+                            return readListJsonElement(json.get(key), defaultValue, elementCodec);
                         }
+                )
+                .jsonElement(
+                        value -> writeListJsonElement(value, elementCodec),
+                        (element, defaultValue) -> readListJsonElement(element, defaultValue, elementCodec)
                 )
                 .network(
                         (buf, value) -> {
@@ -310,30 +341,15 @@ public final class FieldCodecs {
         return FieldCodec.<Map<Key, Value>>builder()
                 .schema("map(" + keyCodec.schemaName() + "," + valueCodec.schemaName() + ")")
                 .json(
-                        (json, key, value) -> {
-                            JsonArray array = new JsonArray();
-                            if (value != null) {
-                                for (Map.Entry<Key, Value> entry : value.entrySet()) {
-                                    JsonObject object = new JsonObject();
-                                    keyCodec.toJson(object, "key", entry.getKey());
-                                    valueCodec.toJson(object, "value", entry.getValue());
-                                    array.add(object);
-                                }
-                            }
-                            json.add(key, array);
-                        },
+                        (json, key, value) -> json.add(key, writeMapJsonElement(value, keyCodec, valueCodec)),
                         (json, key, defaultValue) -> {
                             if (!json.has(key)) return defaultValue;
-                            JsonArray array = json.getAsJsonArray(key);
-                            Map<Key, Value> map = new Object2ObjectLinkedOpenHashMap<>(array.size());
-                            for (JsonElement element : array) {
-                                JsonObject object = element.getAsJsonObject();
-                                Key mapKey = keyCodec.fromJson(object, "key", null);
-                                Value mapValue = valueCodec.fromJson(object, "value", null);
-                                map.put(mapKey, mapValue);
-                            }
-                            return map;
+                            return readMapJsonElement(json.get(key), defaultValue, keyCodec, valueCodec);
                         }
+                )
+                .jsonElement(
+                        value -> writeMapJsonElement(value, keyCodec, valueCodec),
+                        (element, defaultValue) -> readMapJsonElement(element, defaultValue, keyCodec, valueCodec)
                 )
                 .network(
                         (buf, value) -> {
@@ -388,6 +404,17 @@ public final class FieldCodecs {
                             }
                         }
                 )
+                .jsonElement(
+                        value -> value == null ? JsonNull.INSTANCE : new JsonPrimitive(value.name()),
+                        (element, defaultValue) -> {
+                            String value = element.getAsString();
+                            try {
+                                return Enum.valueOf(enumClass, value);
+                            } catch (IllegalArgumentException exception) {
+                                return Enum.valueOf(enumClass, value.toUpperCase(Locale.ROOT));
+                            }
+                        }
+                )
                 .network(
                         (buf, value) -> buf.writeEnum(value),
                         buf -> buf.readEnum(enumClass)
@@ -395,10 +422,104 @@ public final class FieldCodecs {
                 .build();
     }
 
+    private static <Element> JsonArray writeListJsonElement(List<Element> value, FieldCodec<Element> elementCodec) {
+        JsonArray array = new JsonArray();
+        if (value != null) {
+            for (Element element : value) {
+                array.add(elementCodec.toJsonElement(element));
+            }
+        }
+        return array;
+    }
+
+    private static <Element> List<Element> readListJsonElement(
+            JsonElement element,
+            List<Element> defaultValue,
+            FieldCodec<Element> elementCodec
+    ) {
+        if (element == null) return defaultValue;
+
+        JsonArray array = element.getAsJsonArray();
+        List<Element> list = new ArrayList<>(array.size());
+        for (JsonElement entry : array) {
+            list.add(elementCodec.fromJsonElement(entry, null));
+        }
+        return list;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <Key, Value> JsonElement writeMapJsonElement(
+            Map<Key, Value> value,
+            FieldCodec<Key> keyCodec,
+            FieldCodec<Value> valueCodec
+    ) {
+        if (keyCodec == STRING) {
+            return writeStringKeyMapJsonElement((Map<String, Value>) value, valueCodec);
+        }
+
+        JsonArray array = new JsonArray();
+        if (value != null) {
+            for (Map.Entry<Key, Value> entry : value.entrySet()) {
+                JsonObject object = new JsonObject();
+                object.add("key", keyCodec.toJsonElement(entry.getKey()));
+                object.add("value", valueCodec.toJsonElement(entry.getValue()));
+                array.add(object);
+            }
+        }
+        return array;
+    }
+
+    private static <Value> JsonObject writeStringKeyMapJsonElement(Map<String, Value> value, FieldCodec<Value> valueCodec) {
+        JsonObject object = new JsonObject();
+        if (value != null) {
+            for (Map.Entry<String, Value> entry : value.entrySet()) {
+                object.add(entry.getKey(), valueCodec.toJsonElement(entry.getValue()));
+            }
+        }
+        return object;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <Key, Value> Map<Key, Value> readMapJsonElement(
+            JsonElement element,
+            Map<Key, Value> defaultValue,
+            FieldCodec<Key> keyCodec,
+            FieldCodec<Value> valueCodec
+    ) {
+        if (element == null) return defaultValue;
+        if (keyCodec == STRING && element.isJsonObject()) {
+            return (Map<Key, Value>) readStringKeyMapJsonElement(element.getAsJsonObject(), valueCodec);
+        }
+
+        JsonArray array = element.getAsJsonArray();
+        Map<Key, Value> map = new Object2ObjectLinkedOpenHashMap<>(array.size());
+        for (JsonElement entry : array) {
+            JsonObject object = entry.getAsJsonObject();
+            Key mapKey = keyCodec.fromJsonElement(object.get("key"), null);
+            Value mapValue = valueCodec.fromJsonElement(object.get("value"), null);
+            map.put(mapKey, mapValue);
+        }
+        return map;
+    }
+
+    private static <Value> Map<String, Value> readStringKeyMapJsonElement(JsonObject object, FieldCodec<Value> valueCodec) {
+        Map<String, Value> map = new Object2ObjectLinkedOpenHashMap<>(object.size());
+        for (Map.Entry<String, JsonElement> entry : object.entrySet()) {
+            map.put(entry.getKey(), valueCodec.fromJsonElement(entry.getValue(), null));
+        }
+        return map;
+    }
+
     private static void writeItemStackJson(JsonObject json, String key, ItemStack value) {
         CompoundTag tag = new CompoundTag();
         (value == null ? ItemStack.EMPTY : value).save(tag);
         json.addProperty(key, tag.toString());
+    }
+
+    private static JsonElement writeItemStackJsonElement(ItemStack value) {
+        CompoundTag tag = new CompoundTag();
+        (value == null ? ItemStack.EMPTY : value).save(tag);
+        return new JsonPrimitive(tag.toString());
     }
 
     private static ItemStack readItemStackJson(JsonObject json, String key, ItemStack defaultValue) {
@@ -411,12 +532,32 @@ public final class FieldCodecs {
         }
     }
 
+    private static ItemStack readItemStackJsonElement(JsonElement element, ItemStack defaultValue) {
+        if (element == null) return defaultValue;
+        try {
+            CompoundTag tag = TagParser.parseTag(element.getAsString());
+            return ItemStack.of(tag);
+        } catch (Exception exception) {
+            throw new IllegalArgumentException("Invalid ItemStack json element", exception);
+        }
+    }
+
     private static void writeItemStackIdNbtJson(JsonObject json, String key, ItemStack value) {
         ItemStack stack = value == null ? ItemStack.EMPTY : value;
         json.addProperty(key, BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
         if (stack.getTag() != null) {
             json.addProperty("nbt", stack.getTag().toString());
         }
+    }
+
+    private static JsonElement writeItemStackIdNbtJsonElement(ItemStack value) {
+        ItemStack stack = value == null ? ItemStack.EMPTY : value;
+        JsonObject object = new JsonObject();
+        object.addProperty("item", BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
+        if (stack.getTag() != null) {
+            object.addProperty("nbt", stack.getTag().toString());
+        }
+        return object;
     }
 
     private static ItemStack readItemStackIdNbtJson(JsonObject json, String key, ItemStack defaultValue) {
@@ -438,6 +579,18 @@ public final class FieldCodecs {
             }
         }
         return itemStack;
+    }
+
+    private static ItemStack readItemStackIdNbtJsonElement(JsonElement element, ItemStack defaultValue) {
+        if (element == null) return defaultValue;
+        if (!element.isJsonObject()) {
+            JsonObject object = new JsonObject();
+            object.add("item", element);
+            return readItemStackIdNbtJson(object, "item", defaultValue);
+        }
+
+        JsonObject object = element.getAsJsonObject();
+        return readItemStackIdNbtJson(object, object.has("item") ? "item" : "value", defaultValue);
     }
 
     private static <Element> boolean listEquals(List<Element> first, List<Element> second, FieldCodec<Element> elementCodec) {

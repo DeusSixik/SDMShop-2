@@ -1,5 +1,6 @@
 package dev.sixik.sdmshop2.libs.shop.serializer.codec;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
@@ -101,6 +102,35 @@ class FieldCodecsNestedStructureTest {
         second.put("BETA", 2);
 
         assertTrue(codec.areEqual(first, second));
+    }
+
+    @Test
+    void stringKeyMapWritesCompactObjectAndReadsLegacyArray() {
+        FieldCodec<Map<String, Integer>> codec = FieldCodecs.map(FieldCodecs.STRING, FieldCodecs.INT);
+        Map<String, Integer> value = new LinkedHashMap<>();
+        value.put("alpha", 1);
+        value.put("beta", 2);
+
+        JsonObject json = new JsonObject();
+        codec.toJson(json, "map", value);
+
+        assertTrue(json.get("map").isJsonObject());
+        assertEquals(value, codec.fromJson(json, "map", Map.of()));
+
+        JsonArray legacy = new JsonArray();
+        JsonObject first = new JsonObject();
+        first.addProperty("key", "alpha");
+        first.addProperty("value", 1);
+        legacy.add(first);
+        JsonObject second = new JsonObject();
+        second.addProperty("key", "beta");
+        second.addProperty("value", 2);
+        legacy.add(second);
+
+        JsonObject legacyJson = new JsonObject();
+        legacyJson.add("map", legacy);
+
+        assertEquals(value, codec.fromJson(legacyJson, "map", Map.of()));
     }
 
     @Test

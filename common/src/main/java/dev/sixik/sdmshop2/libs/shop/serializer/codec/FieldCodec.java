@@ -1,5 +1,7 @@
 package dev.sixik.sdmshop2.libs.shop.serializer.codec;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import net.minecraft.network.FriendlyByteBuf;
 
@@ -21,6 +23,28 @@ public interface FieldCodec<Value> {
      * Читает значение поля из JSON или возвращает defaultValue, если ключ отсутствует.
      */
     Value fromJson(JsonObject json, String key, Value defaultValue);
+
+    /**
+     * Записывает значение как самостоятельный JSON element.
+     * Используется вложенными codec-ами, чтобы не создавать временный JsonObject на каждый элемент.
+     */
+    default JsonElement toJsonElement(Value value) {
+        JsonObject json = new JsonObject();
+        toJson(json, "value", value);
+        JsonElement element = json.get("value");
+        return element == null ? JsonNull.INSTANCE : element;
+    }
+
+    /**
+     * Читает значение из самостоятельного JSON element.
+     * Если element отсутствует, возвращает defaultValue.
+     */
+    default Value fromJsonElement(JsonElement element, Value defaultValue) {
+        if (element == null) return defaultValue;
+        JsonObject json = new JsonObject();
+        json.add("value", element);
+        return fromJson(json, "value", defaultValue);
+    }
 
     /**
      * Записывает значение поля в сетевой буфер.
@@ -67,6 +91,8 @@ public interface FieldCodec<Value> {
         private String schemaName;
         private JsonWriter<Value> jsonWriter;
         private JsonReader<Value> jsonReader;
+        private JsonElementWriter<Value> jsonElementWriter;
+        private JsonElementReader<Value> jsonElementReader;
         private NetworkWriter<Value> networkWriter;
         private NetworkReader<Value> networkReader;
         private ValueCopier<Value> copier = value -> value;
@@ -86,6 +112,15 @@ public interface FieldCodec<Value> {
         public Builder<Value> json(JsonWriter<Value> writer, JsonReader<Value> reader) {
             this.jsonWriter = writer;
             this.jsonReader = reader;
+            return this;
+        }
+
+        /**
+         * Задает быстрые функции записи и чтения самостоятельного JSON element.
+         */
+        public Builder<Value> jsonElement(JsonElementWriter<Value> writer, JsonElementReader<Value> reader) {
+            this.jsonElementWriter = writer;
+            this.jsonElementReader = reader;
             return this;
         }
 
@@ -136,6 +171,31 @@ public interface FieldCodec<Value> {
                 }
 
                 @Override
+                public JsonElement toJsonElement(Value value) {
+                    if (jsonElementWriter != null) {
+                        JsonElement element = jsonElementWriter.write(value);
+                        return element == null ? JsonNull.INSTANCE : element;
+                    }
+
+                    JsonObject json = new JsonObject();
+                    jsonWriter.write(json, "value", value);
+                    JsonElement element = json.get("value");
+                    return element == null ? JsonNull.INSTANCE : element;
+                }
+
+                @Override
+                public Value fromJsonElement(JsonElement element, Value defaultValue) {
+                    if (element == null) return defaultValue;
+                    if (jsonElementReader != null) {
+                        return jsonElementReader.read(element, defaultValue);
+                    }
+
+                    JsonObject json = new JsonObject();
+                    json.add("value", element);
+                    return jsonReader.read(json, "value", defaultValue);
+                }
+
+                @Override
                 public void toNetwork(FriendlyByteBuf buf, Value value) {
                     networkWriter.write(buf, value);
                 }
@@ -173,6 +233,18 @@ public interface FieldCodec<Value> {
     @FunctionalInterface
     interface JsonReader<Value> {
         Value read(JsonObject json, String key, Value defaultValue);
+    }
+
+    /** Функция записи значения как JSON element. */
+    @FunctionalInterface
+    interface JsonElementWriter<Value> {
+        JsonElement write(Value value);
+    }
+
+    /** Функция чтения значения из JSON element. */
+    @FunctionalInterface
+    interface JsonElementReader<Value> {
+        Value read(JsonElement element, Value defaultValue);
     }
 
     /** Функция записи значения в сетевой буфер. */
