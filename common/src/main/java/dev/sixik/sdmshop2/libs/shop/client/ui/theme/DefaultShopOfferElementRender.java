@@ -10,8 +10,8 @@ import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ShopBadgeHBoxWidget;
 import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ShopEmptyWidget;
 import dev.sixik.sdmshop2.libs.shop.client.textures.PixelBevelTexture;
 import dev.sixik.sdmshop2.libs.shop.client.ui.ShopIcons;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.OfferElementContextRender;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.OfferElementRender;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
 import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
@@ -41,7 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-public class DefaultShopOfferElementRender implements OfferElementRender {
+public class DefaultShopOfferElementRender implements WidgetRender {
 
     private static final int DEBUG_SIZE_ELEMENT = 8;
     private static final int OFFER_ELEMENTS_TABLE_VISIBLE_ROWS = 2;
@@ -72,7 +72,7 @@ public class DefaultShopOfferElementRender implements OfferElementRender {
     }
 
     @Override
-    public void constructor(OfferElementContextRender ctx) {
+    public void constructor(WidgetContextRender ctx) {
         ctx.getOwner().setBackground(new PixelBevelTexture(
                 PixelBevelTexture.PANEL_COLOR,
                 PixelBevelTexture.LINE_LOW_COLOR,
@@ -82,7 +82,7 @@ public class DefaultShopOfferElementRender implements OfferElementRender {
     }
 
     @Override
-    public void addWidgets(OfferElementContextRender ctx) {
+    public void addWidgets(WidgetContextRender ctx) {
         clearWidgetsState();
 
         final ShopEntity entity = ctx.getShopEntity();
@@ -106,7 +106,7 @@ public class DefaultShopOfferElementRender implements OfferElementRender {
     }
 
     @Override
-    public void alightWidgets(OfferElementContextRender ctx) {
+    public void alightWidgets(WidgetContextRender ctx) {
         final Widget owner = ctx.getOwner();
 
         int contentPadding = 4;
@@ -159,29 +159,6 @@ public class DefaultShopOfferElementRender implements OfferElementRender {
 
     }
 
-    @Override
-    public boolean mouseClicked(OfferElementContextRender ctx, double mouseX, double mouseY, int button) {
-        if (button != 1 || !ctx.getOwner().isMouseOverElement(mouseX, mouseY)) {
-            return false;
-        }
-
-        ContextMenuWidget.open(ctx.getOwner(), (int) mouseX, (int) mouseY, 120)
-                .addItem("Copy", () -> {
-                    // copy action
-                })
-                .addSeparator()
-                .addItem("Delete", () -> {
-                    // delete action
-                })
-                .addSeparator()
-                .addItem("Edit", () -> {
-                    ModalWidget.open(ctx.getOwner(), "Title", 220, 140);
-
-                }).scale(0.7f);
-
-        return true;
-    }
-
     private void clearWidgetsState() {
         titleLabel = null;
         moneyTypesContainer = null;
@@ -193,7 +170,7 @@ public class DefaultShopOfferElementRender implements OfferElementRender {
     }
 
     private void addNameLabel(
-            OfferElementContextRender ctx,
+            WidgetContextRender ctx,
             ShopOffer shopEntity,
             Map<ShopComponentCategory, ObjectList<ShopComponent>> offerComponentsMap
     ) {
@@ -230,7 +207,7 @@ public class DefaultShopOfferElementRender implements OfferElementRender {
     }
 
     private void addOfferElementsTable(
-            OfferElementContextRender ctx,
+            WidgetContextRender ctx,
             Map<ShopComponentCategory, ObjectList<ShopComponent>> offerComponentsMap
     ) {
         final ObjectList<ShopComponent> rewardComponents = offerComponentsMap.get(ShopComponentCategory.REWARD);
@@ -265,7 +242,7 @@ public class DefaultShopOfferElementRender implements OfferElementRender {
     }
 
     private void addOfferElement(
-            OfferElementContextRender ctx,
+            WidgetContextRender ctx,
             RewardComponent component
     ) {
         if (component == null)
@@ -285,7 +262,7 @@ public class DefaultShopOfferElementRender implements OfferElementRender {
     }
 
     private void addMoneyTypes(
-            OfferElementContextRender ctx,
+            WidgetContextRender ctx,
             Map<ShopComponentCategory, ObjectList<ShopComponent>> offerComponentsMap
     ) {
         if (!offerComponentsMap.containsKey(ShopComponentCategory.COST)) {
@@ -343,7 +320,7 @@ public class DefaultShopOfferElementRender implements OfferElementRender {
         }
     }
 
-    private void addLimitBar(OfferElementContextRender ctx, ShopOffer shopEntity) {
+    private void addLimitBar(WidgetContextRender ctx, ShopOffer shopEntity) {
         final @Nullable LimiterComponent limiterComponent = shopEntity.getComponent(LimiterComponent.class).orElse(null);
         if (limiterComponent == null) {
             return;

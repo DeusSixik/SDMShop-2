@@ -1,7 +1,5 @@
 package dev.sixik.sdmshop2.libs.shop.components;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonSyntaxException;
 import com.lowdragmc.lowdraglib.gui.texture.ItemStackTexture;
 import com.lowdragmc.lowdraglib.gui.util.DrawerHelper;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
@@ -12,14 +10,13 @@ import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentNumberRange;
+import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
+import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
+import dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs;
 import dev.sixik.sdmshop2.utils.ShopItemHelper;
 import lombok.Getter;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.TagParser;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -78,82 +75,20 @@ public class ItemRewardComponent extends RewardComponent {
         return Component.empty().append(rewardItem.getHoverName()).withStyle(rewardItem.getRarity().color);
     }
 
-    private static class Type implements IComponentType<ItemRewardComponent> {
+    private static class Type extends SerializedComponentType<ItemRewardComponent> {
 
         private static final ResourceLocation ID = ResourceLocation.tryBuild("sdm", "reward_item");
+        private static final ComponentSerializer<ItemRewardComponent> SERIALIZER = ComponentSerializer.<ItemRewardComponent>create()
+                .addRequired("item", FieldCodecs.ITEM_STACK_ID_NBT, ItemRewardComponent::getRewardItem, (component, value) -> component.rewardItem = value)
+                .addDefaultedInt("amount", ItemRewardComponent::getAmount, (component, value) -> component.amount = Math.max(1, value), 1);
+
+        private Type() {
+            super(ItemRewardComponent::new, SERIALIZER);
+        }
 
         @Override
         public ResourceLocation getId() {
             return ID;
-        }
-
-        @Override
-        public JsonObject serialize(ItemRewardComponent component) {
-            JsonObject json = new JsonObject();
-
-            final ItemStack item = component.rewardItem;
-            json.addProperty("item", BuiltInRegistries.ITEM.getKey(item.getItem()).toString());
-
-            if(item.getTag() != null) {
-                json.addProperty("nbt", item.getTag().toString());
-            }
-
-            if(component.amount > 1)
-                json.addProperty("amount", component.amount);
-
-            return json;
-        }
-
-        @Override
-        public ItemRewardComponent deserialize(JsonObject json) {
-            if(!json.has("item"))
-                throw new NullPointerException("Param with id 'item' not exists!");
-
-            String itemIdStr = json.get("item").getAsString();
-            ResourceLocation itemId = ResourceLocation.tryParse(itemIdStr);
-
-            Item item = BuiltInRegistries.ITEM.get(itemId);
-
-            if (item == null || item == Items.AIR) {
-                throw new IllegalArgumentException("Item not found: " + itemIdStr);
-            }
-
-            CompoundTag nbt = null;
-            if (json.has("nbt")) {
-                String nbtString = json.get("nbt").getAsString();
-                try {
-                    nbt = TagParser.parseTag(nbtString);
-                } catch (Exception e) {
-                    throw new JsonSyntaxException("Invalid NBT on Item Reward");
-                }
-            }
-
-
-            ItemStack itemStack = item.getDefaultInstance();
-
-            if(nbt != null)
-                itemStack.setTag(nbt);
-
-            final int amount = json.has("amount") ?
-                    json.get("amount").getAsInt() : 1;
-
-            return new ItemRewardComponent(itemStack, amount);
-        }
-
-        @Override
-        public void toNetwork(FriendlyByteBuf buf, ItemRewardComponent component) {
-            buf.writeItem(component.rewardItem);
-            buf.writeVarInt(component.amount);
-        }
-
-        @Override
-        public ItemRewardComponent fromNetwork(FriendlyByteBuf buf) {
-            return new ItemRewardComponent(buf.readItem(), buf.readVarInt());
-        }
-
-        @Override
-        public ItemRewardComponent createDefault() {
-            return new ItemRewardComponent();
         }
 
         @Override

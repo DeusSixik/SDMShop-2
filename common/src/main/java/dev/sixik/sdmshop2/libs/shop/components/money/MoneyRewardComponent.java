@@ -1,7 +1,5 @@
 package dev.sixik.sdmshop2.libs.shop.components.money;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonSyntaxException;
 import com.lowdragmc.lowdraglib.gui.editor.Icons;
 import com.lowdragmc.lowdraglib.gui.texture.ItemStackTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ResourceTexture;
@@ -18,11 +16,13 @@ import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentNumberRange;
+import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
+import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
+import dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import lombok.Getter;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -122,52 +122,20 @@ public class MoneyRewardComponent extends RewardComponent {
         return widget.setHoverTooltips(money.getDisplayName().copy().append(" : ").append(money.format(BigDecimal.valueOf(amount))));
     }
 
-    private static class Type implements IComponentType<MoneyRewardComponent> {
+    private static class Type extends SerializedComponentType<MoneyRewardComponent> {
 
         private static final ResourceLocation ID = new ResourceLocation("sdm", "reward_money");
+        private static final ComponentSerializer<MoneyRewardComponent> SERIALIZER = ComponentSerializer.<MoneyRewardComponent>create()
+                .addRequired("money_id", FieldCodecs.RESOURCE_LOCATION, MoneyRewardComponent::getMoneyId, (component, value) -> component.moneyId = value)
+                .addRequired("amount", FieldCodecs.DOUBLE, MoneyRewardComponent::getAmount, (component, value) -> component.amount = value);
+
+        private Type() {
+            super(MoneyRewardComponent::new, SERIALIZER);
+        }
 
         @Override
         public ResourceLocation getId() {
             return ID;
-        }
-
-        @Override
-        public JsonObject serialize(MoneyRewardComponent component) {
-            JsonObject object = new JsonObject();
-            object.addProperty("money_id", component.moneyId.toString());
-            object.addProperty("amount", component.amount);
-            return object;
-        }
-
-        @Override
-        public MoneyRewardComponent deserialize(JsonObject json) {
-
-            if(!json.has("money_id"))
-                throw new JsonSyntaxException("Can't find 'money_id'!");
-
-            if(!json.has("amount"))
-                throw new JsonSyntaxException("Can't find 'amount'!");
-
-            return new MoneyRewardComponent(
-                    ResourceLocation.tryParse(json.get("money_id").getAsString()),
-                    json.get("amount").getAsDouble()
-            );
-        }
-
-        @Override
-        public void toNetwork(FriendlyByteBuf buf, MoneyRewardComponent component) {
-            buf.writeResourceLocation(component.moneyId);
-            buf.writeDouble(component.amount);
-        }
-
-        @Override
-        public MoneyRewardComponent fromNetwork(FriendlyByteBuf buf) {
-            return new MoneyRewardComponent(buf.readResourceLocation(), buf.readDouble());
-        }
-
-        @Override
-        public MoneyRewardComponent createDefault() {
-            return new MoneyRewardComponent();
         }
 
         @Override

@@ -1,6 +1,5 @@
 package dev.sixik.sdmshop2.libs.shop.components.promo.conditions;
 
-import com.google.gson.JsonObject;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.base.limiter.ShopLimiterTable;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
@@ -8,10 +7,12 @@ import dev.sixik.sdmshop2.libs.shop.components.api.PromoComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentNumberRange;
 import dev.sixik.sdmshop2.libs.shop.components.limiter.LimiterComponent;
+import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
+import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
+import dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs;
 import dev.sixik.sdmshop2.utils.ShopUtils;
 import lombok.Getter;
 import lombok.Setter;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 
@@ -51,7 +52,7 @@ public class PromoCooldownComponent extends PromoComponent {
         }
 
         UUID offerId = ((ShopOffer) getRoots()).getUUID();
-        long lastTime = 0;
+        long lastTime;
 
         if (limiterType == LimiterComponent.LimiterType.Player) {
             lastTime = tableOpt.get().getPlayerData(player).getData(offerId).getLastPurchaseTime().get();
@@ -67,9 +68,16 @@ public class PromoCooldownComponent extends PromoComponent {
         return TYPE;
     }
 
-    private static class Type implements IComponentType<PromoCooldownComponent> {
+    private static class Type extends SerializedComponentType<PromoCooldownComponent> {
 
         private static final ResourceLocation ID = ResourceLocation.tryBuild("sdm", "promo_cooldown");
+        private static final ComponentSerializer<PromoCooldownComponent> SERIALIZER = ComponentSerializer.<PromoCooldownComponent>create()
+                .addRequired("cooldown_ms", FieldCodecs.LONG, PromoCooldownComponent::getCooldownMs, (component, value) -> component.cooldownMs = value)
+                .addRequired("side", FieldCodecs.enumCodec(LimiterComponent.LimiterType.class), PromoCooldownComponent::getLimiterType, (component, value) -> component.limiterType = value);
+
+        private Type() {
+            super(PromoCooldownComponent::new, SERIALIZER);
+        }
 
         @Override
         public ResourceLocation getId() {
@@ -77,42 +85,15 @@ public class PromoCooldownComponent extends PromoComponent {
         }
 
         @Override
-        public JsonObject serialize(PromoCooldownComponent component) {
-            JsonObject json = new JsonObject();
-            json.addProperty("cooldown_ms", component.cooldownMs);
-            json.addProperty("side", component.limiterType.name());
-            return json;
-        }
-
-        @Override
-        public PromoCooldownComponent deserialize(JsonObject json) {
-            return new PromoCooldownComponent(json.get("cooldown_ms").getAsLong(), LimiterComponent.LimiterType.valueOf(json.get("side").getAsString()));
-        }
-
-        @Override
-        public void toNetwork(FriendlyByteBuf buf, PromoCooldownComponent component) {
-            buf.writeLong(component.cooldownMs);
-            buf.writeEnum(component.limiterType);
-        }
-
-        @Override
-        public PromoCooldownComponent fromNetwork(FriendlyByteBuf buf) {
-            return new PromoCooldownComponent(buf.readLong(), buf.readEnum(LimiterComponent.LimiterType.class));
-        }
-
-        @Override
-        public PromoCooldownComponent createDefault() {
-            return new PromoCooldownComponent();
-        }
-
-        @Override
         public PromoCooldownComponent createFromBuilder(Object... args) {
-            if(args.length != 2 && args.length != 3)
+            if (args.length != 2 && args.length != 3) {
                 throw new IllegalArgumentException("PromoCooldownComponent.createFromBuilder() takes 2 or 3 arguments (long, String, (Optional) String)");
+            }
 
             final var promo = new PromoCooldownComponent((long) args[0], LimiterComponent.LimiterType.valueOf((String) args[1]));
-            if(args.length == 3)
+            if (args.length == 3) {
                 promo.setPromoId((String) args[2]);
+            }
 
             return promo;
         }

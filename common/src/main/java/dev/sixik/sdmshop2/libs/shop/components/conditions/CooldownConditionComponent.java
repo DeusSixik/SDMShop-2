@@ -1,7 +1,5 @@
 package dev.sixik.sdmshop2.libs.shop.components.conditions;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.base.limiter.ShopLimiterTable;
 import dev.sixik.sdmshop2.libs.shop.components.api.ConditionComponent;
@@ -9,14 +7,15 @@ import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentNumberRange;
 import dev.sixik.sdmshop2.libs.shop.components.limiter.LimiterComponent;
+import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
+import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
+import dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs;
 import dev.sixik.sdmshop2.utils.ShopUtils;
 import lombok.Getter;
 import lombok.Setter;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 
-import java.util.Arrays;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -54,7 +53,7 @@ public class CooldownConditionComponent extends ConditionComponent {
 
         UUID offerId = ((ShopOffer) getRoots()).getUUID();
         ShopLimiterTable table = tableOpt.get();
-        long lastTime = 0;
+        long lastTime;
 
         if (limiterType == LimiterComponent.LimiterType.Player) {
             lastTime = table.getPlayerData(player).getData(offerId).getLastPurchaseTime().get();
@@ -70,9 +69,16 @@ public class CooldownConditionComponent extends ConditionComponent {
         return TYPE;
     }
 
-    private static class Type implements IComponentType<CooldownConditionComponent> {
+    private static class Type extends SerializedComponentType<CooldownConditionComponent> {
 
         private static final ResourceLocation ID = ResourceLocation.tryBuild("sdm", "condition_cooldown");
+        private static final ComponentSerializer<CooldownConditionComponent> SERIALIZER = ComponentSerializer.<CooldownConditionComponent>create()
+                .addRequired("cooldown_ms", FieldCodecs.LONG, CooldownConditionComponent::getCooldownMs, (component, value) -> component.cooldownMs = value)
+                .addDefaulted("limiter_type", FieldCodecs.enumCodec(LimiterComponent.LimiterType.class), CooldownConditionComponent::getLimiterType, (component, value) -> component.limiterType = value, LimiterComponent.LimiterType.Player);
+
+        private Type() {
+            super(CooldownConditionComponent::new, SERIALIZER);
+        }
 
         @Override
         public ResourceLocation getId() {
@@ -80,58 +86,12 @@ public class CooldownConditionComponent extends ConditionComponent {
         }
 
         @Override
-        public JsonObject serialize(CooldownConditionComponent component) {
-            JsonObject json = new JsonObject();
-            json.addProperty("cooldown_ms", component.cooldownMs);
-            json.addProperty("limiter_type", component.limiterType.name());
-            return json;
-        }
-
-        @Override
-        public CooldownConditionComponent deserialize(JsonObject json) {
-            if (!json.has("cooldown_ms")) {
-                throw new JsonParseException("[CooldownConditionComponent] Missing 'cooldown_ms'");
-            }
-
-            long cooldown = json.get("cooldown_ms").getAsLong();
-            LimiterComponent.LimiterType type = LimiterComponent.LimiterType.Player; // По умолчанию
-
-            if (json.has("limiter_type")) {
-                String typeStr = json.get("limiter_type").getAsString();
-                try {
-                    type = LimiterComponent.LimiterType.valueOf(typeStr);
-                } catch (IllegalArgumentException e) {
-                    throw new JsonParseException("[CooldownConditionComponent] Invalid 'type'. Expected: " + Arrays.toString(LimiterComponent.LimiterType.values()));
-                }
-            }
-
-            return new CooldownConditionComponent(cooldown, type);
-        }
-
-        @Override
-        public void toNetwork(FriendlyByteBuf buf, CooldownConditionComponent component) {
-            buf.writeLong(component.cooldownMs);
-            buf.writeEnum(component.limiterType);
-        }
-
-        @Override
-        public CooldownConditionComponent fromNetwork(FriendlyByteBuf buf) {
-            return new CooldownConditionComponent(buf.readLong(), buf.readEnum(LimiterComponent.LimiterType.class));
-        }
-
-        @Override
-        public CooldownConditionComponent createDefault() {
-            return new CooldownConditionComponent();
-        }
-
-        @Override
         public CooldownConditionComponent createFromBuilder(Object... args) {
-            if(args.length != 2)
+            if (args.length != 2) {
                 throw new IllegalArgumentException("CooldownConditionComponent.createFromBuilder() takes 2 arguments (long, String)");
+            }
 
-            final long cooldown = (long) args[0];
-            final String type = (String) args[1];
-            return new CooldownConditionComponent(cooldown, LimiterComponent.LimiterType.valueOf(type));
+            return new CooldownConditionComponent((long) args[0], LimiterComponent.LimiterType.valueOf((String) args[1]));
         }
     }
 }

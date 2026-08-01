@@ -1,11 +1,11 @@
 package dev.sixik.sdmshop2.libs.shop.components.misc;
 
-import com.google.gson.JsonObject;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
+import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
+import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
 import lombok.Getter;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 
 public class NameComponent extends ShopComponent {
@@ -30,40 +30,19 @@ public class NameComponent extends ShopComponent {
         return TYPE;
     }
 
-    private static class Type implements IComponentType<NameComponent> {
+    private static class Type extends SerializedComponentType<NameComponent> {
 
         private static final ResourceLocation ID = ResourceLocation.tryBuild("sdm", "name");
+        private static final ComponentSerializer<NameComponent> SERIALIZER = ComponentSerializer.<NameComponent>create()
+                .addString("name", NameComponent::getName, (component, value) -> component.name = value);
+
+        private Type() {
+            super(NameComponent::new, SERIALIZER);
+        }
 
         @Override
         public ResourceLocation getId() {
             return ID;
-        }
-
-        @Override
-        public JsonObject serialize(NameComponent component) {
-            JsonObject object = new JsonObject();
-            object.addProperty("name", component.name);
-            return object;
-        }
-
-        @Override
-        public NameComponent deserialize(JsonObject json) {
-            return new NameComponent(json.has("name") ? json.get("name").getAsString() : "");
-        }
-
-        @Override
-        public void toNetwork(FriendlyByteBuf buf, NameComponent component) {
-            buf.writeUtf(component.name);
-        }
-
-        @Override
-        public NameComponent fromNetwork(FriendlyByteBuf buf) {
-            return new NameComponent(buf.readUtf());
-        }
-
-        @Override
-        public NameComponent createDefault() {
-            return new NameComponent();
         }
     }
 }

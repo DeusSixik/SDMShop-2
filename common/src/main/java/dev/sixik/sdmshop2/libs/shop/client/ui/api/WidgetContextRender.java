@@ -3,12 +3,13 @@ package dev.sixik.sdmshop2.libs.shop.client.ui.api;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ContextMenuWidget;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Контекст для тем и отрисовки.
  */
-public interface OfferElementContextRender {
+public interface WidgetContextRender {
 
     /**
      * Возвращает {@link ShopEntity} который используется в элементе. Так же он может быть {@code null} это может означать

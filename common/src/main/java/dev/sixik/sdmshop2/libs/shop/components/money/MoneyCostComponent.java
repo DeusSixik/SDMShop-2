@@ -1,7 +1,5 @@
 package dev.sixik.sdmshop2.libs.shop.components.money;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonSyntaxException;
 import com.lowdragmc.lowdraglib.gui.texture.ItemStackTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ResourceTexture;
 import com.lowdragmc.lowdraglib.gui.texture.TextTexture;
@@ -15,10 +13,11 @@ import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentNumberRange;
+import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
+import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
 import lombok.Getter;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -147,52 +146,20 @@ public class MoneyCostComponent extends CostComponent {
         return texture;
     }
 
-    private static class Type implements IComponentType<MoneyCostComponent> {
+    private static class Type extends SerializedComponentType<MoneyCostComponent> {
 
         private static final ResourceLocation ID = new ResourceLocation("sdm", "cost_money");
+        private static final ComponentSerializer<MoneyCostComponent> SERIALIZER = ComponentSerializer.<MoneyCostComponent>create()
+                .addRequired("money_id", dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs.RESOURCE_LOCATION, MoneyCostComponent::getMoneyId, (component, value) -> component.moneyId = value == null ? EMPTY : value)
+                .addRequired("amount", dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs.DOUBLE, MoneyCostComponent::getAmount, (component, value) -> component.amount = value);
+
+        private Type() {
+            super(MoneyCostComponent::new, SERIALIZER);
+        }
 
         @Override
         public ResourceLocation getId() {
             return ID;
-        }
-
-        @Override
-        public MoneyCostComponent deserialize(JsonObject json) {
-
-            if(!json.has("money_id"))
-                throw new JsonSyntaxException("Can't find 'money_id'!");
-
-            if(!json.has("amount"))
-                throw new JsonSyntaxException("Can't find 'amount'!");
-
-            return new MoneyCostComponent(
-                    ResourceLocation.tryParse(json.get("money_id").getAsString()),
-                    json.get("amount").getAsDouble()
-            );
-        }
-
-        @Override
-        public JsonObject serialize(MoneyCostComponent component) {
-            JsonObject object = new JsonObject();
-            object.addProperty("money_id", component.moneyId.toString());
-            object.addProperty("amount", component.amount);
-            return object;
-        }
-
-        @Override
-        public MoneyCostComponent fromNetwork(FriendlyByteBuf buf) {
-            return new MoneyCostComponent(buf.readResourceLocation(), buf.readDouble());
-        }
-
-        @Override
-        public void toNetwork(FriendlyByteBuf buf, MoneyCostComponent component) {
-            buf.writeResourceLocation(component.moneyId);
-            buf.writeDouble(component.amount);
-        }
-
-        @Override
-        public MoneyCostComponent createDefault() {
-            return new MoneyCostComponent();
         }
 
         @Override

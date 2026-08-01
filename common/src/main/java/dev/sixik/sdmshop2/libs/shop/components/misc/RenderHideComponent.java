@@ -1,11 +1,11 @@
 package dev.sixik.sdmshop2.libs.shop.components.misc;
 
-import com.google.gson.JsonObject;
 import dev.sixik.sdmshop2.libs.shop.components.api.ConditionComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.exceptions.NoSuchComponents;
-import net.minecraft.network.FriendlyByteBuf;
+import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
+import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
 import net.minecraft.resources.ResourceLocation;
 
 public final class RenderHideComponent extends ShopComponent {
@@ -23,36 +23,18 @@ public final class RenderHideComponent extends ShopComponent {
             throw new NoSuchComponents(getClass(), ConditionComponent.class);
     }
 
-    private static class Type implements IComponentType<RenderHideComponent> {
+    private static class Type extends SerializedComponentType<RenderHideComponent> {
 
         private static final ResourceLocation ID = ResourceLocation.tryBuild("sdm", "hide_render");
+        private static final ComponentSerializer<RenderHideComponent> SERIALIZER = ComponentSerializer.create();
+
+        private Type() {
+            super(RenderHideComponent::new, SERIALIZER);
+        }
 
         @Override
         public ResourceLocation getId() {
             return ID;
-        }
-
-        @Override
-        public JsonObject serialize(RenderHideComponent component) {
-            return new JsonObject();
-        }
-
-        @Override
-        public RenderHideComponent deserialize(JsonObject json) {
-            return new RenderHideComponent();
-        }
-
-        @Override
-        public void toNetwork(FriendlyByteBuf buf, RenderHideComponent component) { }
-
-        @Override
-        public RenderHideComponent fromNetwork(FriendlyByteBuf buf) {
-            return new RenderHideComponent();
-        }
-
-        @Override
-        public RenderHideComponent createDefault() {
-            return new RenderHideComponent();
         }
 
         @Override

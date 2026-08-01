@@ -23,6 +23,7 @@ public abstract class ShopComponent {
     public static ResourceLocation EMPTY = ResourceLocation.tryBuild("sdm", "null");
 
     private ShopEntity root;
+    private volatile boolean dirty;
 
     /**
      * Вызывается при инициализации компонента.
@@ -93,6 +94,24 @@ public abstract class ShopComponent {
         return true;
     }
 
+    public final boolean isDirty() {
+        return dirty;
+    }
+
+    public final void markDirty() {
+        dirty = true;
+    }
+
+    public final void clearDirty() {
+        dirty = false;
+    }
+
+    public final boolean consumeDirty() {
+        boolean wasDirty = dirty;
+        dirty = false;
+        return wasDirty;
+    }
+
     /**
      * Проверяет, является ли переданный идентификатор идентификатором пустого компонента.
      *
@@ -107,6 +126,7 @@ public abstract class ShopComponent {
      * Оповещает родителя что компонент был изменён и нужно обновить данные
      */
     public final void invokeUpdate() {
+        markDirty();
         ShopEntity root = getRoot();
         if(root == null) return;
         root.invokeUpdateComponent(root, this);
