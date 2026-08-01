@@ -23,6 +23,8 @@ dependencies {
 
     minecraftLibraries("com.github.ben-manes.caffeine:caffeine:3.2.3")
     minecraftLibraries("org.mongodb:mongodb-driver-sync:5.6.5")
+
+    testImplementation("org.mongodb:mongodb-driver-sync:5.6.5")
 }
 
 tasks.register('generateLDLibDocsSafe') {

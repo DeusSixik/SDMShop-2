@@ -129,3 +129,4 @@ forge/.gradle/
 fabric/build/
 fabric/run/
 fabric/.gradle/
+/common/logs
