@@ -4,10 +4,19 @@ import com.lowdragmc.lowdraglib.gui.texture.ColorBorderTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ColorRectTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ItemStackTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ResourceBorderTexture;
-import com.lowdragmc.lowdraglib.gui.widget.*;
+import com.lowdragmc.lowdraglib.gui.widget.DialogWidget;
+import com.lowdragmc.lowdraglib.gui.widget.DraggableScrollableWidgetGroup;
+import com.lowdragmc.lowdraglib.gui.widget.LabelWidget;
+import com.lowdragmc.lowdraglib.gui.widget.PhantomSlotWidget;
+import com.lowdragmc.lowdraglib.gui.widget.SelectorWidget;
+import com.lowdragmc.lowdraglib.gui.widget.Widget;
+import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
+import com.lowdragmc.lowdraglib.utils.Size;
 import com.lowdragmc.lowdraglib.misc.ItemStackTransfer;
 import com.lowdragmc.lowdraglib.side.fluid.FluidTransferHelper;
 import com.lowdragmc.lowdraglib.side.item.IItemTransfer;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.InputTextBox;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.BlockItem;
@@ -26,22 +35,30 @@ public class SDMBlockSelectorWidget extends WidgetGroup {
     private Consumer<BlockState> onBlockStateUpdate;
     private Block block;
     private final IItemTransfer handler;
-    private final TextFieldWidget blockField;
+    private final InputTextBox blockField;
+    private final boolean stateSelector;
     private final Map<Property, Comparable> properties;
 
     public SDMBlockSelectorWidget(int x, int y, int width, boolean isState) {
         super(x, y, width, 20);
+        this.stateSelector = isState;
         setClientSideWidget();
         properties = new HashMap<>();
-        blockField = (TextFieldWidget) new TextFieldWidget(22, 0, width - (isState ? 46 : 26), 20, null, s -> {
+        blockField = new InputTextBox(22, 0, getBlockFieldWidth(width), 20, null, s -> {
             if (s != null && !s.isEmpty()) {
-                Block block = BuiltInRegistries.BLOCK.get(new ResourceLocation(s));
+                ResourceLocation location = ResourceLocation.tryParse(s);
+                if (location == null) return;
+
+                Block block = BuiltInRegistries.BLOCK.get(location);
                 if (this.block != block) {
                     this.block = block;
                     onUpdate();
                 }
             }
-        }).setResourceLocationOnly().setHoverTooltips("ldlib.gui.tips.block_selector");
+        });
+        blockField.setResourceLocationOnly();
+        blockField.setClientSideWidget();
+        blockField.setHoverTooltips("ldlib.gui.tips.block_selector");
 
         addWidget(new PhantomSlotWidget(handler = new ItemStackTransfer(1), 0, 1, 1)
                 .setClearSlotOnRightClick(true)
@@ -90,6 +107,23 @@ public class SDMBlockSelectorWidget extends WidgetGroup {
                 }
             }).setHoverBorderTexture(1, -1).setHoverTooltips("ldlib.gui.tips.block_meta"));
         }
+    }
+
+    @Override
+    public void setSize(Size size) {
+        super.setSize(size);
+        blockField.setSelfPosition(22, 0);
+        blockField.setSize(getBlockFieldWidth(size.width), 20);
+
+        if (stateSelector && widgets.size() > 2) {
+            Widget stateButton = widgets.get(2);
+            stateButton.setSelfPosition(size.width - 21, 0);
+            stateButton.setSize(20, 20);
+        }
+    }
+
+    private int getBlockFieldWidth(int width) {
+        return Math.max(1, width - (stateSelector ? 46 : 26));
     }
 
     public BlockState getBlock() {

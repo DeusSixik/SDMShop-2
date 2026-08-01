@@ -3,6 +3,7 @@ package dev.sixik.sdmshop2.libs.shop.components.misc;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
+import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfigOptions;
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
 import dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs;
@@ -21,11 +22,11 @@ public class CatalogComponent extends ShopComponent {
     @Getter
     @Setter
     @ComponentConfig(translationKey = "shop.component.misc.catalog.id")
+    @ComponentConfigOptions(provider = "sdm:catalog_ids")
     private String id;
 
     @Getter
     @Setter
-    @ComponentConfig(translationKey = "shop.component.misc.catalog.uuid")
     private UUID uuid;
 
     public CatalogComponent() {

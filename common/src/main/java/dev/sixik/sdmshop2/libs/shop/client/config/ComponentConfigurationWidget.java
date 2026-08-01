@@ -1,16 +1,14 @@
 package dev.sixik.sdmshop2.libs.shop.client.config;
 
 import com.lowdragmc.lowdraglib.gui.texture.ColorBorderTexture;
-import com.lowdragmc.lowdraglib.gui.texture.GuiTextureGroup;
-import com.lowdragmc.lowdraglib.gui.texture.TextTexture;
 import com.lowdragmc.lowdraglib.gui.texture.TransformTexture;
-import com.lowdragmc.lowdraglib.gui.widget.*;
+import com.lowdragmc.lowdraglib.gui.widget.Widget;
+import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import com.lowdragmc.lowdraglib.gui.widget.layout.Layout;
 import com.lowdragmc.lowdraglib.utils.Size;
 import dev.sixik.sdmshop2.libs.shop.client.WidgetGroupAccessor;
 import dev.sixik.sdmshop2.libs.shop.client.config.constructors.ComponentConfigAccess;
 import dev.sixik.sdmshop2.libs.shop.client.config.constructors.ComponentConfigWidgetConstructor;
-import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ExternTextFieldWidget;
 import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
@@ -50,17 +48,10 @@ public class ComponentConfigurationWidget extends WidgetGroup {
     protected ShopComponent component;
 
     @Setter
-    protected BiConsumer<Integer, SwitchWidget> modifySwitchWidgetCallback = (index, widget) -> {
-        widget.setTexture(
-                new GuiTextureGroup(getTexture(), new TextTexture(() -> I18n.get("client.shop.component.editor.switch.off"))),
-                new GuiTextureGroup(getTexture(), new TextTexture(() -> I18n.get("client.shop.component.editor.switch.on")))
-        );
-    };
+    protected ComponentConfigWidgetConstructor.Style editorStyle = ComponentConfigWidgetConstructor.Style.defaults();
 
     @Setter
-    protected BiConsumer<Integer, ExternTextFieldWidget> modifyExternTextFieldWidgetCallback = (index, widget) -> {
-        widget.setTextFieldHeight(20);
-    };
+    protected BiConsumer<Integer, ComponentConfigWidgetConstructor> modifyConfigWidgetCallback = (index, widget) -> { };
 
     @Setter
     protected BiConsumer<Integer, TextLabel> modifyTextLabelCreateCallback = (index, widget) -> { };
@@ -151,16 +142,14 @@ public class ComponentConfigurationWidget extends WidgetGroup {
             final var datum = fieldsList.get(i);
             Widget editorWidget = ComponentConfigWidgetConstructor.createWidget(component, datum);
             if (editorWidget == null) continue;
-            if(editorWidget instanceof SwitchWidget switchWidget) {
-                modifySwitchWidgetCallback.accept(i, switchWidget);
-            } else if(editorWidget instanceof ExternTextFieldWidget textFieldWidget) {
-                modifyExternTextFieldWidgetCallback.accept(i, textFieldWidget);
+            if (editorWidget instanceof ComponentConfigWidgetConstructor configWidget) {
+                configWidget.setStyle(editorStyle);
+                modifyConfigWidgetCallback.accept(i, configWidget);
             }
 
             editorWidget.setHoverTexture(getHoverTexture());
-            editorWidget.setSizeHeight(DEFAULT_EDITOR_HEIGHT);
 
-            if (!(editorWidget instanceof WidgetGroup)) {
+            if (!(editorWidget instanceof ComponentConfigWidgetConstructor)) {
                 editorWidget.setSizeHeight(DEFAULT_EDITOR_HEIGHT);
             }
 

@@ -9,12 +9,19 @@ import com.lowdragmc.lowdraglib.utils.Size;
 import dev.sixik.sdmshop2.libs.shop.client.textures.PixelBevelTexture;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
+import lombok.Getter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 import org.jspecify.annotations.NonNull;
 import org.lwjgl.glfw.GLFW;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
 
 public class ModalWidget extends WidgetGroup {
 
@@ -28,11 +35,16 @@ public class ModalWidget extends WidgetGroup {
     protected final WidgetGroup panel;
     protected final WidgetGroup content;
     @Nullable
+    @Getter
     protected TextLabel titleLabel;
     @Nullable
+    @Getter
     protected ButtonWidget closeButton;
     @Nullable
+    @Getter
     protected WidgetGroup attachedParent;
+    protected final Map<Widget, Boolean> blockedWidgets = new IdentityHashMap<>();
+    protected final Map<Widget, List<Component>> blockedWidgetTooltips = new IdentityHashMap<>();
 
     protected int panelWidth;
     protected int panelHeight;
@@ -42,6 +54,8 @@ public class ModalWidget extends WidgetGroup {
     protected boolean closeOnEsc = true;
     protected boolean closeOnOutsideClick = true;
     protected boolean closeButtonVisible = true;
+    protected boolean blockWidgetsBehind = true;
+    protected boolean blockHoverBehind = true;
     protected boolean closing;
     protected boolean initialized;
 
@@ -51,8 +65,7 @@ public class ModalWidget extends WidgetGroup {
 
     public ModalWidget(int width, int height) {
         super(0, 0, 1, 1);
-        this.panelWidth = Math.max(1, width);
-        this.panelHeight = Math.max(1, height);
+        initializeSize(width, height);
 
         setBackground(new ColorRectTexture(overlayColor));
 
@@ -67,6 +80,11 @@ public class ModalWidget extends WidgetGroup {
         setCloseButtonVisible(true);
         initialized = true;
         recomputeLayout();
+    }
+
+    protected void initializeSize(int width, int height) {
+        this.panelWidth = Math.max(1, width);
+        this.panelHeight = Math.max(1, height);
     }
 
     public static ModalWidget open(Widget owner) {
@@ -85,7 +103,7 @@ public class ModalWidget extends WidgetGroup {
         return open(owner, title == null ? Component.empty() : Component.literal(title), width, height);
     }
 
-    public static ModalWidget open(Widget owner, ModalWidget modal) {
+    public static <MODAL extends ModalWidget> MODAL open(Widget owner, MODAL modal) {
         if (owner == null || modal == null) return null;
 
         Widget root = owner;
@@ -108,6 +126,7 @@ public class ModalWidget extends WidgetGroup {
         attachedParent = parent;
         resizeToScreen();
         centerPanel();
+        blockWidgetsBehind();
         parent.addWidget(this);
         setFocus(true);
         return this;
@@ -120,6 +139,8 @@ public class ModalWidget extends WidgetGroup {
         if (parent != null) {
             parent.removeWidget(this);
         }
+        restoreHoverBehind();
+        restoreWidgetsBehind();
         attachedParent = null;
         setFocus(false);
         closing = false;
@@ -228,6 +249,26 @@ public class ModalWidget extends WidgetGroup {
         return this;
     }
 
+    public ModalWidget setBlockWidgetsBehind(boolean blockWidgetsBehind) {
+        this.blockWidgetsBehind = blockWidgetsBehind;
+        if (blockWidgetsBehind) {
+            blockWidgetsBehind();
+        } else {
+            restoreWidgetsBehind();
+        }
+        return this;
+    }
+
+    public ModalWidget setBlockHoverBehind(boolean blockHoverBehind) {
+        this.blockHoverBehind = blockHoverBehind;
+        if (blockHoverBehind) {
+            blockHoverBehind();
+        } else {
+            restoreHoverBehind();
+        }
+        return this;
+    }
+
     public ModalWidget hideCloseButton() {
         return setCloseButtonVisible(false);
     }
@@ -294,11 +335,14 @@ public class ModalWidget extends WidgetGroup {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        setFocus(true);
+        blockWidgetsBehind();
 
         boolean insidePanel = isMouseOverPanel(mouseX, mouseY);
         if (insidePanel) {
-            super.mouseClicked(mouseX, mouseY, button);
+            boolean handled = super.mouseClicked(mouseX, mouseY, button);
+            if (!handled) {
+                setFocus(true);
+            }
             return true;
         }
 
@@ -310,6 +354,7 @@ public class ModalWidget extends WidgetGroup {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        blockWidgetsBehind();
         if (isMouseOverPanel(mouseX, mouseY)) {
             super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
         }
@@ -318,12 +363,14 @@ public class ModalWidget extends WidgetGroup {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        blockWidgetsBehind();
         super.mouseReleased(mouseX, mouseY, button);
         return true;
     }
 
     @Override
     public boolean mouseWheelMove(double mouseX, double mouseY, double wheelDelta) {
+        blockWidgetsBehind();
         if (isMouseOverPanel(mouseX, mouseY)) {
             super.mouseWheelMove(mouseX, mouseY, wheelDelta);
         }
@@ -332,6 +379,7 @@ public class ModalWidget extends WidgetGroup {
 
     @Override
     public boolean mouseMoved(double mouseX, double mouseY) {
+        blockWidgetsBehind();
         if (isMouseOverPanel(mouseX, mouseY)) {
             super.mouseMoved(mouseX, mouseY);
         }
@@ -340,6 +388,7 @@ public class ModalWidget extends WidgetGroup {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        blockWidgetsBehind();
         if (super.keyPressed(keyCode, scanCode, modifiers)) {
             return true;
         }
@@ -354,6 +403,7 @@ public class ModalWidget extends WidgetGroup {
 
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
+        blockWidgetsBehind();
         super.charTyped(codePoint, modifiers);
         return true;
     }
@@ -369,6 +419,7 @@ public class ModalWidget extends WidgetGroup {
 
     @Override
     public @Nullable Widget getHoverElement(double mouseX, double mouseY) {
+        blockHoverBehind();
         if (!isVisible() || !isMouseOverElement(mouseX, mouseY)) return null;
         if (isMouseOverPanel(mouseX, mouseY)) {
             Widget hovered = super.getHoverElement(mouseX, mouseY);
@@ -378,9 +429,18 @@ public class ModalWidget extends WidgetGroup {
     }
 
     @Override
+    public void drawInForeground(@NonNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        blockHoverBehind();
+        clearHoverTooltip();
+        super.drawInForeground(graphics, mouseX, mouseY, partialTicks);
+    }
+
+    @Override
     public void drawInBackground(@NonNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         resizeToScreen();
         centerPanel();
+        blockWidgetsBehind();
+        blockHoverBehind();
         super.drawInBackground(graphics, mouseX, mouseY, partialTicks);
     }
 
@@ -446,6 +506,95 @@ public class ModalWidget extends WidgetGroup {
                 && mouseY >= y
                 && mouseX < x + panel.getSizeWidth()
                 && mouseY < y + panel.getSizeHeight();
+    }
+
+    protected void blockWidgetsBehind() {
+        if (!blockWidgetsBehind || closing || attachedParent == null) return;
+
+        for (Widget widget : attachedParent.widgets) {
+            if (widget == this || widget instanceof ModalWidget) continue;
+            if (isModalOverlayWidget(widget)) {
+                restoreBlockedWidget(widget);
+                continue;
+            }
+
+            blockedWidgets.putIfAbsent(widget, widget.isActive());
+            if (widget.isActive()) {
+                widget.setActive(false);
+            }
+        }
+    }
+
+    protected void blockHoverBehind() {
+        if (!blockHoverBehind || closing || attachedParent == null) return;
+
+        for (Widget widget : attachedParent.widgets) {
+            if (widget == this || widget instanceof ModalWidget) continue;
+            if (isModalOverlayWidget(widget)) {
+                restoreBlockedHover(widget);
+                continue;
+            }
+            blockHover(widget);
+        }
+    }
+
+    protected boolean isModalOverlayWidget(Widget widget) {
+        return widget instanceof DropDownBox.PopupInputLayer;
+    }
+
+    protected void restoreBlockedWidget(Widget widget) {
+        Boolean active = blockedWidgets.remove(widget);
+        if (active != null) {
+            widget.setActive(active);
+        }
+    }
+
+    protected void restoreBlockedHover(Widget widget) {
+        List<Component> tooltipTexts = blockedWidgetTooltips.remove(widget);
+        if (tooltipTexts != null) {
+            widget.getTooltipTexts().clear();
+            widget.getTooltipTexts().addAll(tooltipTexts);
+        }
+    }
+
+    protected void blockHover(Widget widget) {
+        List<Component> tooltipTexts = widget.getTooltipTexts();
+        if (!tooltipTexts.isEmpty()) {
+            blockedWidgetTooltips.putIfAbsent(widget, new ArrayList<>(tooltipTexts));
+            tooltipTexts.clear();
+        }
+
+        if (widget instanceof WidgetGroup group) {
+            for (Widget child : group.widgets) {
+                blockHover(child);
+            }
+        }
+    }
+
+    protected void restoreWidgetsBehind() {
+        if (blockedWidgets.isEmpty()) return;
+
+        for (Map.Entry<Widget, Boolean> entry : blockedWidgets.entrySet()) {
+            entry.getKey().setActive(entry.getValue());
+        }
+        blockedWidgets.clear();
+    }
+
+    protected void restoreHoverBehind() {
+        if (blockedWidgetTooltips.isEmpty()) return;
+
+        for (Map.Entry<Widget, List<Component>> entry : blockedWidgetTooltips.entrySet()) {
+            List<Component> tooltipTexts = entry.getKey().getTooltipTexts();
+            tooltipTexts.clear();
+            tooltipTexts.addAll(entry.getValue());
+        }
+        blockedWidgetTooltips.clear();
+    }
+
+    protected void clearHoverTooltip() {
+        if (gui != null && gui.getModularUIGui() != null) {
+            gui.getModularUIGui().setHoverTooltip(Collections.emptyList(), null, null, null);
+        }
     }
 
     protected static void closeExistingModals(WidgetGroup mainGroup) {

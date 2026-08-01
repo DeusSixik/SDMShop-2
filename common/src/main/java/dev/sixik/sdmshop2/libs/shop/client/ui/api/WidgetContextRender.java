@@ -3,8 +3,12 @@ package dev.sixik.sdmshop2.libs.shop.client.ui.api;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ContextMenuWidget;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.Collections;
+import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Контекст для тем и отрисовки.
@@ -32,4 +36,16 @@ public interface WidgetContextRender {
      * Метод для удаления собственного виджета
      */
     void removeWidget(Widget widget);
+
+    default Map<CallbackType, Consumer<?>> getCallbacks() {
+        return Collections.emptyMap();
+    }
+
+    enum CallbackType {
+        /**
+         * Доступен только в {@link ThemeApi.Category#Offers} <br>
+         * Принимает {@link String} {@code groupId} в качестве аргумента
+         */
+        InvokeBuy
+    }
 }

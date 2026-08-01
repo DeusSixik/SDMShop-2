@@ -1,4 +1,4 @@
-package dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.entities;
+package dev.sixik.sdmshop2.libs.shop.client.ui.elements;
 
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
@@ -9,11 +9,12 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ThemeApi;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ContextMenuWidget;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ModalWidget;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.EnumMap;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 public class ShopOfferElement extends WidgetGroup implements ShopUiElement, WidgetContextRender {
 
@@ -21,6 +22,8 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement, Widg
     private final ShopOffer shopEntity;
 
     protected final WidgetRender render;
+
+    protected final EnumMap<CallbackType, Consumer<?>> callbacks;
 
     public ShopOfferElement(@Nullable ShopOffer shopEntity) {
         this(shopEntity, ThemeApi.getDefaultTheme(ThemeApi.Category.Offers).get());
@@ -31,6 +34,9 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement, Widg
         this.render = Objects.requireNonNull(render, "render");
         this.render.constructor(this);
         this.render.addWidgets(this);
+
+        this.callbacks = new EnumMap<>(CallbackType.class);
+        this.callbacks.put(CallbackType.InvokeBuy, (money_group) -> onBuy((String) money_group));
     }
 
     @Override
@@ -87,4 +93,6 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement, Widg
     public Widget getOwner() {
         return this;
     }
+
+    public void onBuy(String money_group) {}
 }

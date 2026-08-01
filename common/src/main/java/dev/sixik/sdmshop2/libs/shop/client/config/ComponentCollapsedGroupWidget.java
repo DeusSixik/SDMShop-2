@@ -14,6 +14,7 @@ import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.CollapsedGroupWidget;
 import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentRegistry;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ModalWidget;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.resources.language.I18n;
@@ -125,30 +126,15 @@ public class ComponentCollapsedGroupWidget extends CollapsedGroupWidget {
     protected void openContextMenu(int mouseX, int mouseY) {
         if (this.gui == null) return;
 
-        Widget root = this;
-        while (root.getParent() != null) {
-            root = root.getParent();
-        }
+        WidgetGroup menuRoot = findContextMenuRoot();
+        if (menuRoot == null) return;
 
-        if (!(root instanceof WidgetGroup mainGroup)) return;
+        closeContextMenus(menuRoot);
 
-        WidgetGroup contextMenu = new WidgetGroup(mouseX, mouseY, CONTEXT_MENU_WIDTH, 0) {
-            @Override
-            public boolean mouseClicked(double mouseX, double mouseY, int button) {
-                boolean handled = super.mouseClicked(mouseX, mouseY, button);
-                if (!isMouseOverElement(mouseX, mouseY)) {
-                    mainGroup.removeWidget(this);
-                }
-                return handled;
-            }
+        int menuX = mouseX - menuRoot.getPositionX();
+        int menuY = mouseY - menuRoot.getPositionY();
 
-            @Override
-            public void onFocusChanged(Widget lastFocus, Widget focus) {
-                if (!isFocus()) {
-                    mainGroup.removeWidget(this);
-                }
-            }
-        };
+        WidgetGroup contextMenu = new ComponentContextMenu(menuRoot, menuX, menuY);
 
         contextMenu.setDynamicSized(true);
         contextMenu.setLayout(Layout.VERTICAL_LEFT);
@@ -165,7 +151,7 @@ public class ComponentCollapsedGroupWidget extends CollapsedGroupWidget {
                     String formattedJson = SDMShop2.GSON.toJson(json);
                     Minecraft.getInstance().keyboardHandler.setClipboard(formattedJson);
                     Minecraft.getInstance().player.sendSystemMessage(Component.translatable("client.shop.component.editor.copied"));
-                    mainGroup.removeWidget(contextMenu);
+                    menuRoot.removeWidget(contextMenu);
                 }
         );
         copyButton.initTemplate();
@@ -182,7 +168,7 @@ public class ComponentCollapsedGroupWidget extends CollapsedGroupWidget {
                         component.getRoot().removeComponent(component);
                     }
 
-                    mainGroup.removeWidget(contextMenu);
+                    menuRoot.removeWidget(contextMenu);
 
                     WidgetGroup parentGroup = this.getParent();
                     if (parentGroup != null) {
@@ -194,7 +180,61 @@ public class ComponentCollapsedGroupWidget extends CollapsedGroupWidget {
         deleteButton.initTemplate();
         contextMenu.addWidget(deleteButton);
 
-        mainGroup.addWidget(contextMenu);
+        menuRoot.addWidget(contextMenu);
         contextMenu.setFocus(true);
+    }
+
+    protected WidgetGroup findContextMenuRoot() {
+        Widget current = this;
+        while (current != null) {
+            if (current instanceof ModalWidget modal) {
+                return modal.getPanel();
+            }
+            current = current.getParent();
+        }
+
+        current = this;
+        while (current.getParent() != null) {
+            current = current.getParent();
+        }
+
+        return current instanceof WidgetGroup group ? group : null;
+    }
+
+    protected static void closeContextMenus(WidgetGroup root) {
+        for (int i = root.widgets.size() - 1; i >= 0; i--) {
+            Widget widget = root.widgets.get(i);
+            if (widget instanceof ComponentContextMenu) {
+                root.removeWidget(widget);
+            }
+        }
+    }
+
+    protected static class ComponentContextMenu extends WidgetGroup {
+
+        protected final WidgetGroup owner;
+
+        protected ComponentContextMenu(WidgetGroup owner, int x, int y) {
+            super(x, y, CONTEXT_MENU_WIDTH, 0);
+            this.owner = owner;
+        }
+
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            boolean inside = isMouseOverElement(mouseX, mouseY);
+            boolean handled = inside && super.mouseClicked(mouseX, mouseY, button);
+            if (!inside) {
+                owner.removeWidget(this);
+                return true;
+            }
+            return handled;
+        }
+
+        @Override
+        public void onFocusChanged(Widget lastFocus, Widget focus) {
+            if (focus != this && (focus == null || !focus.isParent(this))) {
+                owner.removeWidget(this);
+            }
+        }
     }
 }

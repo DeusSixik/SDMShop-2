@@ -2,6 +2,9 @@ package dev.sixik.sdmshop2.libs.shop.client.ui.api;
 
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ContextMenuWidget;
 
+import java.util.Collections;
+import java.util.Map;
+
 /**
  * Абстрактный интерфейс для реализации собственого рендера и поведения.
  */

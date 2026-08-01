@@ -15,6 +15,7 @@ import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ShopEmptyWidget;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
+import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfigOptions;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentNumberRange;
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
@@ -41,6 +42,7 @@ public class MoneyRewardComponent extends RewardComponent {
 
     @Getter
     @ComponentConfig(translationKey = "shop.component.reward.money.money_id")
+    @ComponentConfigOptions(provider = "sdm:money_ids")
     private ResourceLocation moneyId;
 
     @Getter

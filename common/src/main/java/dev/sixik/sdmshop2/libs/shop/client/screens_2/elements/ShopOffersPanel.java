@@ -1,12 +1,11 @@
 package dev.sixik.sdmshop2.libs.shop.client.screens_2.elements;
 
 import com.lowdragmc.lowdraglib.gui.texture.ColorRectTexture;
-import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.utils.Size;
 import com.mojang.blaze3d.platform.Window;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.base.ShopDraggableScrollableWidgetGroup;
-import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.entities.ShopOfferElement;
+import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopOfferElement;
 import dev.sixik.sdmshop2.libs.shop.components.misc.ShopOffersContainerComponent;
 import lombok.Getter;
 import net.minecraft.client.Minecraft;

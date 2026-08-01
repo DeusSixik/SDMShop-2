@@ -235,6 +235,56 @@ public class InputTextBox extends Widget {
         return this;
     }
 
+    public InputTextBox setNumbersOnly(int minValue, int maxValue) {
+        setCharFilter(character -> character != null && (Character.isDigit(character) || character == '-'));
+        setValidator(text -> validateIntegralText(text, minValue, maxValue));
+        return this;
+    }
+
+    public InputTextBox setNumbersOnly(long minValue, long maxValue) {
+        setCharFilter(character -> character != null && (Character.isDigit(character) || character == '-'));
+        setValidator(text -> validateIntegralText(text, minValue, maxValue));
+        return this;
+    }
+
+    public InputTextBox setNumbersOnly(float minValue, float maxValue) {
+        setCharFilter(character -> character != null && (Character.isDigit(character) || character == '-' || character == '.'));
+        setValidator(text -> validateDecimalText(text, minValue, maxValue));
+        return this;
+    }
+
+    public InputTextBox setNumbersOnly(double minValue, double maxValue) {
+        setCharFilter(character -> character != null && (Character.isDigit(character) || character == '-' || character == '.'));
+        setValidator(text -> validateDecimalText(text, minValue, maxValue));
+        return this;
+    }
+
+    public InputTextBox setResourceLocationOnly() {
+        setCharFilter(character -> character != null
+                && (Character.isLetterOrDigit(character)
+                || character == '_'
+                || character == '-'
+                || character == ':'
+                || character == '/'
+                || character == '.'
+                || character == ' '));
+        setValidator(text -> {
+            String next = nullToEmpty(text).toLowerCase().replace(' ', '_');
+            return next.matches("^[a-z0-9_\\-:/\\.]*$") ? next : value;
+        });
+        return this;
+    }
+
+    public InputTextBox setUuidOnly() {
+        setMaxLength(36);
+        setCharFilter(character -> character != null && (Character.digit(character, 16) >= 0 || character == '-'));
+        setValidator(text -> {
+            String next = nullToEmpty(text);
+            return next.matches("^[0-9a-fA-F\\-]*$") ? next : value;
+        });
+        return this;
+    }
+
     @Override
     public void updateScreen() {
         super.updateScreen();
@@ -450,7 +500,7 @@ public class InputTextBox extends Widget {
         if (!hasSelection()) return;
 
         int start = Math.max(safeDisplayOffset, getSelectionStart());
-        int end = Math.max(start, getSelectionEnd());
+        int end = Math.min(value.length(), Math.max(start, getSelectionEnd()));
         if (start >= value.length() && start == end) return;
 
         int selectionX1 = textX + font.width(value.substring(safeDisplayOffset, start));
@@ -489,7 +539,7 @@ public class InputTextBox extends Widget {
         String suffix = value.substring(end);
         String clippedReplacement = clipToMaxLength(replacement, prefix.length() + suffix.length());
         setValue(prefix + clippedReplacement + suffix);
-        cursorPosition = prefix.length() + clippedReplacement.length();
+        cursorPosition = clamp(prefix.length() + clippedReplacement.length(), 0, value.length());
         selectionPosition = cursorPosition;
         ensureCursorVisible();
     }
@@ -564,6 +614,8 @@ public class InputTextBox extends Widget {
         Font font = Minecraft.getInstance().font;
         int innerWidth = getTextAreaWidth();
 
+        cursorPosition = clamp(cursorPosition, 0, value.length());
+        selectionPosition = clamp(selectionPosition, 0, value.length());
         displayOffset = clamp(displayOffset, 0, cursorPosition);
         if (font.width(value.substring(displayOffset, cursorPosition)) > innerWidth) {
             while (displayOffset < cursorPosition && font.width(value.substring(displayOffset, cursorPosition)) > innerWidth) {
@@ -634,6 +686,44 @@ public class InputTextBox extends Widget {
 
     private static boolean isAllowedInputCharacter(char character) {
         return character != 167 && character >= ' ' && character != 127;
+    }
+
+    private String validateIntegralText(String text, long minValue, long maxValue) {
+        String next = nullToEmpty(text);
+        if (next.isEmpty()) return "";
+        if (next.equals("-")) return minValue < 0 ? next : value;
+
+        try {
+            long parsed = Long.parseLong(next);
+            if (parsed < minValue) return String.valueOf(minValue);
+            if (parsed > maxValue) return String.valueOf(maxValue);
+            return next;
+        } catch (NumberFormatException ignored) {
+            return value;
+        }
+    }
+
+    private String validateDecimalText(String text, double minValue, double maxValue) {
+        String next = nullToEmpty(text);
+        if (next.isEmpty()) return "";
+        if (next.equals("-")) return minValue < 0 ? next : value;
+        if (next.equals(".") || next.equals("-.")) return next;
+
+        try {
+            double parsed = Double.parseDouble(next);
+            if (parsed < minValue) return trimDecimalBound(minValue);
+            if (parsed > maxValue) return trimDecimalBound(maxValue);
+            return next;
+        } catch (NumberFormatException ignored) {
+            return value;
+        }
+    }
+
+    private static String trimDecimalBound(double value) {
+        if (value == Math.rint(value) && value <= Long.MAX_VALUE && value >= Long.MIN_VALUE) {
+            return String.valueOf((long) value);
+        }
+        return String.valueOf(value);
     }
 
     private static int clamp(int value, int min, int max) {

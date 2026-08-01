@@ -53,7 +53,7 @@ public class ShopCategoriesContainerComponent extends ShopComponent {
 
             CatalogComponent categoryComponent = opt2.get();
 
-            indexedEntries.computeIfAbsent(categoryComponent.getUuid(), id -> new ArrayList<>()).add(entry);
+            indexedEntries.computeIfAbsent(categoryComponent.getUuid(), id -> new ObjectArrayList<>()).add(entry);
             catalogComponentMap.computeIfAbsent(categoryComponent.getUuid(), id -> categoryComponent);
         }
     }
