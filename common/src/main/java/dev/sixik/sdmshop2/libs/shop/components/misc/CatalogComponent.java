@@ -76,10 +76,5 @@ public class CatalogComponent extends ShopComponent {
             Object id = args[1];
             return new CatalogComponent((String) args[0], id instanceof UUID ? (UUID) id : UUID.fromString((String) id));
         }
-
-        @Override
-        public boolean showInEditor() {
-            return false;
-        }
     }
 }
