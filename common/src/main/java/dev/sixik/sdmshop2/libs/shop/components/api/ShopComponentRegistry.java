@@ -4,6 +4,7 @@ import com.google.common.collect.Maps;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import dev.sixik.sdmshop2.libs.shop.components.money.MoneyCostComponent;
+import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 
@@ -72,7 +73,7 @@ public class ShopComponentRegistry {
         IComponentType type = component.getType();
 
         final JsonObject json = type.serialize(component);
-        component.additionalSerialize(json);
+        serializeAdditional(json, component);
         json.addProperty("type", type.getId().toString());
         return json;
     }
@@ -91,7 +92,7 @@ public class ShopComponentRegistry {
         IComponentType<?> type = TYPES.get(id);
         if (type == null) throw new JsonSyntaxException("Unknown component type: " + id);
         final ShopComponent component = type.deserialize(json);
-        component.additionalDeserialize(json);
+        deserializeAdditional(json, component);
         return component;
     }
 
@@ -106,7 +107,7 @@ public class ShopComponentRegistry {
         IComponentType type = component.getType();
         buf.writeResourceLocation(type.getId());
         type.toNetwork(buf, component);
-        component.additionalToNetwork(buf);
+        toNetworkAdditional(buf, component);
     }
 
     /**
@@ -120,7 +121,49 @@ public class ShopComponentRegistry {
         ResourceLocation id = buf.readResourceLocation();
         IComponentType<?> type = TYPES.get(id);
         final ShopComponent component = type.fromNetwork(buf);
-        component.additionalFromNetwork(buf);
+        fromNetworkAdditional(buf, component);
         return component;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static void serializeAdditional(JsonObject json, ShopComponent component) {
+        ComponentSerializer serializer = component.additionalSerializer();
+        if (hasAdditionalFields(serializer)) {
+            serializer.serialize(json, component);
+        }
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static void deserializeAdditional(JsonObject json, ShopComponent component) {
+        ComponentSerializer serializer = component.additionalSerializer();
+        if (hasAdditionalFields(serializer)) {
+            serializer.deserialize(json, component);
+        }
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static void toNetworkAdditional(FriendlyByteBuf buf, ShopComponent component) {
+        ComponentSerializer serializer = component.additionalSerializer();
+        if (hasAdditionalNetworkFields(serializer)) {
+            serializer.toNetwork(buf, component);
+        }
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static void fromNetworkAdditional(FriendlyByteBuf buf, ShopComponent component) {
+        ComponentSerializer serializer = component.additionalSerializer();
+        if (hasAdditionalNetworkFields(serializer)) {
+            serializer.fromNetwork(buf, component);
+        }
+    }
+
+    @SuppressWarnings("rawtypes")
+    private static boolean hasAdditionalFields(ComponentSerializer serializer) {
+        return serializer != null && !serializer.keys().isEmpty();
+    }
+
+    @SuppressWarnings("rawtypes")
+    private static boolean hasAdditionalNetworkFields(ComponentSerializer serializer) {
+        return serializer != null && !serializer.networkKeys().isEmpty();
     }
 }

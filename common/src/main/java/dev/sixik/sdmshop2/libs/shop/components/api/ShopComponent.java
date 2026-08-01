@@ -1,13 +1,12 @@
 package dev.sixik.sdmshop2.libs.shop.components.api;
 
-import com.google.gson.JsonObject;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.components.api.exceptions.ValidationException;
+import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
@@ -21,6 +20,7 @@ public abstract class ShopComponent {
      * Константа для обозначения пустого или неопределенного типа компонента.
      */
     public static ResourceLocation EMPTY = ResourceLocation.tryBuild("sdm", "null");
+    private static final ComponentSerializer<ShopComponent> EMPTY_ADDITIONAL_SERIALIZER = ComponentSerializer.create();
 
     private ShopEntity root;
     private volatile boolean dirty;
@@ -132,13 +132,9 @@ public abstract class ShopComponent {
         root.invokeUpdateComponent(root, this);
     }
 
-    public void additionalSerialize(JsonObject json) { }
-
-    public void additionalDeserialize(JsonObject json) { }
-
-    public void additionalToNetwork(FriendlyByteBuf buf) { }
-
-    public void additionalFromNetwork(FriendlyByteBuf buf) { }
+    public ComponentSerializer<? extends ShopComponent> additionalSerializer() {
+        return EMPTY_ADDITIONAL_SERIALIZER;
+    }
 
     @Nullable
     @Environment(EnvType.CLIENT)

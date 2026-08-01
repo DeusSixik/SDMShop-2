@@ -1,17 +1,21 @@
 package dev.sixik.sdmshop2.libs.shop.components.api;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
+import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
+import dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import lombok.Getter;
 import lombok.Setter;
-import net.minecraft.network.FriendlyByteBuf;
 
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 public abstract class PromoEffectComponent extends ShopComponent {
+
+    private static final ComponentSerializer<PromoEffectComponent> ADDITIONAL_SERIALIZER = ComponentSerializer.<PromoEffectComponent>create()
+            .addDefaultedString("target_promo_id", PromoEffectComponent::getTargetPromoId, PromoEffectComponent::setTargetPromoId, "")
+            .add("apply_groups", FieldCodecs.list(FieldCodecs.STRING), PromoEffectComponent::getApplyGroupsList, PromoEffectComponent::setApplyGroupsList);
 
     @Getter
     @Setter
@@ -48,47 +52,23 @@ public abstract class PromoEffectComponent extends ShopComponent {
     }
 
     @Override
-    public void additionalSerialize(JsonObject json) {
-        if(targetPromoId != null && !targetPromoId.isEmpty())
-            json.addProperty("target_promo_id", targetPromoId);
-
-        JsonArray array = new JsonArray();
-        applyGroups.forEach(array::add);
-        json.add("apply_groups", array);
-    }
-
-    @Override
-    public void additionalDeserialize(JsonObject json) {
-        if(json.has("target_promo_id"))
-            targetPromoId = json.get("target_promo_id").getAsString();
-
-        if(json.has("apply_groups")) {
-            JsonArray array = json.getAsJsonArray("apply_groups");
-            array.forEach(element -> applyGroups.add(element.getAsString()));
-        }
-    }
-
-    @Override
-    public void additionalToNetwork(FriendlyByteBuf buf) {
-        buf.writeUtf(targetPromoId != null ? targetPromoId : "");
-
-        buf.writeVarInt(applyGroups.size());
-        applyGroups.forEach(buf::writeUtf);
-    }
-
-    @Override
-    public void additionalFromNetwork(FriendlyByteBuf buf) {
-        targetPromoId = buf.readUtf();
-
-        applyGroups.clear();
-        int size = buf.readVarInt();
-        for(int i = 0; i < size; i++) {
-            applyGroups.add(buf.readUtf());
-        }
+    public ComponentSerializer<PromoEffectComponent> additionalSerializer() {
+        return ADDITIONAL_SERIALIZER;
     }
 
     @Override
     public ShopComponentCategory getCategory() {
         return ShopComponentCategory.PROMO_EFFECT;
+    }
+
+    private List<String> getApplyGroupsList() {
+        return new ArrayList<>(applyGroups);
+    }
+
+    private void setApplyGroupsList(List<String> groups) {
+        applyGroups.clear();
+        if (groups != null) {
+            applyGroups.addAll(groups);
+        }
     }
 }

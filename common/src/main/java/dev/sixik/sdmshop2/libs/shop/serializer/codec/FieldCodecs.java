@@ -6,6 +6,7 @@ import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
@@ -16,15 +17,18 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
+/**
+ * Набор готовых codec-ов для часто используемых типов полей.
+ */
 public final class FieldCodecs {
 
+    /** Codec для boolean значений. */
     public static final FieldCodec<Boolean> BOOL = FieldCodec.<Boolean>builder()
             .schema("bool")
             .json(
@@ -34,6 +38,7 @@ public final class FieldCodecs {
             .network(FriendlyByteBuf::writeBoolean, FriendlyByteBuf::readBoolean)
             .build();
 
+    /** Codec для int значений через VarInt в сети. */
     public static final FieldCodec<Integer> INT = FieldCodec.<Integer>builder()
             .schema("int")
             .json(
@@ -43,6 +48,7 @@ public final class FieldCodecs {
             .network(FriendlyByteBuf::writeVarInt, FriendlyByteBuf::readVarInt)
             .build();
 
+    /** Codec для long значений через VarLong в сети. */
     public static final FieldCodec<Long> LONG = FieldCodec.<Long>builder()
             .schema("long")
             .json(
@@ -52,6 +58,7 @@ public final class FieldCodecs {
             .network(FriendlyByteBuf::writeVarLong, FriendlyByteBuf::readVarLong)
             .build();
 
+    /** Codec для float значений. */
     public static final FieldCodec<Float> FLOAT = FieldCodec.<Float>builder()
             .schema("float")
             .json(
@@ -61,6 +68,7 @@ public final class FieldCodecs {
             .network(FriendlyByteBuf::writeFloat, FriendlyByteBuf::readFloat)
             .build();
 
+    /** Codec для double значений. */
     public static final FieldCodec<Double> DOUBLE = FieldCodec.<Double>builder()
             .schema("double")
             .json(
@@ -70,6 +78,7 @@ public final class FieldCodecs {
             .network(FriendlyByteBuf::writeDouble, FriendlyByteBuf::readDouble)
             .build();
 
+    /** Codec для строк. null записывается как пустая строка. */
     public static final FieldCodec<String> STRING = FieldCodec.<String>builder()
             .schema("string")
             .json(
@@ -82,6 +91,7 @@ public final class FieldCodecs {
             )
             .build();
 
+    /** Codec для ResourceLocation. */
     public static final FieldCodec<ResourceLocation> RESOURCE_LOCATION = FieldCodec.<ResourceLocation>builder()
             .schema("resource_location")
             .json(
@@ -93,6 +103,7 @@ public final class FieldCodecs {
             .network(FriendlyByteBuf::writeResourceLocation, FriendlyByteBuf::readResourceLocation)
             .build();
 
+    /** Codec для UUID. */
     public static final FieldCodec<UUID> UUID_CODEC = FieldCodec.<UUID>builder()
             .schema("uuid")
             .json(
@@ -104,6 +115,7 @@ public final class FieldCodecs {
             .network(FriendlyByteBuf::writeUUID, FriendlyByteBuf::readUUID)
             .build();
 
+    /** Codec для ItemStack в полном NBT-представлении. */
     public static final FieldCodec<ItemStack> ITEM_STACK = FieldCodec.<ItemStack>builder()
             .schema("item_stack")
             .json(FieldCodecs::writeItemStackJson, FieldCodecs::readItemStackJson)
@@ -119,6 +131,7 @@ public final class FieldCodecs {
             })
             .build();
 
+    /** Codec для ItemStack как id предмета + отдельный nbt, совместимый со старым JSON форматом item reward. */
     public static final FieldCodec<ItemStack> ITEM_STACK_ID_NBT = FieldCodec.<ItemStack>builder()
             .schema("item_stack_id_nbt")
             .json(FieldCodecs::writeItemStackIdNbtJson, FieldCodecs::readItemStackIdNbtJson)
@@ -134,6 +147,7 @@ public final class FieldCodecs {
             })
             .build();
 
+    /** Codec для вложенного ShopOffer. */
     public static final FieldCodec<ShopOffer> SHOP_OFFER = FieldCodec.<ShopOffer>builder()
             .schema("shop_offer")
             .json(
@@ -164,6 +178,7 @@ public final class FieldCodecs {
             )
             .build();
 
+    /** Codec для вложенного ShopInstance. */
     public static final FieldCodec<ShopInstance> SHOP_INSTANCE = FieldCodec.<ShopInstance>builder()
             .schema("shop_instance")
             .json(
@@ -186,6 +201,9 @@ public final class FieldCodecs {
             )
             .build();
 
+    /**
+     * Делает codec nullable: значение может быть null в JSON и сети.
+     */
     public static <Value> FieldCodec<Value> nullable(FieldCodec<Value> codec) {
         Objects.requireNonNull(codec, "codec");
         return FieldCodec.<Value>builder()
@@ -221,6 +239,9 @@ public final class FieldCodecs {
                 .build();
     }
 
+    /**
+     * Создает codec для списка значений одного типа.
+     */
     public static <Element> FieldCodec<List<Element>> list(FieldCodec<Element> elementCodec) {
         Objects.requireNonNull(elementCodec, "elementCodec");
         return FieldCodec.<List<Element>>builder()
@@ -280,6 +301,9 @@ public final class FieldCodecs {
                 .build();
     }
 
+    /**
+     * Создает codec для map, где ключ и значение имеют свои codec-и.
+     */
     public static <Key, Value> FieldCodec<Map<Key, Value>> map(FieldCodec<Key> keyCodec, FieldCodec<Value> valueCodec) {
         Objects.requireNonNull(keyCodec, "keyCodec");
         Objects.requireNonNull(valueCodec, "valueCodec");
@@ -301,7 +325,7 @@ public final class FieldCodecs {
                         (json, key, defaultValue) -> {
                             if (!json.has(key)) return defaultValue;
                             JsonArray array = json.getAsJsonArray(key);
-                            Map<Key, Value> map = new LinkedHashMap<>();
+                            Map<Key, Value> map = new Object2ObjectLinkedOpenHashMap<>(array.size());
                             for (JsonElement element : array) {
                                 JsonObject object = element.getAsJsonObject();
                                 Key mapKey = keyCodec.fromJson(object, "key", null);
@@ -324,7 +348,7 @@ public final class FieldCodecs {
                         },
                         buf -> {
                             int size = buf.readVarInt();
-                            Map<Key, Value> map = new LinkedHashMap<>();
+                            Map<Key, Value> map = new Object2ObjectLinkedOpenHashMap<>(size);
                             for (int i = 0; i < size; i++) {
                                 map.put(keyCodec.fromNetwork(buf), valueCodec.fromNetwork(buf));
                             }
@@ -333,7 +357,7 @@ public final class FieldCodecs {
                 )
                 .copy(value -> {
                     if (value == null) return null;
-                    Map<Key, Value> copy = new LinkedHashMap<>();
+                    Map<Key, Value> copy = new Object2ObjectLinkedOpenHashMap<>(value.size());
                     for (Map.Entry<Key, Value> entry : value.entrySet()) {
                         copy.put(keyCodec.copy(entry.getKey()), valueCodec.copy(entry.getValue()));
                     }
@@ -343,6 +367,9 @@ public final class FieldCodecs {
                 .build();
     }
 
+    /**
+     * Создает codec для enum. JSON дополнительно принимает значение в другом регистре.
+     */
     public static <EnumType extends Enum<EnumType>> FieldCodec<EnumType> enumCodec(Class<EnumType> enumClass) {
         Objects.requireNonNull(enumClass, "enumClass");
         return FieldCodec.<EnumType>builder()
@@ -431,7 +458,13 @@ public final class FieldCodecs {
         if (first == second) return true;
         if (first == null || second == null || first.size() != second.size()) return false;
         for (Map.Entry<Key, Value> entry : first.entrySet()) {
-            KeyMatch<Key> match = findMatchingKey(entry.getKey(), second, keyCodec);
+            Key key = entry.getKey();
+            if (second.containsKey(key)) {
+                if (!valueCodec.areEqual(entry.getValue(), second.get(key))) return false;
+                continue;
+            }
+
+            KeyMatch<Key> match = findMatchingKey(key, second, keyCodec);
             if (!match.found()) return false;
             if (!valueCodec.areEqual(entry.getValue(), second.get(match.key()))) return false;
         }

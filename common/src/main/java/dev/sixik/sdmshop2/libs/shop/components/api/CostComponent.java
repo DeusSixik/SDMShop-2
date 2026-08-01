@@ -1,13 +1,12 @@
 package dev.sixik.sdmshop2.libs.shop.components.api;
 
-import com.google.gson.JsonObject;
 import com.lowdragmc.lowdraglib.gui.texture.TransformTexture;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
+import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import lombok.Getter;
 import lombok.Setter;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.player.Player;
 import org.jetbrains.annotations.Nullable;
 
@@ -16,6 +15,9 @@ import org.jetbrains.annotations.Nullable;
  * Отвечает за проверку наличия средств и процесс оплаты.
  */
 public abstract class CostComponent extends ShopComponent {
+
+    private static final ComponentSerializer<CostComponent> ADDITIONAL_SERIALIZER = ComponentSerializer.<CostComponent>create()
+            .addDefaultedString("group_id", CostComponent::getGroupId, CostComponent::setGroupId, "");
 
     /**
      * Уникальный ID для группировки нескольких валют
@@ -53,25 +55,8 @@ public abstract class CostComponent extends ShopComponent {
     public abstract double getBaseAmount();
 
     @Override
-    public void additionalSerialize(JsonObject json) {
-        if(groupId != null && !groupId.isEmpty())
-            json.addProperty("group_id", groupId);
-    }
-
-    @Override
-    public void additionalDeserialize(JsonObject json) {
-        if(json.has("group_id"))
-            groupId = json.get("group_id").getAsString();
-    }
-
-    @Override
-    public void additionalToNetwork(FriendlyByteBuf buf) {
-        buf.writeUtf(groupId);
-    }
-
-    @Override
-    public void additionalFromNetwork(FriendlyByteBuf buf) {
-        groupId = buf.readUtf();
+    public ComponentSerializer<CostComponent> additionalSerializer() {
+        return ADDITIONAL_SERIALIZER;
     }
 
     @Environment(EnvType.CLIENT)
