@@ -1,4 +1,4 @@
-package net.sixik.concurrent_library.eventbus;
+package dev.sixik.sdmshop2.libs.platform.utils.eventbus;
 
 public class EventPtr<T> {
 
