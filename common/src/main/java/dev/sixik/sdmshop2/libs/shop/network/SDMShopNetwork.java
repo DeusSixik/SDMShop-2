@@ -12,6 +12,10 @@ public class SDMShopNetwork {
     private static final SimpleNetworkManager NET = SimpleNetworkManager.create(SDMShop2.MODID);
 
     public static void init() {
+        AsyncServerTasks.init();
 
+        if (Platform.getEnv() == EnvType.CLIENT) {
+            AsyncClientTasks.init();
+        }
     }
 }

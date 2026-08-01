@@ -11,8 +11,10 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -57,9 +59,38 @@ public class JsonGenericRepository<K, V> implements Repository<K, V> {
      * Поддерживает вложенные папки, если keyToString возвращает строку со слэшами.
      */
     private Path getFilePath(K id) {
+        return collectionDirectory.resolve(toStoragePath(keyToString.apply(id)) + ".json");
+    }
+
+    private Path getLegacyFilePath(K id) {
         final String string = keyToString.apply(id);
         final String[] spl = string.split(":");
         return collectionDirectory.resolve((spl.length > 1 ? spl[1] : spl[0]) + ".json");
+    }
+
+    private String toStoragePath(String rawKey) {
+        final String normalized = rawKey == null ? "null" : rawKey.replace('\\', '/');
+        final int namespaceSeparator = normalized.indexOf(':');
+        final String path = namespaceSeparator >= 0
+                ? normalized.substring(0, namespaceSeparator) + "/" + normalized.substring(namespaceSeparator + 1)
+                : normalized;
+        final String[] segments = path.split("/");
+        final StringBuilder builder = new StringBuilder();
+
+        for (String segment : segments) {
+            if (segment == null || segment.isBlank() || ".".equals(segment) || "..".equals(segment)) {
+                segment = "_";
+            }
+
+            segment = segment.replaceAll("[<>:\\\"|?*]", "_");
+
+            if (!builder.isEmpty()) {
+                builder.append('/');
+            }
+            builder.append(segment);
+        }
+
+        return builder.isEmpty() ? "_" : builder.toString();
     }
 
     @Override
@@ -69,8 +100,15 @@ public class JsonGenericRepository<K, V> implements Repository<K, V> {
             if (path.getParent() != null && !Files.exists(path.getParent())) {
                 Files.createDirectories(path.getParent());
             }
-            try (Writer writer = Files.newBufferedWriter(path)) {
+
+            final Path tmpPath = path.resolveSibling(path.getFileName() + ".tmp");
+            try (Writer writer = Files.newBufferedWriter(tmpPath)) {
                 gson.toJson(serializer.apply(entity), writer);
+            }
+            try {
+                Files.move(tmpPath, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException ignored) {
+                Files.move(tmpPath, path, StandardCopyOption.REPLACE_EXISTING);
             }
         } catch (Exception e) {
             LOGGER.error("Failed to save entity to JSON: {}", path, e);
@@ -82,7 +120,10 @@ public class JsonGenericRepository<K, V> implements Repository<K, V> {
         Path path = getFilePath(id);
 
         if (!Files.isRegularFile(path)) {
-            return null;
+            path = getLegacyFilePath(id);
+            if (!Files.isRegularFile(path)) {
+                return null;
+            }
         }
 
         try (Reader reader = Files.newBufferedReader(path)) {
@@ -124,6 +165,7 @@ public class JsonGenericRepository<K, V> implements Repository<K, V> {
     public void delete(K id) {
         try {
             Files.deleteIfExists(getFilePath(id));
+            Files.deleteIfExists(getLegacyFilePath(id));
         } catch (IOException e) {
             LOGGER.error("Failed to delete file for entity: {}", id, e);
         }

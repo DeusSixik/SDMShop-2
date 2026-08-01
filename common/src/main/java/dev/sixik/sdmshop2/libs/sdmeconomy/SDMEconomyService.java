@@ -1,24 +1,16 @@
 package dev.sixik.sdmshop2.libs.sdmeconomy;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
 import dev.architectury.platform.Platform;
 import dev.sixik.sdmshop2.libs.platform.SDMPlatform;
 import dev.sixik.sdmshop2.libs.platform.utils.repository.RepositoryStorage;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepoDefinition;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepositoryManager;
-import dev.sixik.sdmshop2.libs.shop.base.ShopServerGetter;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import lombok.Getter;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtIo;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.world.level.storage.LevelResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -30,7 +22,7 @@ import java.util.concurrent.TimeUnit;
  * <p>Основной принцип работы такой что если игрока в течении 10 минут не используют он будет выгружен на диск
  * , но если он понадобиться он будет обратно загружен</p>
  */
-public class SDMEconomyService implements ShopServerGetter {
+public class SDMEconomyService {
 
     public static final Logger LOGGER = LoggerFactory.getLogger(SDMEconomyService.class);
 
@@ -48,11 +40,10 @@ public class SDMEconomyService implements ShopServerGetter {
 
     protected RepositoryStorage<UUID, BankAccount> accountRepository;
     protected final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
+    protected RepositoryManager repositoryManager;
 
     @Getter
     private Path dataFolder;
-
-    private MinecraftServer server;
 
     public SDMEconomyService() {
         this(null, null);
@@ -60,8 +51,7 @@ public class SDMEconomyService implements ShopServerGetter {
 
     public SDMEconomyService(MinecraftServer server, RepositoryManager manager) {
         if(manager == null) return;
-        this.server = server;
-        manager.setServerGetter(this);
+        this.repositoryManager = manager;
         manager.init();
         this.dataFolder = SDMPlatform.resolveSdmDir(Platform.getConfigFolder(), "economy/accounts");
         this.accountRepository = new RepositoryStorage<>(manager.createRepository(
@@ -113,32 +103,37 @@ public class SDMEconomyService implements ShopServerGetter {
      */
     public void saveAllDirty() {
         ioExecutor.submit(() -> {
-            for (BankAccount acc : accountRepository.getAllValues()) {
-                if (acc.isDirty()) {
-                    accountRepository.save(acc.getGameProfileOwnerId(), acc);
-                    acc.markClean();
-                }
-            }
+            saveAllDirtyNow();
         });
     }
 
-    @Override
-    public Path getShopDirWorld() {
-        throw new UnsupportedOperationException();
+    public void saveAllDirtyNow() {
+        if (accountRepository == null) return;
+
+        for (BankAccount acc : accountRepository.getAllValues()) {
+            if (acc.isDirty()) {
+                accountRepository.save(acc.getGameProfileOwnerId(), acc);
+                acc.markClean();
+            }
+        }
     }
 
-    @Override
-    public Path getShopDirConfig() {
-        return dataFolder;
+    public void shutdown() {
+        saveAllDirtyNow();
+        ioExecutor.shutdown();
+        try {
+            if (!ioExecutor.awaitTermination(10, TimeUnit.SECONDS)) {
+                ioExecutor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            ioExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+
+        if (repositoryManager != null) {
+            repositoryManager.close();
+            repositoryManager = null;
+        }
     }
 
-    @Override
-    public Path getShopsDir() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public MinecraftServer getServer() {
-        return server;
-    }
 }

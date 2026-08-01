@@ -7,7 +7,6 @@ import com.mongodb.client.model.changestream.FullDocument;
 import com.mongodb.client.model.changestream.OperationType;
 import dev.sixik.sdmshop2.libs.platform.utils.repository.MongoGenericRepository;
 import dev.sixik.sdmshop2.libs.platform.utils.repository.Repository;
-import dev.sixik.sdmshop2.libs.shop.config.ShopDataStorageConfig;
 import lombok.Getter;
 import org.bson.BsonDocument;
 import org.bson.Document;
@@ -43,10 +42,7 @@ public class MongoRepositoryManager extends RepositoryManager{
     private final Map<String, List<MongoChangeListener>> listeners = new ConcurrentHashMap<>();
 
     private Thread watchThread;
-
-    public MongoRepositoryManager(ShopDataStorageConfig.MongoConfig config) {
-        this(config.uri, config.database, config.serverName);
-    }
+    private volatile boolean initialized;
 
     public MongoRepositoryManager(String uri, String db, String name) {
         this.connectionString = uri;
@@ -64,13 +60,21 @@ public class MongoRepositoryManager extends RepositoryManager{
      * Создает Ref для конкретной коллекции и автоматически регистрирует слушателя.
      */
     public MongoRef createRef(String collectionName, MongoChangeListener listener) {
+        if (!initialized || database == null) {
+            throw new IllegalStateException("MongoRepositoryManager is not initialized. Call init() before createRepository().");
+        }
+
         MongoCollection<Document> collection = database.getCollection(collectionName);
         listeners.computeIfAbsent(collectionName, k -> new CopyOnWriteArrayList<>()).add(listener);
         return new MongoRef(this, collection, collectionName);
     }
 
     @Override
-    public void init() {
+    public synchronized void init() {
+        if (initialized) {
+            return;
+        }
+
         /*
             Получаем или создаем общий MongoClient для этого URI
          */
@@ -87,10 +91,15 @@ public class MongoRepositoryManager extends RepositoryManager{
         // Увеличиваем счетчик использований
         CLIENT_REFERENCES.computeIfAbsent(connectionString, k -> new AtomicInteger(0)).incrementAndGet();
         this.database = client.getDatabase(dbName);
+        initialized = true;
         startWatchingDatabase();
     }
 
     private void startWatchingDatabase() {
+        if (watchThread != null && watchThread.isAlive()) {
+            return;
+        }
+
         watchThread = new Thread(() -> {
             while (!Thread.currentThread().isInterrupted()) {
                 try (MongoCursor<ChangeStreamDocument<Document>> cursor = database.watch()
@@ -113,10 +122,8 @@ public class MongoRepositoryManager extends RepositoryManager{
                         String rawId = documentKey.getString("_id").getValue().toString();
 
                         Document fullDoc = change.getFullDocument();
-                        if (fullDoc != null && fullDoc.containsKey("last_updated_by")) {
-                            if (serverIdentifier.equals(fullDoc.getString("last_updated_by"))) {
-                                continue;
-                            }
+                        if (isOwnChange(fullDoc)) {
+                            continue;
                         }
 
                         OperationType opType = change.getOperationType();
@@ -130,6 +137,11 @@ public class MongoRepositoryManager extends RepositoryManager{
                     }
                 } catch (Exception e) {
                     if (Thread.currentThread().isInterrupted() || e instanceof InterruptedException) {
+                        break;
+                    }
+
+                    if (isUnsupportedChangeStream(e)) {
+                        LOGGER.warn("MongoDB change streams are not available for database '{}'. Repository storage will still work, but remote live-sync is disabled. Use a replica set if you need multi-server sync.", dbName);
                         break;
                     }
 
@@ -148,11 +160,46 @@ public class MongoRepositoryManager extends RepositoryManager{
         watchThread.start();
     }
 
+    private boolean isOwnChange(@Nullable Document fullDoc) {
+        if (fullDoc == null) {
+            return false;
+        }
+
+        if (serverIdentifier.equals(fullDoc.getString("last_updated_by"))) {
+            return true;
+        }
+
+        Object meta = fullDoc.get("_sdm_meta");
+        if (meta instanceof Document metaDocument) {
+            return serverIdentifier.equals(metaDocument.getString("updated_by"));
+        }
+
+        return false;
+    }
+
+    private boolean isUnsupportedChangeStream(Exception e) {
+        if (e instanceof MongoCommandException commandException) {
+            String codeName = commandException.getErrorCodeName();
+            return commandException.getErrorCode() == 40573
+                    || "IllegalOperation".equals(codeName)
+                    || "CommandNotSupported".equals(codeName);
+        }
+
+        return false;
+    }
+
     @Override
-    public void close() {
+    public synchronized void close() {
+        if (!initialized) {
+            return;
+        }
+
         if (watchThread != null && watchThread.isAlive()) {
             watchThread.interrupt();
         }
+        watchThread = null;
+        listeners.clear();
+        initialized = false;
 
         AtomicInteger refs = CLIENT_REFERENCES.get(connectionString);
         if (refs != null) {

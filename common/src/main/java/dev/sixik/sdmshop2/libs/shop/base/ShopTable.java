@@ -4,7 +4,6 @@ import dev.architectury.platform.Platform;
 import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.platform.SDMPlatform;
 import dev.sixik.sdmshop2.libs.platform.ServerOperation;
-import dev.sixik.sdmshop2.libs.platform.ThreadingOperationTimeSave;
 import dev.sixik.sdmshop2.libs.platform.utils.repository.RepositoryStorage;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepoDefinition;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepositoryManager;
@@ -29,7 +28,7 @@ import java.util.concurrent.Executors;
  * Глобальный менеджер всех магазинов в системе.
  * Отвечает за хранение, загрузку, сохранение и удаление экземпляров {@link ShopInstance}.
  */
-public final class ShopTable implements ShopServerGetter{
+public final class ShopTable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ShopTable.class);
 
@@ -77,7 +76,6 @@ public final class ShopTable implements ShopServerGetter{
         this.shopDirConfig = SDMPlatform.resolveSdmDir(Platform.getConfigFolder(), "shop");
         this.shopsDir = SDMPlatform.resolveSdmDir(Platform.getConfigFolder(), "shop/shops");
         this.manager = manager;
-        this.manager.setServerGetter(this);
         this.manager.init();
 
         shopsRepository = new RepositoryStorage<>(manager.createRepository(
@@ -226,7 +224,7 @@ public final class ShopTable implements ShopServerGetter{
         manager.close();
     }
 
-    public static class Manager implements ServerOperation, ThreadingOperationTimeSave {
+    public static class Manager implements ServerOperation {
 
         @Override
         public void onReload() {
@@ -245,12 +243,5 @@ public final class ShopTable implements ShopServerGetter{
             ShopTable.Instance.shutdown();
         }
 
-        @Override
-        public void onDataStartSave() { }
-
-        @Override
-        public int getDataSaveTimeSeconds() {
-            return -1;
-        }
     }
 }

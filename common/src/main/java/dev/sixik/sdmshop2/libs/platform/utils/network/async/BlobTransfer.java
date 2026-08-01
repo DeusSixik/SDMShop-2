@@ -1,7 +1,6 @@
 package dev.sixik.sdmshop2.libs.platform.utils.network.async;
 
 import dev.architectury.networking.NetworkManager;
-import dev.sixik.sdmshop2.SDMShop2;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.fabricmc.api.EnvType;
@@ -9,6 +8,8 @@ import net.fabricmc.api.Environment;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -25,6 +26,8 @@ import java.util.function.Consumer;
 public final class BlobTransfer {
 
     public static final ResourceLocation CHANNEL = new ResourceLocation("sdm_platform_mod", "blob_channel");
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(BlobTransfer.class);
 
     private static final int CHUNK_SIZE = 50 * 1024;
     private static final int MAX_BLOB_SIZE = 32 * 1024 * 1024;
@@ -95,7 +98,7 @@ public final class BlobTransfer {
 
     private static void onPacket(FriendlyByteBuf buf, NetworkManager.PacketContext context) {
         if (buf.readableBytes() < Long.BYTES + Integer.BYTES * 3) {
-            SDMShop2.LOGGER.warn("Received malformed BlobTransfer packet: {} readable bytes", buf.readableBytes());
+            LOGGER.warn("Received malformed BlobTransfer packet: {} readable bytes", buf.readableBytes());
             return;
         }
 
@@ -160,7 +163,7 @@ public final class BlobTransfer {
 
     private static void failTransfer(BlobKey key, long id, String message) {
         INCOMING_BUFFERS.remove(key);
-        SDMShop2.LOGGER.warn("{} for id {}", message, id);
+        LOGGER.warn("{} for id {}", message, id);
         AsyncBridge.failExternal(id, new IllegalStateException(message));
     }
 

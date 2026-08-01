@@ -4,10 +4,10 @@ import dev.architectury.event.events.common.PlayerEvent;
 import dev.architectury.platform.Platform;
 import dev.sixik.sdmshop2.libs.platform.SDMPlatform;
 import dev.sixik.sdmshop2.libs.platform.ServerOperation;
-import dev.sixik.sdmshop2.libs.platform.utils.repository.RepositoryType;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.JsonRepositoryManager;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.MongoRepositoryManager;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepositoryManager;
+import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepositoryManagerRegistry;
 import dev.sixik.sdmshop2.libs.sdmeconomy.config.SDMEconomyDataStorageConfig;
 import dev.sixik.sdmshop2.libs.sdmeconomy.custom_currency.ExternalItemCurrency;
 import dev.sixik.sdmshop2.libs.sdmeconomy.network.SDMEconomyNetwork;
@@ -46,12 +46,12 @@ public class SDMEconomyPlatform {
         if (instance == null) {
             final var config = SDMEconomyPlatform.getDataStorageConfig().getCurrentConfig();
             instance = switch (config.type) {
-                case JSON -> new JsonRepositoryManager(server);
+                case JSON -> new JsonRepositoryManager(SDMPlatform.resolveSdmDir(Platform.getConfigFolder(), "economy"));
                 case MONGODB -> new MongoRepositoryManager(config.mongodb.uri, config.mongodb.database, config.mongodb.serverName);
-                case CUSTOM -> SDMPlatform.invokeCreateManagerEvent(
+                case CUSTOM -> RepositoryManagerRegistry.createOrDefault(
                         "sdm_economy",
-                        RepositoryType.CUSTOM,
-                        new JsonRepositoryManager(server)
+                        server,
+                        () -> new JsonRepositoryManager(SDMPlatform.resolveSdmDir(Platform.getConfigFolder(), "economy"))
                 );
             };
         }
@@ -132,7 +132,11 @@ public class SDMEconomyPlatform {
     }
 
     public static void onServerStop(MinecraftServer server) {
-        SDMEconomyService.getInstance().saveAllDirty();
+        SDMEconomyService service = SDMEconomyService.getInstance();
+        if (service != null) {
+            service.shutdown();
+        }
+        instance = null;
         SDMEconomyPlatform.server = null;
     }
 
@@ -142,7 +146,11 @@ public class SDMEconomyPlatform {
 
     public static void shutdownHook() {
         final Thread thread = new Thread(() -> {
-            SDMEconomyService.getInstance().saveAllDirty();
+            SDMEconomyService service = SDMEconomyService.getInstance();
+            if (service != null) {
+                service.shutdown();
+            }
+            instance = null;
             SDMEconomyPlatform.server = null;
         });
         thread.setDaemon(true);

@@ -6,7 +6,6 @@ import com.mojang.logging.LogUtils;
 import dev.architectury.event.events.common.CommandRegistrationEvent;
 import dev.architectury.platform.Platform;
 import dev.sixik.sdmshop2.libs.platform.SDMPlatform;
-import dev.sixik.sdmshop2.libs.platform.utils.repository.RepositoryType;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyPlatform;
 import dev.sixik.sdmshop2.libs.sdmeconomy.commands.SDMEconomyCommands;
 import dev.sixik.sdmshop2.libs.shop.base.ShopTable;
@@ -14,6 +13,7 @@ import dev.sixik.sdmshop2.libs.shop.base.limiter.ShopLimiterTableServer;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.JsonRepositoryManager;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.MongoRepositoryManager;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepositoryManager;
+import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepositoryManagerRegistry;
 import dev.sixik.sdmshop2.libs.shop.commands.SDMShopCommands;
 import dev.sixik.sdmshop2.libs.shop.config.ShopConfig;
 import dev.sixik.sdmshop2.libs.shop.config.ShopDataStorageConfig;
@@ -44,12 +44,12 @@ public final class SDMShop2 {
         if(instance == null) {
             final var config = SDMShop2.getDataStorageConfig().getCurrentConfig();
             instance = switch (config.type) {
-                case JSON -> new JsonRepositoryManager(server);
-                case MONGODB -> new MongoRepositoryManager(config.mongodb);
-                case CUSTOM -> SDMPlatform.invokeCreateManagerEvent(
+                case JSON -> new JsonRepositoryManager(SDMPlatform.resolveSdmDir(Platform.getConfigFolder(), "shop"));
+                case MONGODB -> new MongoRepositoryManager(config.mongodb.uri, config.mongodb.database, config.mongodb.serverName);
+                case CUSTOM -> RepositoryManagerRegistry.createOrDefault(
                         "sdm_shop",
-                        RepositoryType.CUSTOM,
-                        new JsonRepositoryManager(server)
+                        server,
+                        () -> new JsonRepositoryManager(SDMPlatform.resolveSdmDir(Platform.getConfigFolder(), "shop"))
                 );
             };
         }
@@ -62,9 +62,9 @@ public final class SDMShop2 {
 
         EconomyTest.init();
 
-        SDMPlatform.addTask(SHOP_TABLE_MANAGER);
-        SDMPlatform.addTask(SHOP_LIMITER_TABLE_MANAGER);
-        SDMPlatform.addTask(SHOP_SCRIPTS_CONTAINER_MANAGER);
+        SDMPlatform.addOperation(SHOP_TABLE_MANAGER);
+        SDMPlatform.addOperation(SHOP_LIMITER_TABLE_MANAGER);
+        SDMPlatform.addOperation(SHOP_SCRIPTS_CONTAINER_MANAGER);
 
         SDMEconomyPlatform.init();
         ShopRegister.init();

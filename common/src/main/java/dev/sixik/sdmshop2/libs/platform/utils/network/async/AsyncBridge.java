@@ -1,13 +1,14 @@
 package dev.sixik.sdmshop2.libs.platform.utils.network.async;
 
 import dev.architectury.networking.NetworkManager;
-import dev.sixik.sdmshop2.SDMShop2;
 import io.netty.buffer.Unpooled;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.Objects;
@@ -29,6 +30,8 @@ import java.util.function.Function;
 public final class AsyncBridge {
 
     public static final ResourceLocation CHANNEL = new ResourceLocation("sdm_platform_mod", "async_bridge");
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(AsyncBridge.class);
 
     private static final int LARGE_RESPONSE_THRESHOLD = 500_000;
     private static final int REQUEST_TIMEOUT_SECONDS = 30;
@@ -197,7 +200,7 @@ public final class AsyncBridge {
 
     private static void onPacket(final FriendlyByteBuf buf, final NetworkManager.PacketContext context) {
         if (buf.readableBytes() < Long.BYTES + 1) {
-            SDMShop2.LOGGER.warn("Received malformed AsyncBridge packet: {} readable bytes", buf.readableBytes());
+            LOGGER.warn("Received malformed AsyncBridge packet: {} readable bytes", buf.readableBytes());
             return;
         }
 
@@ -243,7 +246,7 @@ public final class AsyncBridge {
                     sendSuccessResponse(id, context, responsePayload);
                 }
             } catch (Throwable throwable) {
-                SDMShop2.LOGGER.error("Error processing AsyncBridge request: {}", subject, throwable);
+                LOGGER.error("Error processing AsyncBridge request: {}", subject, throwable);
                 sendErrorResponse(id, context, throwable.getClass().getSimpleName() + ": " + throwable.getMessage());
             } finally {
                 inputCopy.release();

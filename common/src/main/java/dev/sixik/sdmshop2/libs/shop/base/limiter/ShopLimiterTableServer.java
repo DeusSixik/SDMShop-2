@@ -3,7 +3,6 @@ package dev.sixik.sdmshop2.libs.shop.base.limiter;
 import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.platform.SDMPlatform;
 import dev.sixik.sdmshop2.libs.platform.ServerOperation;
-import dev.sixik.sdmshop2.libs.platform.ThreadingOperationTimeSave;
 import dev.sixik.sdmshop2.libs.platform.utils.repository.RepositoryStorage;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepoDefinition;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepositoryManager;
@@ -176,7 +175,7 @@ public final class ShopLimiterTableServer implements ShopLimiterTable {
         ioExecutor.shutdown();
     }
 
-    public static class Manager implements ServerOperation, ThreadingOperationTimeSave {
+    public static class Manager implements ServerOperation {
         @Override
         public void onServerStart(MinecraftServer server) {
             new ShopLimiterTableServer(server, true);
@@ -190,12 +189,5 @@ public final class ShopLimiterTableServer implements ShopLimiterTable {
         @Override
         public void onReload() { }
 
-        @Override
-        public void onDataStartSave() { }
-
-        @Override
-        public int getDataSaveTimeSeconds() {
-            return -1;
-        }
     }
 }
