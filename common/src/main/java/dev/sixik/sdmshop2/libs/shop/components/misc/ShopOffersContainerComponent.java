@@ -1,6 +1,7 @@
 package dev.sixik.sdmshop2.libs.shop.components.misc;
 
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
+import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
@@ -13,6 +14,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -33,8 +35,38 @@ public class ShopOffersContainerComponent extends ShopComponent {
         return 1000;
     }
 
+    @Override
+    public void init() {
+        for (ShopOffer entry : entryMap.values()) {
+            attachEntry(entry);
+        }
+    }
+
     public void addEntry(ShopOffer entry) {
-        entryMap.put(entry.getUUID(), entry);
+        Objects.requireNonNull(entry, "entry");
+
+        ShopOffer previous = entryMap.put(entry.getUUID(), entry);
+        if (previous == entry) {
+            attachEntry(entry);
+            return;
+        }
+
+        if (previous != null && previous != entry) {
+            previous.setParentShop(null);
+        }
+
+        attachEntry(entry);
+        notifyEntriesChanged();
+    }
+
+    @Nullable
+    public ShopOffer removeEntry(UUID entryId) {
+        ShopOffer removed = entryMap.remove(entryId);
+        if (removed != null) {
+            removed.setParentShop(null);
+            notifyEntriesChanged();
+        }
+        return removed;
     }
 
     @Nullable
@@ -45,6 +77,18 @@ public class ShopOffersContainerComponent extends ShopComponent {
     public void getEntries(UUID[] entryIds, ShopOffer[] outArray) {
         for (int i = 0; i < entryIds.length; i++) {
             outArray[i] = entryMap.get(entryIds[i]);
+        }
+    }
+
+    private void attachEntry(ShopOffer entry) {
+        if (getRoot() instanceof ShopInstance shop) {
+            entry.setParentShop(shop);
+        }
+    }
+
+    private void notifyEntriesChanged() {
+        if (getRoot() instanceof ShopInstance shop) {
+            shop.onOffersChanged(this);
         }
     }
 
@@ -73,6 +117,7 @@ public class ShopOffersContainerComponent extends ShopComponent {
         }
 
         private static void setOffers(ShopOffersContainerComponent component, List<ShopOffer> offers) {
+            component.entryMap.values().forEach(entry -> entry.setParentShop(null));
             component.entryMap.clear();
             if (offers != null) {
                 offers.forEach(component::addEntry);

@@ -151,6 +151,20 @@ public class ShopInstance extends ShopEntity {
                 .orElseThrow(() -> new IllegalStateException("Shop " + id + " corrupted: missing CategoriesComponent"));
     }
 
+    public void onOfferUpdated(ShopOffer offer) {
+        reindexCategories();
+        invokeUpdate(this);
+    }
+
+    public void onOffersChanged(ShopOffersContainerComponent offersContainer) {
+        reindexCategories();
+        invokeUpdateComponent(this, offersContainer);
+    }
+
+    private void reindexCategories() {
+        getComponent(ShopCategoriesContainerComponent.class).ifPresent(ShopCategoriesContainerComponent::reindex);
+    }
+
     /**
      * Проверяет, является ли этот экземпляр магазина "пустым".
      *

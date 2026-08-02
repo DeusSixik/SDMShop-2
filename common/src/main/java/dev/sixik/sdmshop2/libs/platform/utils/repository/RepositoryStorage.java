@@ -69,8 +69,16 @@ public final class RepositoryStorage<K, V> {
      * Updates local cache immediately and persists the value asynchronously.
      */
     public void putValue(K key, V value) {
+        putValue(key, value, true);
+    }
+
+    public void putValue(K key, V value, boolean persist) {
         synchronized (writeLock) {
             storage.put(key, value);
+        }
+
+        if (!persist) {
+            return;
         }
 
         ioExecutor.submit(() -> {
@@ -80,6 +88,10 @@ public final class RepositoryStorage<K, V> {
                 LOGGER.error("Failed to async save value for key: {}", key, e);
             }
         });
+    }
+
+    public void putLocalValue(K key, V value) {
+        putValue(key, value, false);
     }
 
     public void update(K key) {

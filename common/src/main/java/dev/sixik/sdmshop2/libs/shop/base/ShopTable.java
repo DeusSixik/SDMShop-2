@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Глобальный менеджер всех магазинов в системе.
@@ -35,7 +36,7 @@ public final class ShopTable {
     /**
      * Глобальный экземпляр ShopTable.
      */
-    public static ShopTable Instance;
+    public static volatile ShopTable Instance;
 
     private final ExecutorService ioExecutor;
     private RepositoryStorage<ResourceLocation, ShopInstance> shopsRepository;
@@ -88,7 +89,7 @@ public final class ShopTable {
                     shop -> shop.serialize().getAsJsonObject(),
                     json -> {
                         ShopInstance instance = ShopInstance.fromJson(json);
-                        instance.setOnUpdate(() -> shopsRepository.update(instance.getId()));
+                        attachAutoSave(instance);
                         return instance;
                     }
             )
@@ -113,7 +114,8 @@ public final class ShopTable {
      * @param instance Экземпляр магазина
      */
     public void addShop(ShopInstance instance) {
-        shopsRepository.putValue(instance.getId(), instance);
+        attachAutoSave(instance);
+        shopsRepository.putValue(instance.getId(), instance, instance.shouldSave());
         SDMShop2.LOGGER.info("Create new shop with id: {}", instance.getId());
     }
 
@@ -174,6 +176,10 @@ public final class ShopTable {
      * @param instance Экземпляр магазина
      */
     public void save(ShopInstance instance) {
+        if (!instance.shouldSave()) {
+            return;
+        }
+
         shopsRepository.save(instance.getId(), instance);
     }
 
@@ -183,7 +189,19 @@ public final class ShopTable {
      * @param instance Экземпляр магазина
      */
     public void saveAsync(ShopInstance instance) {
+        if (!instance.shouldSave()) {
+            return;
+        }
+
         ioExecutor.submit(() -> save(instance));
+    }
+
+    private void attachAutoSave(ShopInstance instance) {
+        instance.setOnUpdate(() -> {
+            if (instance.shouldSave()) {
+                shopsRepository.update(instance.getId());
+            }
+        });
     }
 
     /**
@@ -221,7 +239,19 @@ public final class ShopTable {
     }
 
     public void shutdown() {
-        manager.close();
+        try {
+            ioExecutor.shutdown();
+            try {
+                if (!ioExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                    ioExecutor.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                ioExecutor.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        } finally {
+            manager.close();
+        }
     }
 
     public static class Manager implements ServerOperation {
@@ -240,7 +270,10 @@ public final class ShopTable {
 
         @Override
         public void onServerStop(MinecraftServer server) {
-            ShopTable.Instance.shutdown();
+            if (ShopTable.Instance != null) {
+                ShopTable.Instance.shutdown();
+                ShopTable.Instance = null;
+            }
         }
 
     }
