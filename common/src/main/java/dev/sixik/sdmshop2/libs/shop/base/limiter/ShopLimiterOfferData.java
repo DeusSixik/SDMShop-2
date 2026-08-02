@@ -2,9 +2,9 @@ package dev.sixik.sdmshop2.libs.shop.base.limiter;
 
 import com.google.gson.JsonObject;
 import lombok.Getter;
-import lombok.Setter;
 import net.minecraft.network.FriendlyByteBuf;
 
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -35,8 +35,7 @@ public class ShopLimiterOfferData {
     @Getter
     private final AtomicLong lastPurchaseTime;
 
-    @Setter
-    private ShopLimiterUpdate update = () -> {};
+    private volatile ShopLimiterUpdate update = () -> {};
 
     public ShopLimiterOfferData(FriendlyByteBuf buf) {
         this(buf.readUUID(), buf.readInt(), buf.readLong());
@@ -60,8 +59,12 @@ public class ShopLimiterOfferData {
 
     public ShopLimiterOfferData(UUID entityId, int count, long lastPurchaseTime) {
         this.offerId = entityId;
-        this.count = new AtomicInteger(count);
-        this.lastPurchaseTime = new AtomicLong(lastPurchaseTime);
+        this.count = new AtomicInteger(Math.max(0, count));
+        this.lastPurchaseTime = new AtomicLong(Math.max(0L, lastPurchaseTime));
+    }
+
+    public void setUpdate(ShopLimiterUpdate update) {
+        this.update = Objects.requireNonNullElseGet(update, () -> () -> {});
     }
 
     /**
@@ -83,6 +86,10 @@ public class ShopLimiterOfferData {
      * @return Новое (обновленное) значение счетчика
      */
     public int add(int amount) {
+        if (amount <= 0) {
+            return count.get();
+        }
+
         int i = count.addAndGet(amount);
         markPurchased();
         return i;
@@ -95,6 +102,10 @@ public class ShopLimiterOfferData {
      * @return Новое (обновленное) значение счетчика
      */
     public int minus(int amount) {
+        if (amount <= 0) {
+            return count.get();
+        }
+
         int i = count.addAndGet(-amount);
         update.onUpdate();
         return i;
@@ -108,6 +119,10 @@ public class ShopLimiterOfferData {
      * @return Новое значение счетчика (>= 0)
      */
     public int safeMinus(int amount) {
+        if (amount <= 0) {
+            return count.get();
+        }
+
         int i = count.updateAndGet(current -> Math.max(0, current - amount));
         update.onUpdate();
         return i;
@@ -119,7 +134,13 @@ public class ShopLimiterOfferData {
      * @param newValue Новое значение
      */
     public void set(int newValue) {
-        count.set(newValue);
+        count.set(Math.max(0, newValue));
+        update.onUpdate();
+    }
+
+    public void reset(int newValue, long time) {
+        count.set(Math.max(0, newValue));
+        lastPurchaseTime.set(Math.max(0L, time));
         update.onUpdate();
     }
 

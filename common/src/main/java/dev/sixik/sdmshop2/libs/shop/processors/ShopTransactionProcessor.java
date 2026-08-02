@@ -1,25 +1,49 @@
 package dev.sixik.sdmshop2.libs.shop.processors;
 
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
-import dev.sixik.sdmshop2.libs.shop.components.api.*;
+import dev.sixik.sdmshop2.libs.shop.components.api.ConditionComponent;
+import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
+import dev.sixik.sdmshop2.libs.shop.components.api.PromoComponent;
+import dev.sixik.sdmshop2.libs.shop.components.api.PromoEffectComponent;
+import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.limiter.LimiterComponent;
 import dev.sixik.sdmshop2.libs.shop.events.ShopServerEvents;
 import dev.sixik.sdmshop2.libs.shop.network.ShopNetworkManager;
 import dev.sixik.sdmshop2.libs.shop.scripting.events.ShopScriptEvents;
+import it.unimi.dsi.fastutil.objects.*;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.List;
+import java.util.Set;
 
+/**
+ * Выполняет серверную логику покупки товара в магазине.
+ *
+ * <p>Процессор отвечает за полный цикл транзакции: проверку условий, проверку лимитов,
+ * расчёт итоговой цены, списание средств, выдачу наград и обновление лимитов. Логика
+ * специально собрана в одном месте, чтобы покупка проходила предсказуемо и не оставляла
+ * частично списанные средства при ошибке на этапе выдачи наград.</p>
+ */
 public class ShopTransactionProcessor {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(ShopTransactionProcessor.class);
+
     /**
-     * Выполняет транзакцию покупки.
-     * * @param offer Товар, который покупают.
-     * @param player Игрок-покупатель.
-     * @param chosenGroupId Выбранный способ оплаты (ID группы).
-     * @param amount Количество покупаемого товара (например, 1, 5, 10).
-     * @return true, если покупка успешна, иначе false.
+     * Пытается выполнить покупку указанного {@link ShopOffer} для игрока.
+     *
+     * <p>Метод возвращает {@code false}, если проверка условий, лимитов, оплаты или выдачи
+     * наград не прошла. Если ошибка возникает после частичного списания средств, уже
+     * списанные {@link CostComponent} откатываются через {@link CostComponent#refund(Player, double)}.</p>
+     *
+     * @param offer товар, который покупает игрок
+     * @param player игрок-покупатель
+     * @param chosenGroupId выбранная группа оплаты; {@code null} считается дефолтной группой {@code ""}
+     * @param amount количество покупаемых единиц товара
+     * @return {@code true}, если покупка полностью завершилась успешно
      */
     public static boolean executePlayerPurchase(
             final ShopOffer offer,
@@ -27,167 +51,228 @@ public class ShopTransactionProcessor {
             final String chosenGroupId,
             final int amount
     ) {
-        if (offer == null || player == null || amount <= 0) return false;
+        if (offer == null || player == null || amount <= 0) {
+            return false;
+        }
+
         final MinecraftServer server = player.getServer();
 
-        // ФАЗА 1: ПРОВЕРКА УСЛОВИЙ (Лимиты, Доступ, Время)
-
-        /*
-            Проверяем обычные условия (права, квесты и т.д.)
-         */
+        // Фаза 1: обычные условия доступа к товару.
         for (ConditionComponent condition : offer.getComponents(ConditionComponent.class)) {
-            if (!condition.isChecked(player)) return false;
+            if (!condition.isChecked(player)) {
+                return false;
+            }
         }
 
-        /*
-            Проверяем лимиты с учетом желаемого количества (amount)
-         */
-        List<LimiterComponent> limiters = offer.getComponents(LimiterComponent.class);
+        // Фаза 2: лимиты проверяются до оплаты, чтобы не списывать средства зря.
+        final List<LimiterComponent> limiters = offer.getComponents(LimiterComponent.class);
         for (LimiterComponent limiter : limiters) {
-            if (!limiter.isChecked(player, amount)) return false;
+            if (!limiter.isChecked(player, amount)) {
+                return false;
+            }
         }
 
-        // ФАЗА 2: РАСЧЕТ И ПРОВЕРКА СТОИМОСТИ
-
-        /*
-             Получаем мапу: Компонент -> Финальная цена со скидками
-         */
-        Map<CostComponent, Double> finalCosts = calculateFinalCosts(offer, server, chosenGroupId);
-
-        /*
-            Если стоимости нет, но товар не бесплатный (компоненты цены есть),
-            значит игрок прислал левый chosenGroupId. Блокируем.
-         */
+        // Фаза 3: выбираем cost-компоненты нужной группы и применяем активные скидки.
+        final Object2DoubleMap<CostComponent> finalCosts = calculateFinalCosts(offer, server, chosenGroupId);
         if (finalCosts.isEmpty() && !offer.getComponents(CostComponent.class).isEmpty()) {
             return false;
         }
 
-        /*
-            Проверяем, хватает ли денег на всё
-         */
-        for (Map.Entry<CostComponent, Double> entry : finalCosts.entrySet()) {
-            CostComponent cost = entry.getKey();
-            double totalCost = entry.getValue() * amount;
-
-            if (!cost.canPay(player, totalCost)) return false;
+        // Цена в finalCosts указана за 1 единицу товара, поэтому умножаем её на amount.
+        final List<CostCharge> totalCosts = multiplyCosts(finalCosts, amount);
+        if (totalCosts.isEmpty() && !finalCosts.isEmpty()) {
+            return false;
         }
 
-        // ФАЗА 3: ТРАНЗАКЦИЯ ОДОБРЕНА (Изменяем данные)
-
-        /*
-            Списываем средства
-         */
-        for (Map.Entry<CostComponent, Double> entry : finalCosts.entrySet()) {
-            CostComponent cost = entry.getKey();
-            double totalCost = entry.getValue() * amount;
-            cost.pay(player, totalCost);
+        // Фаза 4: предварительная проверка всех источников оплаты.
+        for (CostCharge charge : totalCosts) {
+            if (!charge.cost().canPay(player, charge.amount())) {
+                return false;
+            }
         }
 
-        /*
-            Выдаем награды
-         */
-        for (RewardComponent reward : offer.getComponents(RewardComponent.class)) {
-            reward.reward(player, amount);
+        // Фаза 5: реальное списание. Если один cost не смог списаться — откатываем предыдущие.
+        final List<PaidCost> paidCosts = new ObjectArrayList<>();
+        for (CostCharge charge : totalCosts) {
+            final CostComponent cost = charge.cost();
+            final double totalCost = charge.amount();
+
+            if (!cost.tryPay(player, totalCost)) {
+                rollbackCosts(player, paidCosts);
+                return false;
+            }
+
+            paidCosts.add(new PaidCost(cost, totalCost));
         }
 
-        /*
-            Считаем лимиты
-         */
+        // Фаза 6: выдача наград. При ошибке откатываем оплату и не считаем лимиты.
+        try {
+            for (RewardComponent reward : offer.getComponents(RewardComponent.class)) {
+                reward.reward(player, amount);
+            }
+        } catch (Exception e) {
+            LOGGER.error("Failed to give rewards for offer {}", offer.getUUID(), e);
+            rollbackCosts(player, paidCosts);
+            return false;
+        }
+
+        // Фаза 7: лимиты обновляются только после успешной оплаты и выдачи наград.
         for (LimiterComponent limiter : limiters) {
             limiter.addLimit(player, amount);
         }
 
         syncLimitersNetwork(limiters, player);
-
         return true;
     }
 
+    /**
+     * Синхронизирует клиенту новые данные лимитеров после успешной покупки.
+     */
     private static void syncLimitersNetwork(List<LimiterComponent> limiters, ServerPlayer player) {
-        ShopNetworkManager.sendLimiterData(player);
+        if (!limiters.isEmpty()) {
+            ShopNetworkManager.sendLimiterData(player);
+        }
     }
 
     /**
-     * Рассчитывает финальную стоимость для выбранной группы оплаты (chosenGroupId).
+     * Рассчитывает итоговую цену каждого {@link CostComponent} в выбранной группе оплаты.
      *
-     * @return Map, где ключ - компонент стоимости, а значение - финальная цена после скидок.
+     * <p>Метод сохраняет порядок cost-компонентов из товара. Это важно, потому что порядок
+     * списания должен быть стабильным: если в будущем у cost-компонентов появятся побочные
+     * эффекты или разные валюты, результат не будет зависеть от порядка в hash map.</p>
+     *
+     * <p>После применения скидок и внешних event-хуков цена проходит через
+     * {@link #sanitizePrice(Double)}: отрицательные, {@code NaN} и бесконечные значения
+     * превращаются в {@code 0}.</p>
+     *
+     * @param offer товар, для которого считается цена
+     * @param server текущий сервер; может быть {@code null} в тестах/клиентских preview-сценариях
+     * @param chosenGroupId выбранная группа оплаты; {@code null} считается дефолтной группой {@code ""}
+     * @return map cost-компонентов и итоговых цен за одну единицу товара
      */
-    public static Map<CostComponent, Double> calculateFinalCosts(
-           final ShopOffer offer,
-           final MinecraftServer server,
-           final String chosenGroupId
+    public static Object2DoubleMap<CostComponent> calculateFinalCosts(
+            final ShopOffer offer,
+            final MinecraftServer server,
+            final String chosenGroupId
     ) {
-        final Map<CostComponent, Double> finalCosts = new HashMap<>();
+        final Object2DoubleMap<CostComponent> finalCosts = new Object2DoubleLinkedOpenHashMap<>();
+        if (offer == null) {
+            return finalCosts;
+        }
 
-        /*
-            Отбираем только те компоненты стоимости, которые относятся к выбранной группе
-         */
-        final List<CostComponent> groupCosts = new ArrayList<>();
-        final List<CostComponent> cost_components = offer.getComponents(CostComponent.class);
-        for (int i = 0; i < cost_components.size(); i++) {
-            final CostComponent cost = cost_components.get(i);
-            final String costGroup = cost.getGroupId() != null ? cost.getGroupId() : "";
-            if (costGroup.equals(chosenGroupId)) {
+        final String selectedGroupId = normalizeGroupId(chosenGroupId);
+        final List<CostComponent> groupCosts = new ObjectArrayList<>();
+
+        // Берём только cost-компоненты выбранной группы оплаты.
+        for (CostComponent cost : offer.getComponents(CostComponent.class)) {
+            if (normalizeGroupId(cost.getGroupId()).equals(selectedGroupId)) {
                 groupCosts.add(cost);
             }
         }
 
-        /*
-            Если для этой группы нет цен, возвращаем пустую мапу
-         */
-        if (groupCosts.isEmpty()) return finalCosts;
+        if (groupCosts.isEmpty()) {
+            return finalCosts;
+        }
 
-        /*
-             Собираем ID всех АКТИВНЫХ акций (PromoComponent)
-         */
-        final Set<String> activePromos = new HashSet<>();
-        final List<PromoComponent> promo_components = offer.getComponents(PromoComponent.class);
-        for (int i = 0; i < promo_components.size(); i++) {
-            PromoComponent promo = promo_components.get(i);
+        final Set<String> activePromos = new ObjectOpenHashSet<>();
+
+        // Сначала собираем активные promo_id, затем по ним выбираем применимые эффекты.
+        for (PromoComponent promo : offer.getComponents(PromoComponent.class)) {
             if (promo.isActive(server)) {
-                activePromos.add(promo.getPromoId() != null ? promo.getPromoId() : "");
+                activePromos.add(normalizeGroupId(promo.getPromoId()));
             }
         }
 
-        /*
-            Отбираем Эффекты, которые применимы прямо сейчас к этой группе
-         */
-        final List<PromoEffectComponent> activeEffects = new ArrayList<>();
-        if (!activePromos.isEmpty()) { // Если нет активных акций, эффекты можно не искать
-            final List<PromoEffectComponent> promo_effect_components = offer.getComponents(PromoEffectComponent.class);
-            for (int i = 0; i < promo_effect_components.size(); i++) {
-                final PromoEffectComponent effect = promo_effect_components.get(i);
-                if (effect.canApply(activePromos, chosenGroupId)) {
+        final List<PromoEffectComponent> activeEffects = new ObjectArrayList<>();
+        if (!activePromos.isEmpty()) {
+            for (PromoEffectComponent effect : offer.getComponents(PromoEffectComponent.class)) {
+                if (effect.canApply(activePromos, selectedGroupId)) {
                     activeEffects.add(effect);
                 }
             }
         }
 
-        /*
-            Считаем финальную цену для КАЖДОГО компонента стоимости в группе
-         */
-        for (int j = 0; j < groupCosts.size(); j++) {
-            final CostComponent cost = groupCosts.get(j);
-            double currentPrice = cost.getBaseAmount();
+        for (CostComponent cost : groupCosts) {
+            double currentPrice = sanitizePrice(cost.getBaseAmount());
 
-            /*
-                Прогоняем базовую цену через все активные эффекты (скидки/модификаторы)
-             */
-            for (int i = 0; i < activeEffects.size(); i++) {
-                final PromoEffectComponent effect = activeEffects.get(i);
-                currentPrice = effect.applyPrice(currentPrice, activePromos, effect.getApplyGroups());
+            // Эффекты применяются последовательно в порядке компонентов товара.
+            for (PromoEffectComponent effect : activeEffects) {
+                currentPrice = sanitizePrice(effect.applyPrice(currentPrice, activePromos, effect.getApplyGroups()));
             }
-
-            /*
-                Защита от отрицательных цен
-             */
-            if (currentPrice < 0) currentPrice = 0;
 
             finalCosts.put(cost, currentPrice);
         }
 
-        ShopScriptEvents.SCRIPT_CALCULATE_PRICE_EVENT.invoker().invoke(offer, server, chosenGroupId, finalCosts);
-        ShopServerEvents.CALCULATE_PRICE_EVENT.invoker().invoke(offer, server, chosenGroupId, finalCosts);
+        ShopScriptEvents.SCRIPT_CALCULATE_PRICE_EVENT.invoker().invoke(offer, server, selectedGroupId, finalCosts);
+        ShopServerEvents.CALCULATE_PRICE_EVENT.invoker().invoke(offer, server, selectedGroupId, finalCosts);
+        finalCosts.replaceAll((cost, price) -> sanitizePrice(price));
 
         return finalCosts;
+    }
+
+    /**
+     * Преобразует цену за одну единицу товара в итоговую сумму списания.
+     *
+     * @return список списаний или пустой список, если найдено некорректное значение
+     */
+    private static ObjectList<CostCharge> multiplyCosts(Object2DoubleMap<CostComponent> costs, int amount) {
+        final ObjectList<CostCharge> out = new ObjectArrayList<>(costs.size());
+        for (Object2DoubleMap.Entry<CostComponent> entry : costs.object2DoubleEntrySet()) {
+            final double totalCost = entry.getDoubleValue() * amount;
+            if (!Double.isFinite(totalCost) || totalCost < 0) {
+                return ObjectLists.emptyList();
+            }
+
+            out.add(new CostCharge(entry.getKey(), totalCost));
+        }
+
+        return out;
+    }
+
+    /**
+     * Откатывает уже списанные средства в обратном порядке.
+     *
+     * <p>Обратный порядок нужен на случай, если компоненты оплаты зависят друг от друга:
+     * сначала возвращаем последнее списание, затем предыдущие.</p>
+     */
+    private static void rollbackCosts(ServerPlayer player, List<PaidCost> paidCosts) {
+        for (int i = paidCosts.size() - 1; i >= 0; i--) {
+            PaidCost paidCost = paidCosts.get(i);
+            try {
+                paidCost.cost().refund(player, paidCost.amount());
+            } catch (Exception e) {
+                LOGGER.error("Failed to rollback cost component {}", paidCost.cost().getType().getId(), e);
+            }
+        }
+    }
+
+    /**
+     * Нормализует цену после скидок и внешних хуков.
+     */
+    private static double sanitizePrice(Double price) {
+        if (price == null || !Double.isFinite(price) || price < 0) {
+            return 0.0D;
+        }
+
+        return price;
+    }
+
+    /**
+     * Приводит отсутствующую группу оплаты к дефолтной группе.
+     */
+    private static String normalizeGroupId(String groupId) {
+        return groupId == null ? "" : groupId;
+    }
+
+    /**
+     * Уже успешно списанный cost-компонент. Используется только для rollback.
+     */
+    private record PaidCost(CostComponent cost, double amount) {
+    }
+
+    /**
+     * Планируемое списание cost-компонента после умножения цены на количество товара.
+     */
+    private record CostCharge(CostComponent cost, double amount) {
     }
 }

@@ -59,17 +59,12 @@ public class ShopInstance extends ShopEntity {
     }
 
     @Override
-    protected void customInitializeServerOnlyComponents() {
+    protected void customInitializeCommonComponents() {
         if(!hasComponent(ShopOffersContainerComponent.class))
             addComponent(new ShopOffersContainerComponent());
 
         if(!hasComponent(ShopCategoriesContainerComponent.class))
             addComponent(new ShopCategoriesContainerComponent());
-    }
-
-    @Override
-    protected void customInitializeClientOnlyComponents() {
-        customInitializeServerOnlyComponents();
     }
 
     @Override

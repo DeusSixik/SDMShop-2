@@ -22,6 +22,7 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.language.I18n;
+import net.minecraft.commands.Commands;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -104,7 +105,12 @@ public class ShopUtils {
     @Nullable
     @Environment(EnvType.CLIENT)
     public static TransformTexture getCurrencyTexture(ICurrency currency) {
-        final CurrencyIcon icon = currency.getIcon();
+        return getCurrencyTexture(currency.getIcon());
+    }
+
+    @Nullable
+    @Environment(EnvType.CLIENT)
+    public static TransformTexture getCurrencyTexture(CurrencyIcon icon) {
         final Object icon_object = icon.icon();
 
         TransformTexture texture = null;
@@ -132,5 +138,9 @@ public class ShopUtils {
         }
 
         return texture;
+    }
+
+    public static boolean isPlayerAdmin(Player player) {
+        return player.hasPermissions(Commands.LEVEL_ADMINS);
     }
 }

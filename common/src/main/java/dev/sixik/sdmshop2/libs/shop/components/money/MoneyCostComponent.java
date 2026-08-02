@@ -16,6 +16,7 @@ import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfigOpt
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentNumberRange;
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
+import dev.sixik.sdmshop2.utils.ShopUtils;
 import lombok.Getter;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -34,7 +35,8 @@ public class MoneyCostComponent extends CostComponent {
 
     public static final IComponentType<MoneyCostComponent> TYPE = new Type();
 
-    public static final ThreadLocal<DynamicStoredCurrency> DYNAMIC_CURRENCY = ThreadLocal.withInitial(() -> new DynamicStoredCurrency(EMPTY));
+    public static final ThreadLocal<DynamicStoredCurrency> DYNAMIC_CURRENCY =
+            ThreadLocal.withInitial(() -> new DynamicStoredCurrency(EMPTY));
 
     @Getter
     @ComponentConfig(translationKey = "shop.component.cost.money.money_id")
@@ -57,6 +59,10 @@ public class MoneyCostComponent extends CostComponent {
 
     @Override
     public boolean canPay(Player player, double actualPrice) {
+        if (actualPrice < 0 || !Double.isFinite(actualPrice)) {
+            return false;
+        }
+
         final Map<ResourceLocation, IExternalCurrency> currencies = player.isLocalPlayer() ?
                 SDMEconomyServiceClient.getAllCurrencies()
                 : SDMEconomyCurrencyRegistry.getCurrenciesMap();
@@ -76,9 +82,22 @@ public class MoneyCostComponent extends CostComponent {
 
     @Override
     public void pay(Player player, double actualPrice) {
+        tryPay(player, actualPrice);
+    }
+
+    @Override
+    public boolean tryPay(Player player, double actualPrice) {
         if (player.isLocalPlayer()) {
             SDMShop2.LOGGER.warn("Call Pay methods on client!");
-            return;
+            return false;
+        }
+
+        if (!canPay(player, actualPrice)) {
+            return false;
+        }
+
+        if (actualPrice == 0) {
+            return true;
         }
 
         /*
@@ -89,13 +108,32 @@ public class MoneyCostComponent extends CostComponent {
         Map<ResourceLocation, IExternalCurrency> currencies = SDMEconomyCurrencyRegistry.getCurrenciesMap();
 
         if (currencies.containsKey(moneyId)) {
-            currencies.get(moneyId).withdraw((ServerPlayer) player, value);
-            return;
+            return currencies.get(moneyId).withdraw((ServerPlayer) player, value);
         }
 
         SDMEconomyService.getInstance()
                 .getAccount(player.getGameProfile().getId())
                 .modify(DYNAMIC_CURRENCY.get().setId(moneyId), value.negate());
+        return true;
+    }
+
+    @Override
+    public void refund(Player player, double actualPrice) {
+        if (player.isLocalPlayer() || actualPrice <= 0 || !Double.isFinite(actualPrice)) {
+            return;
+        }
+
+        final BigDecimal value = BigDecimal.valueOf(actualPrice);
+        Map<ResourceLocation, IExternalCurrency> currencies = SDMEconomyCurrencyRegistry.getCurrenciesMap();
+
+        if (currencies.containsKey(moneyId)) {
+            currencies.get(moneyId).deposit((ServerPlayer) player, value);
+            return;
+        }
+
+        SDMEconomyService.getInstance()
+                .getAccount(player.getGameProfile().getId())
+                .modify(DYNAMIC_CURRENCY.get().setId(moneyId), value);
     }
 
     @Override
@@ -118,34 +156,7 @@ public class MoneyCostComponent extends CostComponent {
         }
 
         final IExternalCurrency money = cur_map.get(moneyId);
-        final CurrencyIcon icon = money.getIcon();
-        final Object icon_object = icon.icon();
-
-        TransformTexture texture = null;
-        switch (icon.type()) {
-            case NONE -> {
-            }
-            case ITEM -> {
-                if(icon_object instanceof Item item) {
-                    texture = new ItemStackTexture(item);
-                } else if(icon_object instanceof ItemStack item) {
-                    texture = new ItemStackTexture(item);
-                } else if(icon_object instanceof Ingredient ingredient) {
-                    texture = new ItemStackTexture(ingredient.getItems());
-                }
-            }
-            case TEXTURE -> {
-                if(icon_object instanceof ResourceLocation location) {
-                    texture = new ResourceTexture(location);
-                } else if(icon_object instanceof String location) {
-                    if(ResourceLocation.isValidResourceLocation(location))
-                        texture = new ResourceTexture(location);
-                    else texture = new TextTexture(location);
-                }
-            }
-        }
-
-        return texture;
+        return ShopUtils.getCurrencyTexture(money);
     }
 
     private static class Type extends SerializedComponentType<MoneyCostComponent> {

@@ -57,8 +57,8 @@ public class LimiterComponent extends ShopComponent {
 
     public LimiterComponent(LimiterType type, int count, long resetIntervalMs) {
         this.limiterType = type;
-        this.count = count;
-        this.resetIntervalMs = resetIntervalMs;
+        this.count = Math.max(1, count);
+        this.resetIntervalMs = Math.max(0L, resetIntervalMs);
     }
 
     @Override
@@ -78,14 +78,9 @@ public class LimiterComponent extends ShopComponent {
 
         ShopLimiterOfferData data = (limiterType == LimiterType.Player)
                 ? limiterTable.getPlayerData(player).getData(this.rootId)
-                : limiterTable.getOfferDatga(this.rootId);
+                : limiterTable.getOfferData(this.rootId);
 
-        int currentPurchases = data.getCount().get();
-        long lastTime = data.getLastPurchaseTime().get();
-
-        if (this.resetIntervalMs > 0 && lastTime > 0 && (System.currentTimeMillis() - lastTime) >= this.resetIntervalMs) {
-            currentPurchases = 0;
-        }
+        int currentPurchases = getActivePurchaseCount(data);
 
         return (currentPurchases + purchaseAmount) <= this.count;
     }
@@ -95,13 +90,12 @@ public class LimiterComponent extends ShopComponent {
 
         ShopLimiterOfferData data = (limiterType == LimiterType.Player)
                 ? limiterTable.getPlayerData(player).getData(this.rootId)
-                : limiterTable.getOfferDatga(this.rootId);
+                : limiterTable.getOfferData(this.rootId);
 
         long lastTime = data.getLastPurchaseTime().get();
 
         if (this.resetIntervalMs > 0 && lastTime > 0 && (System.currentTimeMillis() - lastTime) >= this.resetIntervalMs) {
-            data.set(amount);
-            data.markPurchased();
+            data.reset(amount, System.currentTimeMillis());
         } else {
             data.add(amount);
         }
@@ -113,7 +107,7 @@ public class LimiterComponent extends ShopComponent {
         if (limiterType == LimiterType.Player) {
             limiterTable.getPlayerData(player).getData(this.rootId).safeMinus(amount);
         } else {
-            limiterTable.getOfferDatga(this.rootId).safeMinus(amount);
+            limiterTable.getOfferData(this.rootId).safeMinus(amount);
         }
     }
 
@@ -123,7 +117,7 @@ public class LimiterComponent extends ShopComponent {
         if (limiterType == LimiterType.Player) {
             limiterTable.getPlayerData(player).getData(this.rootId).set(amount);
         } else {
-            limiterTable.getOfferDatga(this.rootId).set(amount);
+            limiterTable.getOfferData(this.rootId).set(amount);
         }
     }
 
@@ -133,10 +127,19 @@ public class LimiterComponent extends ShopComponent {
             return count;
         }
 
-        final int limit = limiterType == LimiterType.Player
-                ? limiterTable.getPlayerData(player).getData(this.rootId).get()
-                : limiterTable.getOfferDatga(this.rootId).get();
-        return count - limit;
+        ShopLimiterOfferData data = limiterType == LimiterType.Player
+                ? limiterTable.getPlayerData(player).getData(this.rootId)
+                : limiterTable.getOfferData(this.rootId);
+        return Math.max(0, count - getActivePurchaseCount(data));
+    }
+
+    private int getActivePurchaseCount(ShopLimiterOfferData data) {
+        long lastTime = data.getLastPurchaseTime().get();
+        if (this.resetIntervalMs > 0 && lastTime > 0 && (System.currentTimeMillis() - lastTime) >= this.resetIntervalMs) {
+            return 0;
+        }
+
+        return Math.max(0, data.get());
     }
 
     @Override

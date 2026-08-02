@@ -36,8 +36,16 @@ public abstract class CostComponent extends ShopComponent {
     public abstract boolean canPay(Player player, double actualPrice);
 
     public final void payInternal(Player player, double actualPrice) {
-        if(canPay(player, actualPrice))
-            pay(player, actualPrice);
+        tryPay(player, actualPrice);
+    }
+
+    public boolean tryPay(Player player, double actualPrice) {
+        if (!canPay(player, actualPrice)) {
+            return false;
+        }
+
+        pay(player, actualPrice);
+        return true;
     }
 
     /**
@@ -46,6 +54,9 @@ public abstract class CostComponent extends ShopComponent {
      * @param player Игрок, с которого списываются средства
      */
     public abstract void pay(Player player, double actualPrice);
+
+    public void refund(Player player, double actualPrice) {
+    }
 
     /**
      * Возвращает базовую стоимость до применения скидок.

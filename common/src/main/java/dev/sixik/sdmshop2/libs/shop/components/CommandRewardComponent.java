@@ -48,9 +48,9 @@ public class CommandRewardComponent extends RewardComponent {
 
     @Override
     public void reward(ServerPlayer player, int amount) {
-        CommandSourceStack source = player.createCommandSourceStack();
-        source.withPermission(2);
-        source.withSuppressedOutput();
+        CommandSourceStack source = player.createCommandSourceStack()
+                .withPermission(2)
+                .withSuppressedOutput();
 
         String format = formatCommand(command, player);
         for (int i = 0; i < amount; i++) {

@@ -139,7 +139,7 @@ public class SDMItemStackSelectorWidget extends WidgetGroup {
     }
 
     public SDMItemStackSelectorWidget setItemStack(ItemStack itemStack) {
-        item = Objects.requireNonNullElse(itemStack, ItemStack.EMPTY).copy();
+        item = Objects.requireNonNullElse(itemStack, ItemStack.EMPTY).copyWithCount(1);
         handler.setStackInSlot(0, item);
         itemField.setCurrentStringSilently(BuiltInRegistries.ITEM.getKey(item.getItem()).toString());
         return this;

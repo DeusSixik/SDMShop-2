@@ -20,7 +20,12 @@ public interface ShopLimiterTable {
      * @param entityId UUID товара (сущности)
      * @return Объект данных лимита для указанного товара
      */
-    ShopLimiterOfferData getOfferDatga(UUID entityId);
+    ShopLimiterOfferData getOfferData(UUID entityId);
+
+    @Deprecated
+    default ShopLimiterOfferData getOfferDatga(UUID entityId) {
+        return getOfferData(entityId);
+    }
 
     /**
      * Возвращает персональные данные о лимитах указанного игрока.

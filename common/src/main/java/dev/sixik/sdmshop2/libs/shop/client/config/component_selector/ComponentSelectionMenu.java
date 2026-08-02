@@ -14,6 +14,7 @@ import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentRegistry;
 import dev.sixik.sdmshop2.mixin.minecraft.SimpleTextureAccessor;
+import dev.sixik.sdmshop2.utils.ShopUtils;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.Util;
@@ -350,30 +351,7 @@ public class ComponentSelectionMenu {
             Иконка
          */
         final CurrencyIcon componentIcon = type.getIcon();
-        final Object componentIconObject = componentIcon.icon();
-        final IGuiTexture iconTexture = switch (componentIcon.type()) {
-            case ITEM -> {
-                if (componentIconObject instanceof Item item)
-                    yield new ItemStackTexture(item);
-                else if (componentIconObject instanceof ItemStack itemStack)
-                    yield new ItemStackTexture(itemStack);
-                else
-                    yield new ItemStackTexture((ItemStack) CurrencyIcon.ICE.icon());
-            }
-            case TEXTURE -> {
-                if (componentIconObject instanceof ResourceLocation id)
-                    yield new ResourceTexture(id);
-                else if (componentIconObject instanceof SimpleTexture simpleTexture)
-                    yield new ResourceTexture(((SimpleTextureAccessor) simpleTexture).getLocation());
-                else if (componentIconObject instanceof String id)
-                    if(ResourceLocation.isValidResourceLocation(id))
-                        yield new ResourceTexture(ResourceLocation.tryParse(id));
-                    else yield new TextTexture(id);
-                else
-                    yield new ItemStackTexture((ItemStack) CurrencyIcon.ICE.icon());
-            }
-            case NONE -> new ItemStackTexture((ItemStack) CurrencyIcon.ICE.icon());
-        };
+        final IGuiTexture iconTexture = ShopUtils.getCurrencyTexture(componentIcon);
 
         final ImageWidget icon = new ImageWidget((w - 24) / 2, 5, 24, 24, iconTexture);
         if (hasTooltip)

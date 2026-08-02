@@ -2,9 +2,9 @@ package dev.sixik.sdmshop2.libs.shop.base.limiter;
 
 import com.google.gson.JsonObject;
 import lombok.Getter;
-import lombok.Setter;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -14,8 +14,7 @@ public class DailyOfferStats {
     private final String date;
     private final Map<UUID, ShopLimiterOfferData> offerSales = new ConcurrentHashMap<>();
 
-    @Setter
-    private ShopLimiterUpdate update = () -> {};
+    private volatile ShopLimiterUpdate update = () -> {};
 
     public DailyOfferStats(String date) {
         this.date = date;
@@ -31,6 +30,10 @@ public class DailyOfferStats {
                 offerSales.put(id, new ShopLimiterOfferData(entry.getValue().getAsJsonObject()));
             });
         }
+    }
+
+    public void setUpdate(ShopLimiterUpdate update) {
+        this.update = Objects.requireNonNullElseGet(update, () -> () -> {});
     }
 
     public void addSale(UUID offerId, int amount) {

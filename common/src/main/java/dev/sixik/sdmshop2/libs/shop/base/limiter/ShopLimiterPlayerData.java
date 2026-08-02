@@ -1,11 +1,10 @@
 package dev.sixik.sdmshop2.libs.shop.base.limiter;
 
 import com.google.gson.JsonObject;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import lombok.Getter;
-import lombok.Setter;
 import net.minecraft.network.FriendlyByteBuf;
 
+import java.util.Objects;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,23 +19,24 @@ public class ShopLimiterPlayerData {
     @Getter
     private final UUID userId;
 
-    @Setter
-    private ShopLimiterUpdate update = () -> {};
+    private volatile ShopLimiterUpdate update = () -> {};
 
     private final Map<UUID, ShopLimiterOfferData> dataMap;
 
     public ShopLimiterPlayerData(UUID userId, FriendlyByteBuf buf) {
         this.userId = userId;
         int size = buf.readVarInt();
-        dataMap = new Object2ObjectOpenHashMap<>();
+        dataMap = new ConcurrentHashMap<>();
         for (int i = 0; i < size; i++) {
-            dataMap.put(buf.readUUID(), new ShopLimiterOfferData(buf));
+            ShopLimiterOfferData data = new ShopLimiterOfferData(buf);
+            data.setUpdate(update);
+            dataMap.put(data.getOfferId(), data);
         }
     }
 
     public ShopLimiterPlayerData(JsonObject jsonObject) {
-        this(UUID.fromString(jsonObject.get("userId").getAsString()));
-        fromJson(jsonObject.get("data").getAsJsonObject());
+        this(readUserId(jsonObject));
+        readData(readDataObject(jsonObject), false);
     }
 
     public ShopLimiterPlayerData(UUID userId) {
@@ -44,21 +44,39 @@ public class ShopLimiterPlayerData {
         this.dataMap = new ConcurrentHashMap<>();
     }
 
+    public void setUpdate(ShopLimiterUpdate update) {
+        this.update = Objects.requireNonNullElseGet(update, () -> () -> {});
+        dataMap.values().forEach(data -> data.setUpdate(this.update));
+    }
+
     public boolean add(UUID entityId) {
         return add(entityId, 0);
     }
 
     public boolean add(UUID entityId, int count) {
-        final ShopLimiterOfferData data = dataMap.putIfAbsent(entityId, new ShopLimiterOfferData(entityId, count));
+        final ShopLimiterOfferData newData = new ShopLimiterOfferData(entityId, count);
+        newData.setUpdate(update);
+        final ShopLimiterOfferData data = dataMap.putIfAbsent(entityId, newData);
 
-        if(data != null)
-            data.markPurchased();
+        if(data != null) {
+            if (count > 0) {
+                data.add(count);
+            } else {
+                data.markPurchased();
+            }
+        } else {
+            update.onUpdate();
+        }
 
         return data == null;
     }
 
     public boolean remove(UUID entityId) {
-       return dataMap.remove(entityId) != null;
+       boolean removed = dataMap.remove(entityId) != null;
+       if (removed) {
+           update.onUpdate();
+       }
+       return removed;
     }
 
     public ShopLimiterOfferData getData(UUID entityId) {
@@ -102,23 +120,59 @@ public class ShopLimiterPlayerData {
     }
 
     public void clear() {
+        if (dataMap.isEmpty()) {
+            return;
+        }
+
         dataMap.clear();
         update.onUpdate();
     }
 
     public JsonObject toJson() {
         JsonObject json = new JsonObject();
-        dataMap.forEach((entityId, data) -> json.add(entityId.toString(), data.toJson()));
+        json.addProperty("userId", userId.toString());
+
+        JsonObject data = new JsonObject();
+        dataMap.forEach((entityId, offerData) -> data.add(entityId.toString(), offerData.toJson()));
+        json.add("data", data);
         return json;
     }
 
     public void fromJson(JsonObject json) {
-        clear();
-        json.entrySet().forEach(entry -> dataMap.put(UUID.fromString(entry.getKey()), new ShopLimiterOfferData(entry.getValue().getAsJsonObject())));
+        dataMap.clear();
+        readData(readDataObject(json), true);
     }
 
     public void toNetwork(FriendlyByteBuf buf) {
         buf.writeVarInt(dataMap.size());
         dataMap.forEach((entityId, data) -> data.toNetwork(buf));
+    }
+
+    private void readData(JsonObject json, boolean notify) {
+        json.entrySet().forEach(entry -> {
+            ShopLimiterOfferData data = new ShopLimiterOfferData(entry.getValue().getAsJsonObject());
+            data.setUpdate(update);
+            dataMap.put(UUID.fromString(entry.getKey()), data);
+        });
+
+        if (notify) {
+            update.onUpdate();
+        }
+    }
+
+    private static UUID readUserId(JsonObject jsonObject) {
+        if (!jsonObject.has("userId")) {
+            throw new IllegalArgumentException("Missing required limiter player field: userId");
+        }
+
+        return UUID.fromString(jsonObject.get("userId").getAsString());
+    }
+
+    private static JsonObject readDataObject(JsonObject jsonObject) {
+        if (jsonObject.has("data") && jsonObject.get("data").isJsonObject()) {
+            return jsonObject.getAsJsonObject("data");
+        }
+
+        return jsonObject;
     }
 }

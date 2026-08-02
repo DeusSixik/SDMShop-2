@@ -80,8 +80,18 @@ public abstract class ShopComponent {
      *
      * @param entity Корневая сущность
      */
-    public final void setRoot(ShopEntity entity) {
-        if(root != null) return;
+    public final void setRoot(@Nullable ShopEntity entity) {
+        if (entity == null) {
+            this.root = null;
+            return;
+        }
+
+        if (root != null && root != entity) {
+            IComponentType<?> type = getType();
+            String componentId = type == null ? getClass().getName() : String.valueOf(type.getId());
+            throw new IllegalStateException("Component " + componentId + " is already attached to another ShopEntity");
+        }
+
         this.root = entity;
     }
 

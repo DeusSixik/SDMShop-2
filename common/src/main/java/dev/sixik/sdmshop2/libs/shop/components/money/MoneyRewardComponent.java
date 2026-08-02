@@ -20,6 +20,7 @@ import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentNumberRan
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
 import dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs;
+import dev.sixik.sdmshop2.utils.ShopUtils;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import lombok.Getter;
 import net.fabricmc.api.EnvType;
@@ -89,33 +90,8 @@ public class MoneyRewardComponent extends RewardComponent {
         }
 
         final IExternalCurrency money = cur_map.get(moneyId);
-        final CurrencyIcon icon = money.getIcon();
-        final Object icon_object = icon.icon();
         final ShopEmptyWidget widget = new ShopEmptyWidget();
-
-        TransformTexture texture = null;
-        switch (icon.type()) {
-            case NONE -> {
-            }
-            case ITEM -> {
-                if(icon_object instanceof Item item) {
-                    texture = new ItemStackTexture(item);
-                } else if(icon_object instanceof ItemStack item) {
-                    texture = new ItemStackTexture(item);
-                } else if(icon_object instanceof Ingredient ingredient) {
-                    texture = new ItemStackTexture(ingredient.getItems());
-                }
-            }
-            case TEXTURE -> {
-                if(icon_object instanceof ResourceLocation location) {
-                    texture = new ResourceTexture(location);
-                } else if(icon_object instanceof String location) {
-                    if(ResourceLocation.isValidResourceLocation(location))
-                        texture = new ResourceTexture(location);
-                    else texture = new TextTexture(location);
-                }
-            }
-        }
+        final TransformTexture texture = ShopUtils.getCurrencyTexture(money);
 
         if(texture != null) {
             widget.setBackground(texture).setHoverTexture(texture);
