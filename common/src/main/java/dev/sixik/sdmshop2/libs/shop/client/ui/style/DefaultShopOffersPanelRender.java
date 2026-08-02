@@ -12,17 +12,30 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopOfferElement;
 import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopOffersPanelElement;
+import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
+import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
+import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentCategory;
+import dev.sixik.sdmshop2.libs.shop.components.misc.NameComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.ShopOffersContainerComponent;
+import dev.sixik.sdmshop2.libs.shop.components.money.MoneyCostComponent;
+import dev.sixik.sdmshop2.libs.shop.components.utils.ShopComponentsUtils;
+import it.unimi.dsi.fastutil.objects.ObjectList;
+import net.minecraft.client.resources.language.I18n;
+import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class DefaultShopOffersPanelRender implements WidgetRender {
 
-    private static final int DEFAULT_ITEM_HEIGHT = 90;
-    private static final int SPACING = 5;
-    private static final int PADDING = 5;
-    private static final int SCROLLBAR_WIDTH = 3;
+    protected static final int DEFAULT_ITEM_HEIGHT = 90;
+    protected static final int SPACING = 5;
+    protected static final int PADDING = 5;
+    protected static final int SCROLLBAR_WIDTH = 3;
 
     @Override
     public void constructor(WidgetContextRender ctx) {
@@ -48,9 +61,49 @@ public class DefaultShopOffersPanelRender implements WidgetRender {
         }
 
         final ShopOffersContainerComponent entriesContainer = panel.getShopScreen().getEntriesContainer();
-        for (ShopOffer value : entriesContainer.getEntryMap().values()) {
-            ctx.addWidget(new ShopOfferElement(value));
+        final String searchText = normalizeSearch(panel.getSearchText());
+        List<ShopOffer> offers = entriesContainer.getEntryMap().values().stream()
+                .map(OfferView::from)
+                .filter(view -> searchText.isEmpty() || view.searchTitle().contains(searchText))
+                .sorted(Comparator
+                        .comparing(OfferView::sortTitle)
+                        .thenComparing(view -> view.offer().getUUID()))
+                .map(OfferView::offer)
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        panel.applyCustomSort(offers);
+        for (ShopOffer offer : offers) {
+            ctx.addWidget(new ShopOfferElement(offer));
         }
+    }
+
+    protected static String normalizeSearch(String value) {
+        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    protected static String resolveTitle(ShopOffer offer) {
+        return offer.getComponent(NameComponent.class)
+                .map(NameComponent::getName)
+                .filter(name -> !name.isBlank())
+                .map(DefaultShopOffersPanelRender::resolveDisplayText)
+                .orElseGet(() -> resolveRewardTitle(offer));
+    }
+
+    protected static String resolveRewardTitle(ShopOffer offer) {
+        Map<ShopComponentCategory, ObjectList<ShopComponent>> components = ShopComponentsUtils.getComponentsByCategory(offer);
+        ObjectList<ShopComponent> rewards = components.get(ShopComponentCategory.REWARD);
+        if (rewards != null && !rewards.isEmpty() && rewards.get(0) instanceof RewardComponent rewardComponent) {
+            Component display = rewardComponent.getDisplayTitle();
+            if (display != null && !display.getString().isBlank()) {
+                return display.getString();
+            }
+        }
+
+        return offer.getUUID().toString();
+    }
+
+    protected static String resolveDisplayText(String value) {
+        return I18n.exists(value) ? Component.translatable(value).getString() : value;
     }
 
     @Override
@@ -120,7 +173,7 @@ public class DefaultShopOffersPanelRender implements WidgetRender {
         }
     }
 
-    private List<Widget> collectOfferWidgets(WidgetGroup group) {
+    protected List<Widget> collectOfferWidgets(WidgetGroup group) {
         List<Widget> offerWidgets = new ArrayList<>();
         for (Widget widget : group.getContainedWidgets(true)) {
             if (widget instanceof ShopOfferElement) {
@@ -130,7 +183,7 @@ public class DefaultShopOffersPanelRender implements WidgetRender {
         return offerWidgets;
     }
 
-    private LayoutConstraints resolveLayoutConstraints(List<Widget> offerWidgets) {
+    protected LayoutConstraints resolveLayoutConstraints(List<Widget> offerWidgets) {
         int minWidth = 120;
         int preferredWidth = 160;
         int maxWidth = 240;
@@ -169,7 +222,7 @@ public class DefaultShopOffersPanelRender implements WidgetRender {
         return new LayoutConstraints(minWidth, preferredWidth, maxWidth);
     }
 
-    private int chooseColumns(int availableWidth, int itemCount, int minWidth, int preferredWidth, int maxWidth) {
+    protected int chooseColumns(int availableWidth, int itemCount, int minWidth, int preferredWidth, int maxWidth) {
         int maxColumns = Math.max(1, Math.min(itemCount, (availableWidth + SPACING) / (minWidth + SPACING)));
         int bestColumns = 1;
         int bestScore = Integer.MAX_VALUE;
@@ -200,6 +253,15 @@ public class DefaultShopOffersPanelRender implements WidgetRender {
         return Math.max(1, bestColumns);
     }
 
-    private record LayoutConstraints(int minWidth, int preferredWidth, int maxWidth) {
+    protected record LayoutConstraints(int minWidth, int preferredWidth, int maxWidth) {
+    }
+
+    protected record OfferView(ShopOffer offer, String title, String sortTitle, String searchTitle) {
+
+        protected static OfferView from(ShopOffer offer) {
+            String title = resolveTitle(offer);
+            String normalized = title.toLowerCase(Locale.ROOT);
+            return new OfferView(offer, title, normalized, normalized);
+        }
     }
 }

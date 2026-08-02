@@ -4,6 +4,7 @@ import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultEditMenuRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopOfferElementRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopOffersPanelRender;
+import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopTabsPanelRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopToolPanelElementRender;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.resources.ResourceLocation;
@@ -21,8 +22,9 @@ public final class StyleApi {
     public enum Category {
         Offers,
         OffersPanel,
-        Editor,
-        ToolPanel
+        ToolPanel,
+        TabsPanel,
+        Editor
     }
 
     public static void registerStyle(Category category, ResourceLocation id, Supplier<? extends WidgetRender> render) {
@@ -45,5 +47,6 @@ public final class StyleApi {
         registerStyle(Category.OffersPanel, DEFAULT, DefaultShopOffersPanelRender::new);
         registerStyle(Category.Editor, DEFAULT, DefaultEditMenuRender::new);
         registerStyle(Category.ToolPanel, DEFAULT, DefaultShopToolPanelElementRender::new);
+        registerStyle(Category.TabsPanel, DEFAULT, DefaultShopTabsPanelRender::new);
     }
 }

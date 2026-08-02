@@ -45,37 +45,37 @@ import java.util.Optional;
 
 public class DefaultShopOfferElementRender implements WidgetRender {
 
-    private static final int DEBUG_SIZE_ELEMENT = 8;
-    private static final int MAX_REWARD_CELL_SIZE = 18;
-    private static final int OFFER_ELEMENTS_TABLE_VISIBLE_ROWS = 2;
-    private static final int OFFER_ELEMENTS_TABLE_PADDING = 4;
-    private static final int OFFER_ELEMENTS_TABLE_TOP_GAP = 4;
-    private static final int CONTENT_PADDING = 4;
-    private static final int MONEY_TYPES_TOP_GAP = 2;
-    private static final int MAX_VISIBLE_MONEY_ROWS = 3;
-    private static final int LIMIT_BAR_HEIGHT = 14;
+    protected static final int DEBUG_SIZE_ELEMENT = 8;
+    protected static final int MAX_REWARD_CELL_SIZE = 18;
+    protected static final int OFFER_ELEMENTS_TABLE_VISIBLE_ROWS = 2;
+    protected static final int OFFER_ELEMENTS_TABLE_PADDING = 4;
+    protected static final int OFFER_ELEMENTS_TABLE_TOP_GAP = 4;
+    protected static final int CONTENT_PADDING = 4;
+    protected static final int MONEY_TYPES_TOP_GAP = 2;
+    protected static final int MAX_VISIBLE_MONEY_ROWS = 3;
+    protected static final int LIMIT_BAR_HEIGHT = 14;
 
-    private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("#.##");
+    protected static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("#.##");
 
     @Nullable
-    private TextLabel titleLabel;
+    protected TextLabel titleLabel;
     @Nullable
-    private VerticalContainer moneyTypesContainer;
-    private final List<HorizontalContainer> moneyTypeRows = new ArrayList<>();
+    protected VerticalContainer moneyTypesContainer;
+    protected final List<HorizontalContainer> moneyTypeRows = new ArrayList<>();
     @Nullable
-    private ScrollableInteractionTable offerElementsTable;
+    protected ScrollableInteractionTable offerElementsTable;
     @Nullable
-    private Widget offerElement;
+    protected Widget offerElement;
     @Nullable
-    private ProgressBarWidget limitBar;
+    protected ProgressBarWidget limitBar;
     @Nullable
-    private ShopBadgeHBoxWidget badgesBox;
+    protected ShopBadgeHBoxWidget badgesBox;
     @Nullable
-    private ButtonWidget favoriteButton;
+    protected ButtonWidget favoriteButton;
 
-    private boolean oneOfferElement = false;
-    private int lastOfferElementWidth = -1;
-    private int lastOfferElementHeight = -1;
+    protected boolean oneOfferElement = false;
+    protected int lastOfferElementWidth = -1;
+    protected int lastOfferElementHeight = -1;
 
     public DefaultShopOfferElementRender() {
     }
@@ -201,7 +201,7 @@ public class DefaultShopOfferElementRender implements WidgetRender {
         return Math.max(min.height, Math.min(height, max.height));
     }
 
-    private int calculatePreferredContentHeight(int width) {
+    protected int calculatePreferredContentHeight(int width) {
         int contentWidth = Math.max(1, width - CONTENT_PADDING * 2);
         int height = CONTENT_PADDING;
 
@@ -228,20 +228,20 @@ public class DefaultShopOfferElementRender implements WidgetRender {
         return height + CONTENT_PADDING;
     }
 
-    private int getPreferredRewardBlockHeight(int contentWidth) {
+    protected int getPreferredRewardBlockHeight(int contentWidth) {
         int cellSize = Math.max(DEBUG_SIZE_ELEMENT, Math.min(MAX_REWARD_CELL_SIZE, Math.max(1, contentWidth / 4)));
         return cellSize * OFFER_ELEMENTS_TABLE_VISIBLE_ROWS;
     }
 
-    private int getVisibleMoneyRows() {
+    protected int getVisibleMoneyRows() {
         return Math.min(MAX_VISIBLE_MONEY_ROWS, Math.max(1, moneyTypeRows.size()));
     }
 
-    private int getMoneyRowHeight() {
+    protected int getMoneyRowHeight() {
         return Minecraft.getInstance().font.lineHeight + 7;
     }
 
-    private void clearWidgetsState() {
+    protected void clearWidgetsState() {
         if (offerElement != null) {
             lastOfferElementWidth = offerElement.getSizeWidth();
             lastOfferElementHeight = offerElement.getSizeHeight();
@@ -258,13 +258,13 @@ public class DefaultShopOfferElementRender implements WidgetRender {
         oneOfferElement = false;
     }
 
-    private void updateFavoriteButton(boolean favorite) {
+    protected void updateFavoriteButton(boolean favorite) {
         if (favoriteButton != null) {
             favoriteButton.setBackground(favorite ? ShopIcons.STAR_FULL : ShopIcons.STAR_EMPTY);
         }
     }
 
-    private void addNameLabel(
+    protected void addNameLabel(
             WidgetContextRender ctx,
             ShopOffer shopEntity,
             Map<ShopComponentCategory, ObjectList<ShopComponent>> offerComponentsMap
@@ -290,7 +290,7 @@ public class DefaultShopOfferElementRender implements WidgetRender {
         }
     }
 
-    private TextLabel createNameLabel(Component text) {
+    protected TextLabel createNameLabel(Component text) {
         return (TextLabel) new TextLabel(text)
                 .setAutoSize(false)
                 .setWrapText(false)
@@ -301,7 +301,7 @@ public class DefaultShopOfferElementRender implements WidgetRender {
                 .setAlignment(TextLabel.HorizontalAlignment.CENTER, TextLabel.VerticalAlignment.CENTER);
     }
 
-    private void addOfferElementsTable(
+    protected void addOfferElementsTable(
             WidgetContextRender ctx,
             Map<ShopComponentCategory, ObjectList<ShopComponent>> offerComponentsMap
     ) {
@@ -336,7 +336,7 @@ public class DefaultShopOfferElementRender implements WidgetRender {
         }
     }
 
-    private void addOfferElement(
+    protected void addOfferElement(
             WidgetContextRender ctx,
             RewardComponent component
     ) {
@@ -359,7 +359,7 @@ public class DefaultShopOfferElementRender implements WidgetRender {
         ctx.addWidget(offerElement = widget);
     }
 
-    private void addMoneyTypes(
+    protected void addMoneyTypes(
             WidgetContextRender ctx,
             Map<ShopComponentCategory, ObjectList<ShopComponent>> offerComponentsMap
     ) {
@@ -407,14 +407,14 @@ public class DefaultShopOfferElementRender implements WidgetRender {
             final ButtonWidget buyButton = new ButtonWidget();
             buyButton.setText(Component.translatable("shop.ui.offer_element.button.buy"));
             buyButton.setSizeHeight(test_size);
-            buyButton.setButtonTexture(PixelBevelTexture.accent());
-            buyButton.setHoverTexture(new PixelBevelTexture(0xFFF0BC50, PixelBevelTexture.ACCENT_LOW_COLOR, PixelBevelTexture.ACCENT_HIGH_COLOR, 0.7f));
+            buyButton.setButtonTexture(new PixelBevelTexture(PixelBevelTexture.PANEL_COLOR, PixelBevelTexture.ACCENT_LOW_COLOR, PixelBevelTexture.ACCENT_HIGH_COLOR, 0.7f));
+            buyButton.setHoverTexture(new PixelBevelTexture(0xFF111624, PixelBevelTexture.ACCENT_LOW_COLOR, PixelBevelTexture.ACCENT_HIGH_COLOR, 0.7f));
             buyButton.setClickedTexture(PixelBevelTexture.accent().pressed());
             buyButton.setOnPressCallback((b) -> {
                 if(b.button == InputConstants.MOUSE_BUTTON_LEFT)
                     ShopUIEvents.invokeBuyShopEntity(ctx.getShopEntity(), entry.getKey());
             });
-            buyButton.setTextColor(PixelBevelTexture.PAGE_COLOR);
+//            buyButton.setTextColor(PixelBevelTexture.PAGE_COLOR);
             container.addWidget(buyButton);
             container.setDynamicSized(false);
             moneyTypeRows.add(container);
@@ -422,7 +422,7 @@ public class DefaultShopOfferElementRender implements WidgetRender {
         }
     }
 
-    private void addLimitBar(WidgetContextRender ctx, ShopOffer shopEntity) {
+    protected void addLimitBar(WidgetContextRender ctx, ShopOffer shopEntity) {
         final @Nullable LimiterComponent limiterComponent = shopEntity.getComponent(LimiterComponent.class).orElse(null);
         if (limiterComponent == null) {
             return;
@@ -448,7 +448,7 @@ public class DefaultShopOfferElementRender implements WidgetRender {
         ctx.addWidget(limitBar);
     }
 
-    private int alightOfferElementsTable(Widget owner, int currentY, int contentPadding, int contentWidth) {
+    protected int alightOfferElementsTable(Widget owner, int currentY, int contentPadding, int contentWidth) {
         if (offerElementsTable == null) {
             if (offerElement != null) {
                 return alightOfferElement(owner, currentY, contentPadding, contentWidth);
@@ -482,7 +482,7 @@ public class DefaultShopOfferElementRender implements WidgetRender {
         return offerElementsTable.getSelfPositionY() + offerElementsTable.getSizeHeight();
     }
 
-    private int alightOfferElement(Widget owner, int currentY, int contentPadding, int contentWidth) {
+    protected int alightOfferElement(Widget owner, int currentY, int contentPadding, int contentWidth) {
         if (offerElement == null)
             return currentY;
 

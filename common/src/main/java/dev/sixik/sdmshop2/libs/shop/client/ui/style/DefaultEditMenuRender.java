@@ -25,33 +25,33 @@ import java.util.function.Consumer;
 
 public class DefaultEditMenuRender implements WidgetRender {
 
-    private static final int PANEL_PADDING = 2;
-    private static final int SCROLLBAR_WIDTH = 4;
-    private static final int MIN_CONTENT_WIDTH = 140;
-    private static final int COLUMN_GAP = 4;
-    private static final int ACTION_PANEL_WIDTH = 94;
-    private static final int MIN_ACTION_PANEL_WIDTH = 68;
-    private static final int MIN_PREVIEW_WIDTH = 96;
-    private static final int MAX_PREVIEW_HEIGHT = 200;
-    private static final int PREVIEW_EDGE_GAP = 4;
+    protected static final int PANEL_PADDING = 2;
+    protected static final int SCROLLBAR_WIDTH = 4;
+    protected static final int MIN_CONTENT_WIDTH = 140;
+    protected static final int COLUMN_GAP = 4;
+    protected static final int ACTION_PANEL_WIDTH = 94;
+    protected static final int MIN_ACTION_PANEL_WIDTH = 68;
+    protected static final int MIN_PREVIEW_WIDTH = 96;
+    protected static final int MAX_PREVIEW_HEIGHT = 200;
+    protected static final int PREVIEW_EDGE_GAP = 4;
 
     public DefaultEditMenuRender() { }
 
-    private WidgetGroup container;
-    private DraggableScrollableWidgetGroup scrollPanel;
-    private WidgetGroup contentWrapper;
-    private ShopEntity renderedEntity;
-    private int renderedContentWidth = -1;
+    protected WidgetGroup container;
+    protected DraggableScrollableWidgetGroup scrollPanel;
+    protected WidgetGroup contentWrapper;
+    protected ShopEntity renderedEntity;
+    protected int renderedContentWidth = -1;
 
-    private WidgetGroup actionContainer;
-    private DraggableScrollableWidgetGroup actionScrollPanel;
-    private WidgetGroup actionWrapper;
-    private ShopEntity renderedActionEntity;
-    private int renderedActionWidth = -1;
+    protected WidgetGroup actionContainer;
+    protected DraggableScrollableWidgetGroup actionScrollPanel;
+    protected WidgetGroup actionWrapper;
+    protected ShopEntity renderedActionEntity;
+    protected int renderedActionWidth = -1;
 
-    private WidgetGroup previewContainer;
-    private ShopOfferElement previewElement;
-    private ShopEntity previewEntity;
+    protected WidgetGroup previewContainer;
+    protected ShopOfferElement previewElement;
+    protected ShopEntity previewEntity;
 
     @Override
     public void constructor(WidgetContextRender ctx) {
@@ -202,7 +202,7 @@ public class DefaultEditMenuRender implements WidgetRender {
         }
     }
 
-    private void rebuildContent(WidgetContextRender ctx, int contentWidth) {
+    protected void rebuildContent(WidgetContextRender ctx, int contentWidth) {
         if (contentWrapper == null) return;
 
         renderedEntity = ctx.getShopEntity();
@@ -218,7 +218,7 @@ public class DefaultEditMenuRender implements WidgetRender {
         }
     }
 
-    private void rebuildActions(WidgetContextRender ctx, int actionWidth) {
+    protected void rebuildActions(WidgetContextRender ctx, int actionWidth) {
         if (actionWrapper == null) return;
 
         renderedActionEntity = ctx.getShopEntity();
@@ -249,7 +249,7 @@ public class DefaultEditMenuRender implements WidgetRender {
         actionWrapper.addWidget(refreshPreview);
     }
 
-    private ButtonWidget createActionButton(int width, Component text, Consumer<ClickData> onPress) {
+    protected ButtonWidget createActionButton(int width, Component text, Consumer<ClickData> onPress) {
         final ButtonWidget button = new ButtonWidget(0, 0, Math.max(1, width), 20, text, onPress);
         button.setClientSideWidget();
         button.setButtonColors(0xFF2A2A36, 0xFF3D3D4E);
@@ -260,7 +260,7 @@ public class DefaultEditMenuRender implements WidgetRender {
         return button;
     }
 
-    private void openComponentSelector(WidgetContextRender ctx) {
+    protected void openComponentSelector(WidgetContextRender ctx) {
         if (renderedEntity == null) {
             return;
         }
@@ -278,7 +278,7 @@ public class DefaultEditMenuRender implements WidgetRender {
         ComponentSelectionMenu.showComponentSelector(parent, component -> addComponent(ctx, component));
     }
 
-    private void addComponent(WidgetContextRender ctx, ShopComponent component) {
+    protected void addComponent(WidgetContextRender ctx, ShopComponent component) {
         if (component == null || renderedEntity == null) {
             return;
         }
@@ -290,7 +290,7 @@ public class DefaultEditMenuRender implements WidgetRender {
         refreshPreview(ctx);
     }
 
-    private void refreshPreview(WidgetContextRender ctx) {
+    protected void refreshPreview(WidgetContextRender ctx) {
         if (previewElement != null && previewEntity == ctx.getShopEntity()) {
             previewElement.refresh(false);
         } else {
@@ -300,7 +300,7 @@ public class DefaultEditMenuRender implements WidgetRender {
         alightPreview();
     }
 
-    private void rebuildPreview(WidgetContextRender ctx) {
+    protected void rebuildPreview(WidgetContextRender ctx) {
         if (previewContainer == null) return;
 
         previewEntity = ctx.getShopEntity();
@@ -316,7 +316,7 @@ public class DefaultEditMenuRender implements WidgetRender {
         }
     }
 
-    private void alightPreview() {
+    protected void alightPreview() {
         if (previewContainer == null || previewElement == null || !previewContainer.isVisible()) {
             return;
         }

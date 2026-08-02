@@ -3,70 +3,49 @@ package dev.sixik.sdmshop2.libs.shop.client.ui.elements;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.utils.Size;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
-import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.ShopScreen;
 import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.ShopUiElement;
 import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.base.ShopDraggableScrollableWidgetGroup;
-import dev.sixik.sdmshop2.libs.shop.client.cache.ShopClientCache;
+import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.base.ShopWidgetGroup;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUIUtils;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.StyleApi;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIDisposable;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIEventScope;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
-import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.DODEventBus;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventPtr;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventSubscription;
 import lombok.Getter;
+import lombok.Setter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.List;
 import java.util.Objects;
 
-public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup implements
+public class ShopTabsPanelElement extends ShopWidgetGroup implements
         ShopUiElement, WidgetContextRender, UIDisposable {
 
     @Getter
+    @Setter
+    public int widgetSpace = 4;
+
+    @Getter
     protected final @NotNull ShopScreen shopScreen;
+
     protected final WidgetRender render;
     protected final UIEventScope eventScope = new UIEventScope();
-    protected boolean defaultHandlersRegistered;
-    @Getter
-    protected String searchText = "";
 
-    public ShopOffersPanelElement(@NotNull ShopScreen shopScreen) {
-        this(shopScreen, StyleApi.getDefaultStyle(StyleApi.Category.OffersPanel).get());
+    public ShopTabsPanelElement(@NotNull ShopScreen screen) {
+        this(screen, StyleApi.getDefaultStyle(StyleApi.Category.TabsPanel).get());
     }
 
-    public ShopOffersPanelElement(@NotNull ShopScreen shopScreen, WidgetRender render) {
-        this.shopScreen = shopScreen;
+    public ShopTabsPanelElement(@NotNull ShopScreen screen, WidgetRender render) {
+        this.shopScreen = screen;
         this.render = Objects.requireNonNull(render, "render");
 
         this.render.constructor(this);
-        registerDefaultHandlers();
         refresh(false);
-    }
-
-    protected void registerDefaultHandlers() {
-        if (defaultHandlersRegistered) {
-            return;
-        }
-
-        defaultHandlersRegistered = true;
-        listenScreen(ShopUIEvents.SEARCH_UPDATE, event -> setSearchText(event.text()));
-        listenScreen(ShopUIEvents.FAVORITES_CHANGED, event -> refresh(initialized));
-        listenScreen(ShopUIEvents.SORT_SHOP_OFFERS, event -> {
-            if (event.panel() != this) {
-                return;
-            }
-
-            event.sort((first, second) -> Boolean.compare(
-                    !ShopClientCache.isFavorite(first.getUUID()),
-                    !ShopClientCache.isFavorite(second.getUUID())
-            ));
-        });
     }
 
     @Override
@@ -102,30 +81,11 @@ public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup i
         }
     }
 
-    public void rebuildOffers() {
-        refresh(true);
-    }
-
-    public void setSearchText(String searchText) {
-        String safeSearchText = searchText == null ? "" : searchText.trim();
-        if (this.searchText.equals(safeSearchText)) {
-            return;
-        }
-
-        this.searchText = safeSearchText;
-        refresh(initialized);
-    }
-
-    public List<ShopOffer> applyCustomSort(List<ShopOffer> offers) {
-        ShopUIEvents.invokeSortShopOffers(this, offers, searchText);
-        return offers;
-    }
-
-    public ShopOffersPanelElement refresh() {
+    public ShopTabsPanelElement refresh() {
         return refresh(true);
     }
 
-    public ShopOffersPanelElement refresh(boolean relayout) {
+    public ShopTabsPanelElement refresh(boolean relayout) {
         eventScope.clear();
         ShopUIUtils.disposeChildren(this);
         clearAllWidgets();
@@ -138,13 +98,8 @@ public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup i
         return this;
     }
 
-    public void alightOffers() {
-        alightWidget();
-    }
-
     @Override
-    @Nullable
-    public ShopEntity getShopEntity() {
+    public @Nullable ShopEntity getShopEntity() {
         return null;
     }
 

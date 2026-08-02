@@ -13,8 +13,8 @@ import dev.sixik.sdmshop2.libs.platform.utils.eventbus.DODEventBus;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventPtr;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventSubscription;
 import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopOffersPanelElement;
+import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopTabsPanelElement;
 import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopToolPanelElement;
-import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.ShopOffersContainerComponent;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
@@ -37,7 +37,7 @@ public class ShopScreen extends ShopWidgetGroup implements UIDisposable {
     private final Window window;
 
     @Getter
-    private ShopTabsPanel tabsPanel;
+    private ShopTabsPanelElement tabsPanel;
 
     @Getter
     private ShopOffersPanelElement shopOffersPanel;
@@ -68,7 +68,7 @@ public class ShopScreen extends ShopWidgetGroup implements UIDisposable {
 
         alightWidget();
         addWidget(toolPanel = new ShopToolPanelElement(this));
-        addWidget(tabsPanel = new ShopTabsPanel(this));
+        addWidget(tabsPanel = new ShopTabsPanelElement(this));
         addWidget(shopOffersPanel = new ShopOffersPanelElement(this));
         customInitWidget();
     }
@@ -101,14 +101,6 @@ public class ShopScreen extends ShopWidgetGroup implements UIDisposable {
         final int tsw_w         = cur_w  / 4;
         final int tsw_h_offset  = (cur_h / 4);
         final int tsw_h         = cur_h - tsw_h_offset * 2;
-        tabsPanel.setSize(
-                tsw_w,
-                tsw_h
-        );
-
-        final int tsw_x = 0;
-        final int tsw_y = tsw_h_offset;
-        tabsPanel.setSelfPosition(tsw_x, tsw_y);
 
         final var sp_widgets    = toolPanel.getWidgets();
         final var sp_size       = toolPanel.getSize();
@@ -129,6 +121,14 @@ public class ShopScreen extends ShopWidgetGroup implements UIDisposable {
         shopOffersPanel.setSelfPosition(
                 tsw_w          + x_w_space,
                 sp_size.height + y_h_space
+        );
+
+        final int tsw_x = 4;
+        final int tsw_y = tsw_h_offset;
+        tabsPanel.setSelfPosition(tsw_x, shopOffersPanel.getSelfPositionY());
+        tabsPanel.setSize(
+                tsw_w - 2,
+                shopOffersPanel.getSizeHeight()
         );
     }
 

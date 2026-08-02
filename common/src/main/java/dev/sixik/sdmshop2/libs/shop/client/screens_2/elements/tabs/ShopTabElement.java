@@ -1,69 +1,29 @@
 package dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.tabs;
 
-import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
-import com.mojang.blaze3d.platform.InputConstants;
-import dev.sixik.sdmshop2.libs.shop.client.ShopColors;
 import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.ShopUiElement;
-import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
+import dev.sixik.sdmshop2.libs.shop.client.textures.PixelBevelTexture;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
-import dev.sixik.sdmshop2.utils.ShopUtils;
-import lombok.Getter;
-import net.minecraft.client.Minecraft;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
 import net.minecraft.network.chat.Component;
 import org.jspecify.annotations.Nullable;
 
-public class ShopTabElement extends WidgetGroup implements ShopUiElement {
-
+public class ShopTabElement extends ButtonWidget implements ShopUiElement {
     public static final Component DEFAULT_TITLE = Component.literal("No Title");
 
-    @Getter
-    private final @Nullable CatalogComponent component;
+    protected final @Nullable CatalogComponent component;
 
-    @Getter
-    private final TextLabel textLabel;
-
-    public ShopTabElement(
-            @Nullable CatalogComponent component
-    ) {
-        this(0, 0, 100, 20, component);
-    }
-
-    private ShopTabElement(
-            int x, int y, int width, int height,
-            @Nullable CatalogComponent component
-    ) {
-        super(x, y, width, height);
+    public ShopTabElement(@Nullable CatalogComponent component) {
         this.component = component;
-        this.textLabel = new TextLabel(
-                component != null
-                        ? ShopUtils.getTranslation(component.getId())
-                        : DEFAULT_TITLE
-        ).setColor(ShopColors.TEXT_MAIN).scaleToFit();
 
-        setBackground(new ColorRectAndBorderTexture(0x332A2A36, 0x553D3D4E, 1).setRadius(5));
-        setHoverTexture(new ColorRectAndBorderTexture(0x555C6BC0, 0xAA7986CB, 1).setRadius(5));
-        setDrawBackgroundWhenHover(false);
-        addWidget(textLabel);
-    }
-
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        boolean isClick = super.mouseClicked(mouseX, mouseY, button);
-        if(isClick && button == InputConstants.MOUSE_BUTTON_LEFT) {
-
-
-            return true;
-        }
-
-        return false;
+        setText(component == null ? DEFAULT_TITLE : Component.translatable(component.getId()));
+        setButtonTexture(PixelBevelTexture.panel());
+        setHoverTexture(new PixelBevelTexture(0xFF111624, PixelBevelTexture.ACCENT_LOW_COLOR, PixelBevelTexture.ACCENT_HIGH_COLOR, 0.7f));
+        setClickedTexture(PixelBevelTexture.panel().pressed());
     }
 
     @Override
     public void alightWidget() {
-        int labelX = 8;
-        int labelY = Math.max(0, (getSizeHeight() - Minecraft.getInstance().font.lineHeight) / 2);
-        textLabel.setSelfPosition(labelX, labelY);
-        textLabel.setSize(Math.max(0, getSizeWidth() - labelX * 2), Minecraft.getInstance().font.lineHeight);
+
     }
+
 }
