@@ -19,6 +19,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.Objects;
 
 public class ExternalItemCurrency implements IExternalCurrency {
@@ -44,20 +45,26 @@ public class ExternalItemCurrency implements IExternalCurrency {
 
     @Override
     public boolean withdraw(ServerPlayer player, BigDecimal amount, boolean simulate) {
+        long itemAmount = toItemAmount(amount);
+        if (itemAmount <= 0 || itemAmount > Integer.MAX_VALUE) return false;
+
         BigDecimal currentBalance = getBalance(player);
-        if (currentBalance.doubleValue() < amount.doubleValue()) return false;
+        if (currentBalance.compareTo(BigDecimal.valueOf(itemAmount)) < 0) return false;
 
         if (!simulate) {
-            return ShopItemHelper.shrinkItem(player.getInventory(), itemType, amount.intValue(), true, false);
+            return ShopItemHelper.shrinkItem(player.getInventory(), itemType, (int) itemAmount, true, false);
         }
         return true;
     }
 
     @Override
     public boolean deposit(ServerPlayer player, BigDecimal amount, boolean simulate) {
+        long itemAmount = toItemAmount(amount);
+        if (itemAmount <= 0) return false;
+
         if (!simulate) {
-            ItemStack stack = itemType.copyWithCount(amount.intValue());
-            return ShopItemHelper.giveItems(player, stack, amount.intValue());
+            ItemStack stack = itemType.copyWithCount(1);
+            return ShopItemHelper.giveItems(player, stack, itemAmount);
         }
         return true;
     }
@@ -95,6 +102,17 @@ public class ExternalItemCurrency implements IExternalCurrency {
     @Override
     public CurrencyIcon getIcon() {
         return currencyIcon;
+    }
+
+    private static long toItemAmount(BigDecimal amount) {
+        if (amount == null || amount.signum() <= 0) return -1L;
+
+        try {
+            BigInteger integer = amount.toBigIntegerExact();
+            return integer.longValueExact();
+        } catch (ArithmeticException e) {
+            return -1L;
+        }
     }
 
     private static class ExternalItemCurrencyType implements ICurrencyType<ExternalItemCurrency> {

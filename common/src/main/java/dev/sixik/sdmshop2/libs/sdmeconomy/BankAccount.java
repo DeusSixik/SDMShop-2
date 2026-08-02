@@ -4,7 +4,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mojang.authlib.GameProfile;
 import dev.sixik.sdmshop2.utils.NbtExtern;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.nbt.CompoundTag;
@@ -25,10 +24,10 @@ public class BankAccount {
     @Getter
     private final UUID gameProfileOwnerId;
 
-    private final Map<ResourceLocation, BigDecimal> balances = new Object2ObjectOpenHashMap<>();
+    private final Map<ResourceLocation, BigDecimal> balances = new ConcurrentHashMap<>();
 
     @Getter
-    private boolean dirty = false;
+    private volatile boolean dirty = false;
 
     @Setter
     private Runnable onUpdate = () -> {};
@@ -58,6 +57,7 @@ public class BankAccount {
     public void setBalance(IStoredCurrency currency, BigDecimal amount) {
         try {
             balances.put(currency.getId(), amount);
+            markDirty();
         } finally {
             onUpdate.run();
         }
@@ -70,6 +70,7 @@ public class BankAccount {
     public void modify(IStoredCurrency currency, BigDecimal amount) {
         try {
             balances.merge(currency.getId(), amount, BigDecimal::add);
+            markDirty();
         } finally {
             onUpdate.run();
         }
@@ -86,7 +87,11 @@ public class BankAccount {
     @Nullable
     public BigDecimal removeBalance(IStoredCurrency currency) {
         try {
-            return balances.remove(currency.getId());
+            BigDecimal removed = balances.remove(currency.getId());
+            if (removed != null) {
+                markDirty();
+            }
+            return removed;
         } finally {
             onUpdate.run();
         }

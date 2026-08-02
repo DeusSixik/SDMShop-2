@@ -1,7 +1,6 @@
 package dev.sixik.sdmshop2.libs.sdmeconomy.commands;
 
 import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -27,8 +26,8 @@ import java.util.concurrent.CompletableFuture;
 
 public class SDMEconomyCommands {
 
-    public static final DynamicStoredCurrency DYNAMIC_CURRENCY =
-            new DynamicStoredCurrency(ResourceLocation.tryBuild("sdm", "coin"));
+    private static final BigDecimal MIN_POSITIVE_AMOUNT = new BigDecimal("0.01");
+    private static final BigDecimal MIN_ZERO_AMOUNT = BigDecimal.ZERO;
 
     public static void registerCommands(CommandDispatcher<CommandSourceStack> commandSourceStackCommandDispatcher, CommandBuildContext commandBuildContext, Commands.CommandSelection commandSelection) {
         registerCommands(commandSourceStackCommandDispatcher);
@@ -69,7 +68,7 @@ public class SDMEconomyCommands {
                 .then(Commands.literal("pay")
                     .then(Commands.argument("money", ResourceLocationArgument.id()).suggests(SDMEconomyCommands::moneyIds)
                         .then(Commands.argument("target", EntityArgument.player())
-                            .then(Commands.argument("amount", DoubleArgumentType.doubleArg(0.01)) // Минимум 0.01
+                            .then(Commands.argument("amount", StringArgumentType.word())
                                 .executes(SDMEconomyCommands::payCommand)
                             )
                         )
@@ -79,7 +78,7 @@ public class SDMEconomyCommands {
                     .requires(source -> source.hasPermission(2))
                     .then(Commands.argument("money", ResourceLocationArgument.id()).suggests(SDMEconomyCommands::moneyIds)
                         .then(Commands.argument("target", EntityArgument.player())
-                            .then(Commands.argument("amount", DoubleArgumentType.doubleArg(0))
+                            .then(Commands.argument("amount", StringArgumentType.word())
                                 .executes(SDMEconomyCommands::setMoneyCommand)
                             )
                         )
@@ -89,7 +88,7 @@ public class SDMEconomyCommands {
                     .requires(source -> source.hasPermission(2))
                     .then(Commands.argument("money", ResourceLocationArgument.id()).suggests(SDMEconomyCommands::moneyIds)
                         .then(Commands.argument("target", EntityArgument.player())
-                            .then(Commands.argument("amount", DoubleArgumentType.doubleArg(0.01))
+                            .then(Commands.argument("amount", StringArgumentType.word())
                                 .executes(SDMEconomyCommands::addMoneyCommand)
                             )
                         )
@@ -124,16 +123,15 @@ public class SDMEconomyCommands {
     }
 
     private static int showBalance(CommandSourceStack source, ServerPlayer target, ResourceLocation money) {
-        DYNAMIC_CURRENCY.setId(money);
+        DynamicStoredCurrency currency = currency(money);
 
         BankAccount account = SDMEconomyService.getInstance().getAccount(target.getGameProfile().getId());
         Component outMessage = Component.literal("Balance '").append(money.toString()).append("': ")
-                .append(String.valueOf(account.getBalance(DYNAMIC_CURRENCY).doubleValue()));
+                .append(account.getBalance(currency).toPlainString());
 
         source.sendSuccess(() -> outMessage, false);
         return 1;
     }
-
 
     private static int createMoney(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
@@ -146,10 +144,10 @@ public class SDMEconomyCommands {
     }
 
     private static int processCreateMoney(CommandSourceStack source, ServerPlayer target, ResourceLocation money) {
-        DYNAMIC_CURRENCY.setId(money);
+        DynamicStoredCurrency currency = currency(money);
 
         final BankAccount account = SDMEconomyService.getInstance().getAccount(target.getGameProfile().getId());
-        account.setBalance(DYNAMIC_CURRENCY, BigDecimal.ZERO);
+        account.setBalance(currency, BigDecimal.ZERO);
 
         source.sendSuccess(() -> Component.literal("Created currency '" + money + "' for " + target.getScoreboardName()), true);
         return 1;
@@ -166,10 +164,10 @@ public class SDMEconomyCommands {
     }
 
     private static int processRemoveMoney(CommandSourceStack source, ServerPlayer target, ResourceLocation money) {
-        DYNAMIC_CURRENCY.setId(money);
+        DynamicStoredCurrency currency = currency(money);
 
         final BankAccount account = SDMEconomyService.getInstance().getAccount(target.getGameProfile().getId());
-        account.removeBalance(DYNAMIC_CURRENCY);
+        account.removeBalance(currency);
 
         source.sendSuccess(() -> Component.literal("Removed currency '" + money + "' from " + target.getScoreboardName()), true);
         return 1;
@@ -185,52 +183,71 @@ public class SDMEconomyCommands {
         }
 
         final var moneyId = ResourceLocationArgument.getId(context, "money");
-        double amount = DoubleArgumentType.getDouble(context, "amount");
-        DYNAMIC_CURRENCY.setId(moneyId);
+        BigDecimal amount = positiveAmount(context);
+        DynamicStoredCurrency currency = currency(moneyId);
 
         SDMEconomyService service = SDMEconomyService.getInstance();
         BankAccount sourceAccount = service.getAccount(sourcePlayer.getGameProfile().getId());
         BankAccount targetAccount = service.getAccount(targetPlayer.getGameProfile().getId());
 
-        if (sourceAccount.getBalance(DYNAMIC_CURRENCY).doubleValue() < amount) {
+        if (sourceAccount.getBalance(currency).compareTo(amount) < 0) {
             context.getSource().sendFailure(Component.literal("Insufficient funds!"));
             return 0;
         }
 
-        sourceAccount.modify(DYNAMIC_CURRENCY, BigDecimal.valueOf(-amount));  // Списываем
-        targetAccount.modify(DYNAMIC_CURRENCY, BigDecimal.valueOf(amount));   // Начисляем
+        sourceAccount.modify(currency, amount.negate());
+        targetAccount.modify(currency, amount);
 
-        context.getSource().sendSuccess(() -> Component.literal("Successfully paid " + amount + " '" + moneyId + "' to " + targetPlayer.getScoreboardName()), false);
-        targetPlayer.sendSystemMessage(Component.literal("You received " + amount + " '" + moneyId + "' from " + sourcePlayer.getScoreboardName()));
+        context.getSource().sendSuccess(() -> Component.literal("Successfully paid " + amountText(amount) + " '" + moneyId + "' to " + targetPlayer.getScoreboardName()), false);
+        targetPlayer.sendSystemMessage(Component.literal("You received " + amountText(amount) + " '" + moneyId + "' from " + sourcePlayer.getScoreboardName()));
         return 1;
     }
 
     private static int setMoneyCommand(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer targetPlayer = EntityArgument.getPlayer(context, "target");
         final ResourceLocation moneyId = ResourceLocationArgument.getId(context, "money");
-        double amount = DoubleArgumentType.getDouble(context, "amount");
+        BigDecimal amount = nonNegativeAmount(context);
 
-        DYNAMIC_CURRENCY.setId(moneyId);
+        DynamicStoredCurrency currency = currency(moneyId);
         BankAccount targetAccount = SDMEconomyService.getInstance().getAccount(targetPlayer.getGameProfile().getId());
 
-        targetAccount.setBalance(DYNAMIC_CURRENCY, BigDecimal.valueOf(amount));
+        targetAccount.setBalance(currency, amount);
 
-        context.getSource().sendSuccess(() -> Component.literal("Set balance of " + targetPlayer.getScoreboardName() + " to " + amount + " '" + moneyId + "'"), true);
+        context.getSource().sendSuccess(() -> Component.literal("Set balance of " + targetPlayer.getScoreboardName() + " to " + amountText(amount) + " '" + moneyId + "'"), true);
         return 1;
     }
 
     private static int addMoneyCommand(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer targetPlayer = EntityArgument.getPlayer(context, "target");
         final var moneyId = ResourceLocationArgument.getId(context, "money");
-        double amount = DoubleArgumentType.getDouble(context, "amount");
+        BigDecimal amount = positiveAmount(context);
 
-        DYNAMIC_CURRENCY.setId(moneyId);
+        DynamicStoredCurrency currency = currency(moneyId);
         BankAccount targetAccount = SDMEconomyService.getInstance().getAccount(targetPlayer.getGameProfile().getId());
 
-        targetAccount.modify(DYNAMIC_CURRENCY, BigDecimal.valueOf(amount));
+        targetAccount.modify(currency, amount);
 
-        context.getSource().sendSuccess(() -> Component.literal("Added " + amount + " '" + moneyId + "' to " + targetPlayer.getScoreboardName()), true);
+        context.getSource().sendSuccess(() -> Component.literal("Added " + amountText(amount) + " '" + moneyId + "' to " + targetPlayer.getScoreboardName()), true);
         return 1;
     }
 
+    private static DynamicStoredCurrency currency(ResourceLocation id) {
+        return new DynamicStoredCurrency(id);
+    }
+
+    private static BigDecimal positiveAmount(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        return amount(context, MIN_POSITIVE_AMOUNT);
+    }
+
+    private static BigDecimal nonNegativeAmount(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        return amount(context, MIN_ZERO_AMOUNT);
+    }
+
+    private static BigDecimal amount(CommandContext<CommandSourceStack> context, BigDecimal min) throws CommandSyntaxException {
+        return DecimalAmountParser.parse(StringArgumentType.getString(context, "amount"), min);
+    }
+
+    private static String amountText(BigDecimal amount) {
+        return amount.toPlainString();
+    }
 }

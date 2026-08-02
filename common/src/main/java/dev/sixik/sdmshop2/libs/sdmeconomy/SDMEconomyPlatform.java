@@ -25,6 +25,7 @@ import net.shadowking21.shadowconfig.config.exstensions.yaml.SCYamlConfig;
 import org.jetbrains.annotations.Nullable;
 
 import java.nio.file.Path;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SDMEconomyPlatform {
 
@@ -36,6 +37,7 @@ public class SDMEconomyPlatform {
     private static Path CONFIG_DIR;
     private static Path CURRENCIES_DIR;
     private static Path PLAYERS_DATA_DIR;
+    private static final AtomicBoolean SHUTDOWN_HOOK_REGISTERED = new AtomicBoolean();
 
     @Getter
     private static SCYamlConfig<SDMEconomyDataStorageConfig> dataStorageConfig;
@@ -128,7 +130,9 @@ public class SDMEconomyPlatform {
     public static void onServerStart(MinecraftServer server) {
         SDMEconomyPlatform.server = server;
         loadPlayersDataDir(server.getWorldPath(LevelResource.ROOT));
-        SDMEconomyService.init(server, getRepositoryManager(server));
+        RepositoryManager repositoryManager = getRepositoryManager(server);
+        SDMEconomyCurrencyRegistry.initRepository(repositoryManager);
+        SDMEconomyService.init(server, repositoryManager);
     }
 
     public static void onServerStop(MinecraftServer server) {
@@ -136,20 +140,29 @@ public class SDMEconomyPlatform {
         if (service != null) {
             service.shutdown();
         }
+        SDMEconomyCurrencyRegistry.shutdownRepository();
         instance = null;
         SDMEconomyPlatform.server = null;
     }
 
     public static void onPlayerLeft(ServerPlayer player) {
-        SDMEconomyService.getInstance().unloadPlayer(player.getGameProfile().getId());
+        SDMEconomyService service = SDMEconomyService.getInstance();
+        if (service != null) {
+            service.unloadPlayer(player.getGameProfile().getId());
+        }
     }
 
     public static void shutdownHook() {
+        if (!SHUTDOWN_HOOK_REGISTERED.compareAndSet(false, true)) {
+            return;
+        }
+
         final Thread thread = new Thread(() -> {
             SDMEconomyService service = SDMEconomyService.getInstance();
             if (service != null) {
                 service.shutdown();
             }
+            SDMEconomyCurrencyRegistry.shutdownRepository();
             instance = null;
             SDMEconomyPlatform.server = null;
         });
@@ -160,7 +173,12 @@ public class SDMEconomyPlatform {
     public static void onReload() {
 
         SDMEconomyCurrencyRegistry.reload();
+        broadcastCurrencies();
+    }
+
+    public static void broadcastCurrencies() {
         if (server == null) return;
+
         final CompoundTag nbt = SDMEconomyCurrencyRegistry.serializeCurrencies();
         final SendDynamicCurrencyS2C packet = new SendDynamicCurrencyS2C(nbt);
 

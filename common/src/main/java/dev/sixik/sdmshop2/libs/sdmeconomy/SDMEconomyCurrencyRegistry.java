@@ -4,6 +4,9 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import dev.sixik.sdmshop2.libs.platform.utils.repository.Repository;
+import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepoDefinition;
+import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepositoryManager;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -14,44 +17,79 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
+import java.util.stream.Stream;
 
 public class SDMEconomyCurrencyRegistry {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SDMEconomyCurrencyRegistry.class);
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
-    private static final Map<ResourceLocation, ICurrencyType<?>> TYPES = new Object2ObjectOpenHashMap<>();
-    private static final Map<Class<?>, ICurrencyType<?>> TYPES_BY_CLASS = new Object2ObjectOpenHashMap<>();
+    private static final String ID_FIELD = "id";
+    private static final String TYPE_FIELD = "type";
+    private static final String LEGACY_OWNER_FIELD = "owner";
 
-    private static final Map<ResourceLocation, IExternalCurrency> CURRENCIES = new Object2ObjectOpenHashMap<>();
+    private static final Map<ResourceLocation, ICurrencyType<?>> TYPES = new ConcurrentHashMap<>();
+    private static final Map<Class<?>, ICurrencyType<?>> TYPES_BY_CLASS = new ConcurrentHashMap<>();
+    private static final Map<Class<?>, ResourceLocation> TYPE_IDS_BY_CLASS = new ConcurrentHashMap<>();
 
-    /**
-     * Регистрирует валюту которая имеет физическую валюту.
-     * @param id ID Типа
-     * @param type Сериализатор
-     */
+    private static final Map<ResourceLocation, IExternalCurrency> CURRENCIES = new ConcurrentHashMap<>();
+
+    @Nullable
+    private static volatile Repository<ResourceLocation, IExternalCurrency> repository;
+
     public static void registerType(ResourceLocation id, ICurrencyType<?> type) {
+        Objects.requireNonNull(id, "id");
+        Objects.requireNonNull(type, "type");
         TYPES.put(id, type);
         TYPES_BY_CLASS.put(type.getOwnerClass(), type);
+        TYPE_IDS_BY_CLASS.put(type.getOwnerClass(), id);
     }
 
-    /**
-     * Регистрирует новую валюту в памяти и сохраняет её в .json файл.
-     *
-     * @param currency Объект валюты для сохранения
-     * @param <T> Тип валюты
-     * @return true если сохранение прошло успешно, иначе false
-     */
+    public static void initRepository(RepositoryManager manager) {
+        Objects.requireNonNull(manager, "manager");
+        manager.init();
+
+        repository = manager.createRepository(
+                SDMEconomyPlatform.getCurrenciesDir(),
+                currenciesCollectionName(),
+                new RepoDefinition<>(
+                        ResourceLocation::toString,
+                        ResourceLocation::new,
+                        IExternalCurrency::getId,
+                        SDMEconomyCurrencyRegistry::serializeStoredCurrency,
+                        SDMEconomyCurrencyRegistry::deserializeStoredCurrency
+                )
+        );
+
+        repository.setSyncCallbacks(
+                SDMEconomyCurrencyRegistry::reloadRemoteCurrency,
+                SDMEconomyCurrencyRegistry::deleteRemoteCurrency
+        );
+
+        reload();
+    }
+
+    public static void shutdownRepository() {
+        repository = null;
+    }
+
     @SuppressWarnings("unchecked")
     public static <T extends IExternalCurrency> boolean registerAndSaveCurrency(T currency) {
+        Objects.requireNonNull(currency, "currency");
         ResourceLocation id = currency.getId();
-
-        CURRENCIES.put(id, currency);
 
         ICurrencyType<T> type = (ICurrencyType<T>) TYPES_BY_CLASS.get(currency.getClass());
         if (type == null) {
@@ -59,18 +97,19 @@ public class SDMEconomyCurrencyRegistry {
             return false;
         }
 
-        JsonObject json = type.serialize(currency);
-        Path configDir = SDMEconomyPlatform.getCurrenciesDir();
-        File file = configDir.resolve(id.getPath() + ".json").toFile();
+        try {
+            Repository<ResourceLocation, IExternalCurrency> repo = repository;
+            if (repo != null) {
+                repo.save(id, currency);
+            } else {
+                saveCurrencyToFile(currency, type);
+            }
 
-        try (FileWriter writer = new FileWriter(file)) {
-            Gson gson = new GsonBuilder().setPrettyPrinting().create();
-            gson.toJson(json, writer);
-
-            LOGGER.info("Successfully saved currency {} to {}", id, file.getName());
+            CURRENCIES.put(id, currency);
+            SDMEconomyPlatform.broadcastCurrencies();
             return true;
-        } catch (IOException e) {
-            LOGGER.error("Failed to save currency {} to {}", id, file.getName(), e);
+        } catch (Exception e) {
+            LOGGER.error("Failed to save currency {}", id, e);
             return false;
         }
     }
@@ -78,9 +117,9 @@ public class SDMEconomyCurrencyRegistry {
     @Nullable
     public static IExternalCurrency getCurrency(String id) {
         return getCurrency(
-                        id.contains(":") ?
-                        ResourceLocation.tryParse(id) :
-                        ResourceLocation.tryBuild("sdm", id)
+                id.contains(":")
+                        ? ResourceLocation.tryParse(id)
+                        : ResourceLocation.tryBuild("sdm", id)
         );
     }
 
@@ -94,70 +133,98 @@ public class SDMEconomyCurrencyRegistry {
     }
 
     public static Collection<IExternalCurrency> getCurrencies() {
-        return CURRENCIES.values();
+        return new ArrayList<>(CURRENCIES.values());
     }
 
     public static void forEachCurrencies(BiConsumer<ResourceLocation, IExternalCurrency> iterator) {
-        CURRENCIES.forEach(iterator);
+        getCurrenciesMap().forEach(iterator);
     }
 
     public static void reload() {
-        reload(SDMEconomyPlatform.getCurrenciesDir());
-    }
-
-    /**
-     * Перезагружает все валюты которые были созданы.
-     * @param configDir Место где храняться пользовательские валюты
-     */
-    public static void reload(Path configDir) {
+        Repository<ResourceLocation, IExternalCurrency> repo = repository;
         CURRENCIES.clear();
 
-        final File file = configDir.toFile();
-
-        if(!file.exists()) {
-            LOGGER.error("Can't reload currencies because, currencies folder not exists!");
-            return;
-        }
-
-        final File[] listFiles = file.listFiles();
-
-        for (int i = 0; i < listFiles.length; i++) {
-            loadCurrency(listFiles[i]);
+        if (repo != null) {
+            CURRENCIES.putAll(repo.loadAll());
+            migrateLegacyCurrencyFiles(repo);
+        } else {
+            CURRENCIES.putAll(loadCurrencyFiles(SDMEconomyPlatform.getCurrenciesDir(), false));
         }
     }
 
-    private static void loadCurrency(File file) {
-        final String extension = FilenameUtils.getExtension(file.getName());
-        if (!extension.equals("json")) {
-            LOGGER.warn("Skipping file '{}': Not a JSON", file.getName());
-            return;
+    public static void reload(Path configDir) {
+        CURRENCIES.clear();
+        CURRENCIES.putAll(loadCurrencyFiles(configDir, false));
+    }
+
+    private static void reloadRemoteCurrency(ResourceLocation id) {
+        Repository<ResourceLocation, IExternalCurrency> repo = repository;
+        if (repo == null) return;
+
+        IExternalCurrency currency = repo.load(id);
+        if (currency == null) {
+            CURRENCIES.remove(id);
+        } else {
+            CURRENCIES.put(id, currency);
         }
 
-        final String fileName = FilenameUtils.removeExtension(file.getName());
-        final ResourceLocation currencyId = new ResourceLocation("sdm", fileName);
+        SDMEconomyPlatform.broadcastCurrencies();
+    }
 
+    private static void deleteRemoteCurrency(ResourceLocation id) {
+        CURRENCIES.remove(id);
+        SDMEconomyPlatform.broadcastCurrencies();
+    }
+
+    private static void migrateLegacyCurrencyFiles(Repository<ResourceLocation, IExternalCurrency> repo) {
+        Map<ResourceLocation, IExternalCurrency> legacy = loadCurrencyFiles(SDMEconomyPlatform.getCurrenciesDir(), true);
+        legacy.forEach((id, currency) -> {
+            if (CURRENCIES.putIfAbsent(id, currency) == null) {
+                repo.save(id, currency);
+            }
+        });
+    }
+
+    private static String currenciesCollectionName() {
+        if (SDMEconomyPlatform.getDataStorageConfig() == null) {
+            return "currencies";
+        }
+
+        return SDMEconomyPlatform.getDataStorageConfig().getCurrentConfig().mongodb.currenciesCollection;
+    }
+
+    private static Map<ResourceLocation, IExternalCurrency> loadCurrencyFiles(Path configDir, boolean legacyOnly) {
+        Map<ResourceLocation, IExternalCurrency> out = new Object2ObjectOpenHashMap<>();
+
+        if(!Files.exists(configDir)) {
+            LOGGER.error("Can't reload currencies because, currencies folder not exists!");
+            return out;
+        }
+
+        try (Stream<Path> files = Files.walk(configDir)) {
+            files
+                    .filter(Files::isRegularFile)
+                    .filter(path -> FilenameUtils.getExtension(path.getFileName().toString()).equals("json"))
+                    .forEach(path -> loadCurrencyFile(configDir, path.toFile(), legacyOnly, out));
+        } catch (IOException e) {
+            LOGGER.error("Can't reload currencies from {}", configDir, e);
+        }
+
+        return out;
+    }
+
+    private static void loadCurrencyFile(Path root, File file, boolean legacyOnly, Map<ResourceLocation, IExternalCurrency> out) {
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             final JsonObject json = JsonParser.parseReader(reader).getAsJsonObject();
-
-            if (!json.has("type")) {
-                LOGGER.error("Failed to load currency '{}': Missing 'type' field", fileName);
+            if (legacyOnly && json.has(ID_FIELD)) {
                 return;
             }
 
-            final String typeStr = json.get("type").getAsString();
-            final ResourceLocation typeId = new ResourceLocation(typeStr);
-
-            final ICurrencyType<?> typeFactory = SDMEconomyCurrencyRegistry.TYPES.get(typeId);
-
-            if (typeFactory == null) {
-                LOGGER.error("Unknown currency type '{}' in file '{}'", typeId, file.getName());
-                return;
+            IExternalCurrency currency = deserializeCurrency(root, file.toPath(), json);
+            if (currency != null) {
+                out.put(currency.getId(), currency);
+                LOGGER.info("Loaded currency: {}", currency.getId());
             }
-
-            final IExternalCurrency currency = typeFactory.deserialize(currencyId, json);
-
-            CURRENCIES.put(currencyId, currency);
-            LOGGER.info("Loaded currency: {}", currencyId);
         } catch (Exception e) {
             LOGGER.error("Error loading currency from file '{}'", file.getName(), e);
         }
@@ -170,13 +237,15 @@ public class SDMEconomyCurrencyRegistry {
         for (Map.Entry<ResourceLocation, IExternalCurrency> entry : CURRENCIES.entrySet()) {
             ResourceLocation key = entry.getKey();
             IExternalCurrency value = entry.getValue();
-            final ICurrencyType type = TYPES_BY_CLASS.get(value.getClass());
+            final ICurrencyType<?> type = TYPES_BY_CLASS.get(value.getClass());
             if (type == null) continue;
+            final ResourceLocation typeId = TYPE_IDS_BY_CLASS.get(type.getOwnerClass());
+            if (typeId == null) continue;
 
             CompoundTag data = new CompoundTag();
             data.putString("key", key.toString());
-            data.putString("owner", type.getOwnerClass().getName());
-            data.put("data", type.serializeNbt(value));
+            data.putString(TYPE_FIELD, typeId.toString());
+            data.put("data", serializeNbtUnchecked(type, value));
             nbtCurrencies.add(data);
         }
 
@@ -194,24 +263,146 @@ public class SDMEconomyCurrencyRegistry {
             CompoundTag data = (CompoundTag) nbtCurrency;
 
             ResourceLocation id = ResourceLocation.tryParse(data.getString("key"));
-            Class<?> clz;
-            try {
-                clz = Class.forName(data.getString("owner"));
-            } catch (ClassNotFoundException e) {
-                LOGGER.error("Unknown type: {}", data.getString("owner"));
+            if (id == null) {
+                LOGGER.error("Invalid currency id in network data: {}", data.getString("key"));
                 continue;
             }
 
-            ICurrencyType<?> type = TYPES_BY_CLASS.get(clz);
+            ICurrencyType<?> type = readNetworkCurrencyType(data);
             if(type == null) {
-                LOGGER.error("Unknown type: {}", clz.getName());
                 continue;
             }
 
-            IExternalCurrency obj = type.deserializeNbt(id, data.get("data"));
+            IExternalCurrency obj = deserializeNbtUnchecked(type, id, data.get("data"));
             out.put(id, obj);
         }
 
         return out;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T extends IExternalCurrency> JsonObject serializeStoredCurrency(T currency) {
+        ICurrencyType<T> type = (ICurrencyType<T>) TYPES_BY_CLASS.get(currency.getClass());
+        if (type == null) {
+            throw new IllegalStateException("No ICurrencyType registered for class " + currency.getClass().getName());
+        }
+
+        JsonObject json = type.serialize(currency);
+        json.addProperty(ID_FIELD, currency.getId().toString());
+        return json;
+    }
+
+    @Nullable
+    private static IExternalCurrency deserializeStoredCurrency(JsonObject json) {
+        return deserializeCurrency(null, null, json);
+    }
+
+    @Nullable
+    private static IExternalCurrency deserializeCurrency(@Nullable Path root, @Nullable Path file, JsonObject json) {
+        ResourceLocation currencyId = readCurrencyId(root, file, json);
+        if (currencyId == null) {
+            LOGGER.error("Failed to load currency: invalid or missing currency id");
+            return null;
+        }
+
+        if (!json.has(TYPE_FIELD)) {
+            LOGGER.error("Failed to load currency '{}': missing '{}' field", currencyId, TYPE_FIELD);
+            return null;
+        }
+
+        ResourceLocation typeId = ResourceLocation.tryParse(json.get(TYPE_FIELD).getAsString());
+        ICurrencyType<?> typeFactory = TYPES.get(typeId);
+        if (typeFactory == null) {
+            LOGGER.error("Unknown currency type '{}' for currency '{}'", typeId, currencyId);
+            return null;
+        }
+
+        return typeFactory.deserialize(currencyId, json);
+    }
+
+    private static Path currencyFile(Path root, ResourceLocation id) {
+        return root.resolve(id.getNamespace()).resolve(id.getPath() + ".json");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T extends IExternalCurrency> void saveCurrencyToFile(T currency, ICurrencyType<T> type) throws IOException {
+        ResourceLocation id = currency.getId();
+        JsonObject json = type.serialize(currency);
+        json.addProperty(ID_FIELD, id.toString());
+
+        File file = currencyFile(SDMEconomyPlatform.getCurrenciesDir(), id).toFile();
+        File parent = file.getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+            throw new IOException("Failed to create currency directory: " + parent);
+        }
+
+        try (FileWriter writer = new FileWriter(file)) {
+            GSON.toJson(json, writer);
+        }
+    }
+
+    @Nullable
+    private static ResourceLocation readCurrencyId(@Nullable Path root, @Nullable Path file, JsonObject json) {
+        if (json.has(ID_FIELD)) {
+            return ResourceLocation.tryParse(json.get(ID_FIELD).getAsString());
+        }
+
+        if (root == null || file == null) {
+            return null;
+        }
+
+        Path relative = root.relativize(file);
+        int nameCount = relative.getNameCount();
+        if (nameCount <= 1) {
+            return ResourceLocation.tryBuild("sdm", FilenameUtils.removeExtension(file.getFileName().toString()));
+        }
+
+        String namespace = relative.getName(0).toString();
+        StringBuilder path = new StringBuilder();
+        for (int i = 1; i < nameCount; i++) {
+            if (path.length() > 0) {
+                path.append('/');
+            }
+            path.append(relative.getName(i));
+        }
+
+        return ResourceLocation.tryBuild(namespace, FilenameUtils.removeExtension(path.toString()).replace('\\', '/'));
+    }
+
+    @Nullable
+    private static ICurrencyType<?> readNetworkCurrencyType(CompoundTag data) {
+        if (data.contains(TYPE_FIELD)) {
+            ResourceLocation typeId = ResourceLocation.tryParse(data.getString(TYPE_FIELD));
+            ICurrencyType<?> type = TYPES.get(typeId);
+            if (type == null) {
+                LOGGER.error("Unknown currency type: {}", typeId);
+            }
+            return type;
+        }
+
+        if (data.contains(LEGACY_OWNER_FIELD)) {
+            try {
+                Class<?> clz = Class.forName(data.getString(LEGACY_OWNER_FIELD));
+                ICurrencyType<?> type = TYPES_BY_CLASS.get(clz);
+                if (type == null) {
+                    LOGGER.error("Unknown legacy currency owner type: {}", clz.getName());
+                }
+                return type;
+            } catch (ClassNotFoundException e) {
+                LOGGER.error("Unknown legacy currency owner type: {}", data.getString(LEGACY_OWNER_FIELD));
+            }
+        }
+
+        return null;
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static Tag serializeNbtUnchecked(ICurrencyType type, IExternalCurrency currency) {
+        return type.serializeNbt(currency);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static IExternalCurrency deserializeNbtUnchecked(ICurrencyType type, ResourceLocation id, Tag tag) {
+        return (IExternalCurrency) type.deserializeNbt(id, tag);
     }
 }

@@ -1,7 +1,5 @@
 package dev.sixik.sdmshop2.libs.sdmeconomy;
 
-import dev.architectury.platform.Platform;
-import dev.sixik.sdmshop2.libs.platform.SDMPlatform;
 import dev.sixik.sdmshop2.libs.platform.utils.repository.RepositoryStorage;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepoDefinition;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepositoryManager;
@@ -11,6 +9,8 @@ import net.minecraft.server.MinecraftServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -53,7 +53,12 @@ public class SDMEconomyService {
         if(manager == null) return;
         this.repositoryManager = manager;
         manager.init();
-        this.dataFolder = SDMPlatform.resolveSdmDir(Platform.getConfigFolder(), "economy/accounts");
+        this.dataFolder = SDMEconomyPlatform.getPlayersDataDir().resolve("accounts");
+        try {
+            Files.createDirectories(dataFolder);
+        } catch (IOException e) {
+            throw new RuntimeException("Can't create economy accounts folder: " + dataFolder, e);
+        }
         this.accountRepository = new RepositoryStorage<>(manager.createRepository(
                 dataFolder,
                 SDMEconomyPlatform.getDataStorageConfig().getCurrentConfig().mongodb.accountsCollection,
@@ -133,6 +138,10 @@ public class SDMEconomyService {
         if (repositoryManager != null) {
             repositoryManager.close();
             repositoryManager = null;
+        }
+
+        if (Instance == this) {
+            Instance = null;
         }
     }
 

@@ -4,11 +4,8 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import lombok.Getter;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
 
 @Environment(EnvType.CLIENT)
@@ -30,7 +27,7 @@ public class SDMEconomyServiceClient extends SDMEconomyService {
     protected BankAccount bankAccount;
 
     public SDMEconomyServiceClient() {
-        this.bankAccount = new BankAccount(Minecraft.getInstance().player);
+        this.bankAccount = new BankAccount(UUID.fromString("00000000-0000-0000-0000-000000000000"));
     }
 
     public SDMEconomyServiceClient(BankAccount account) {
