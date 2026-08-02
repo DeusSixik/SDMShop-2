@@ -1,78 +1,80 @@
-package dev.sixik.sdmshop2.libs.shop.client.screens_2.elements;
+package dev.sixik.sdmshop2.libs.shop.client.ui.style;
 
 import com.lowdragmc.lowdraglib.gui.texture.ColorRectTexture;
+import com.lowdragmc.lowdraglib.gui.widget.Widget;
+import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import com.lowdragmc.lowdraglib.utils.Size;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
+import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.ShopUiElement;
 import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.base.ShopDraggableScrollableWidgetGroup;
+import dev.sixik.sdmshop2.libs.shop.client.textures.PixelBevelTexture;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopOfferElement;
+import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopOffersPanelElement;
 import dev.sixik.sdmshop2.libs.shop.components.misc.ShopOffersContainerComponent;
-import lombok.Getter;
-import org.jetbrains.annotations.NotNull;
 
-public class ShopOffersPanel extends ShopDraggableScrollableWidgetGroup implements ShopUiElement {
+import java.util.ArrayList;
+import java.util.List;
+
+public class DefaultShopOffersPanelRender implements WidgetRender {
 
     private static final int DEFAULT_ITEM_HEIGHT = 90;
     private static final int SPACING = 5;
     private static final int PADDING = 5;
     private static final int SCROLLBAR_WIDTH = 3;
 
-    @Getter
-    protected final @NotNull ShopScreen shopScreen;
-
-    public ShopOffersPanel(@NotNull ShopScreen shopScreen) {
-        this.shopScreen = shopScreen;
-        setBackground(new ColorRectTexture(0xff1fafa0).setRadius(6));
-    }
-
     @Override
-    public void initWidget() {
-        setYScrollBarWidth(SCROLLBAR_WIDTH).setYBarStyle(null, new ColorRectTexture(-1));
-        super.initWidget();
-    }
+    public void constructor(WidgetContextRender ctx) {
+        Widget owner = ctx.getOwner();
+        owner.setBackground(new PixelBevelTexture(
+                PixelBevelTexture.PANEL_COLOR,
+                PixelBevelTexture.LINE_LOW_COLOR,
+                PixelBevelTexture.LINE_HIGH_COLOR,
+                1.5f
+        ));
 
-    @Override
-    public void alightWidget() {
-        rebuildOffers();
-
-        if (!initialized) return;
-
-        for (int i = 0; i < widgets.size(); i++) {
-            if (widgets.get(i) instanceof ShopUiElement element) {
-                element.alightWidget();
-            }
+        if (owner instanceof ShopDraggableScrollableWidgetGroup scrollableWidgetGroup) {
+            scrollableWidgetGroup
+                    .setYScrollBarWidth(SCROLLBAR_WIDTH)
+                    .setYBarStyle(null, new ColorRectTexture(-1));
         }
     }
 
     @Override
-    protected void alightWidgets() {
-        alightWidget();
-    }
+    public void addWidgets(WidgetContextRender ctx) {
+        if (!(ctx instanceof ShopOffersPanelElement panel)) {
+            return;
+        }
 
-    public void rebuildOffers() {
-        clearAllWidgets();
-
-        final ShopOffersContainerComponent entriesContainer = shopScreen.getEntriesContainer();
+        final ShopOffersContainerComponent entriesContainer = panel.getShopScreen().getEntriesContainer();
         for (ShopOffer value : entriesContainer.getEntryMap().values()) {
-            addWidget(new ShopOfferElement(value));
+            ctx.addWidget(new ShopOfferElement(value));
         }
-
-        alightOffers();
     }
 
-    public void alightOffers() {
-        if (!initialized || widgets.isEmpty()) return;
+    @Override
+    public void alightWidgets(WidgetContextRender ctx) {
+        if (!(ctx.getOwner() instanceof WidgetGroup group)) {
+            return;
+        }
 
-        final ShopOfferElement firstOfferElement = widgets.get(0) instanceof ShopOfferElement offerElement
+        List<Widget> offerWidgets = collectOfferWidgets(group);
+        if (offerWidgets.isEmpty()) {
+            return;
+        }
+
+        final ShopOfferElement firstOfferElement = offerWidgets.get(0) instanceof ShopOfferElement offerElement
                 ? offerElement
                 : null;
-        final LayoutConstraints layoutConstraints = resolveLayoutConstraints();
+        final LayoutConstraints layoutConstraints = resolveLayoutConstraints(offerWidgets);
 
-        int availableWidth = Math.max(1, getSizeWidth() - SCROLLBAR_WIDTH - PADDING * 2);
+        int availableWidth = Math.max(1, group.getSizeWidth() - SCROLLBAR_WIDTH - PADDING * 2);
         int minWidth = layoutConstraints.minWidth();
         int preferredWidth = layoutConstraints.preferredWidth();
         int maxWidth = layoutConstraints.maxWidth();
 
-        int columns = chooseColumns(availableWidth, widgets.size(), minWidth, preferredWidth, maxWidth);
+        int columns = chooseColumns(availableWidth, offerWidgets.size(), minWidth, preferredWidth, maxWidth);
 
         int itemWidth = Math.max(1, (availableWidth - (columns - 1) * SPACING) / columns);
         itemWidth = Math.min(itemWidth, maxWidth);
@@ -82,11 +84,11 @@ public class ShopOffersPanel extends ShopDraggableScrollableWidgetGroup implemen
                 : firstOfferElement.getPreferredLayoutHeight(itemWidth);
         itemHeight = Math.max(1, itemHeight);
 
-        int rowCount = Math.max(1, (widgets.size() + columns - 1) / columns);
+        int rowCount = Math.max(1, (offerWidgets.size() + columns - 1) / columns);
         int[] rowHeights = new int[rowCount];
-        for (int i = 0; i < widgets.size(); i++) {
+        for (int i = 0; i < offerWidgets.size(); i++) {
             int height = itemHeight;
-            if (widgets.get(i) instanceof ShopOfferElement offerElement) {
+            if (offerWidgets.get(i) instanceof ShopOfferElement offerElement) {
                 height = Math.max(1, offerElement.getPreferredLayoutHeight(itemWidth));
             }
 
@@ -98,8 +100,8 @@ public class ShopOffersPanel extends ShopDraggableScrollableWidgetGroup implemen
         int startX = PADDING + Math.max(0, (availableWidth - totalGridWidth) / 2);
 
         int y = PADDING;
-        for (int i = 0; i < widgets.size(); i++) {
-            var widget = widgets.get(i);
+        for (int i = 0; i < offerWidgets.size(); i++) {
+            Widget widget = offerWidgets.get(i);
 
             int row = i / columns;
             int col = i % columns;
@@ -118,13 +120,23 @@ public class ShopOffersPanel extends ShopDraggableScrollableWidgetGroup implemen
         }
     }
 
-    private LayoutConstraints resolveLayoutConstraints() {
+    private List<Widget> collectOfferWidgets(WidgetGroup group) {
+        List<Widget> offerWidgets = new ArrayList<>();
+        for (Widget widget : group.getContainedWidgets(true)) {
+            if (widget instanceof ShopOfferElement) {
+                offerWidgets.add(widget);
+            }
+        }
+        return offerWidgets;
+    }
+
+    private LayoutConstraints resolveLayoutConstraints(List<Widget> offerWidgets) {
         int minWidth = 120;
         int preferredWidth = 160;
         int maxWidth = 240;
         boolean hasOfferElement = false;
 
-        for (var widget : widgets) {
+        for (Widget widget : offerWidgets) {
             if (!(widget instanceof ShopOfferElement offerElement)) {
                 continue;
             }

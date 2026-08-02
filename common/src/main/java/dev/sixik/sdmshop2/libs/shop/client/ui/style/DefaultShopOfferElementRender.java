@@ -1,18 +1,21 @@
-package dev.sixik.sdmshop2.libs.shop.client.ui.theme;
+package dev.sixik.sdmshop2.libs.shop.client.ui.style;
 
 import com.lowdragmc.lowdraglib.gui.texture.ColorBorderTexture;
 import com.lowdragmc.lowdraglib.gui.texture.GuiTextureGroup;
 import com.lowdragmc.lowdraglib.gui.texture.TransformTexture;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.utils.Size;
+import com.mojang.blaze3d.platform.InputConstants;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
+import dev.sixik.sdmshop2.libs.shop.client.cache.ShopClientCache;
 import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ShopBadgeHBoxWidget;
 import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ShopEmptyWidget;
 import dev.sixik.sdmshop2.libs.shop.client.textures.PixelBevelTexture;
 import dev.sixik.sdmshop2.libs.shop.client.ui.ShopIcons;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
+import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
 import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
@@ -24,9 +27,7 @@ import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.PriceWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ProgressBarWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ContextMenuWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.HorizontalContainer;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ModalWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.VerticalContainer;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.table.ScrollableInteractionTable;
 import it.unimi.dsi.fastutil.objects.ObjectList;
@@ -99,9 +100,18 @@ public class DefaultShopOfferElementRender implements WidgetRender {
         }
 
         favoriteButton = new ButtonWidget();
-        favoriteButton.setBackground(ShopIcons.STAR_EMPTY);
+        updateFavoriteButton(ShopClientCache.isFavorite(shopEntity.getUUID()));
+        favoriteButton.setClientSideWidget();
+        favoriteButton.setHoverTexture(new ColorBorderTexture(1, 0xFFFFFFFF));
+        favoriteButton.setClickedTexture(new ColorBorderTexture(1, 0xFFFFD77A));
+        favoriteButton.setOnClick(ignored -> updateFavoriteButton(ShopClientCache.toggleFavorite(shopEntity.getUUID())));
         favoriteButton.setSize(8, 8);
         ctx.addWidget(favoriteButton);
+        ctx.listen(ShopUIEvents.FAVORITES_CHANGED, event -> {
+            if (shopEntity.getUUID().equals(event.offerId())) {
+                updateFavoriteButton(event.favorite());
+            }
+        });
 
         final Map<ShopComponentCategory, ObjectList<ShopComponent>> offerComponentsMap =
                 ShopComponentsUtils.getComponentsByCategory(shopEntity);
@@ -246,6 +256,12 @@ public class DefaultShopOfferElementRender implements WidgetRender {
         badgesBox = null;
         favoriteButton = null;
         oneOfferElement = false;
+    }
+
+    private void updateFavoriteButton(boolean favorite) {
+        if (favoriteButton != null) {
+            favoriteButton.setBackground(favorite ? ShopIcons.STAR_FULL : ShopIcons.STAR_EMPTY);
+        }
     }
 
     private void addNameLabel(
@@ -394,6 +410,10 @@ public class DefaultShopOfferElementRender implements WidgetRender {
             buyButton.setButtonTexture(PixelBevelTexture.accent());
             buyButton.setHoverTexture(new PixelBevelTexture(0xFFF0BC50, PixelBevelTexture.ACCENT_LOW_COLOR, PixelBevelTexture.ACCENT_HIGH_COLOR, 0.7f));
             buyButton.setClickedTexture(PixelBevelTexture.accent().pressed());
+            buyButton.setOnPressCallback((b) -> {
+                if(b.button == InputConstants.MOUSE_BUTTON_LEFT)
+                    ShopUIEvents.invokeBuyShopEntity(ctx.getShopEntity(), entry.getKey());
+            });
             buyButton.setTextColor(PixelBevelTexture.PAGE_COLOR);
             container.addWidget(buyButton);
             container.setDynamicSized(false);

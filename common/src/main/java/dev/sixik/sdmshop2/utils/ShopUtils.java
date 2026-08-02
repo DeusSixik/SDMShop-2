@@ -11,6 +11,7 @@ import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUIUtils;
 import dev.sixik.sdmshop2.libs.shop.base.limiter.ShopLimiterTable;
 import dev.sixik.sdmshop2.libs.shop.base.limiter.ShopLimiterTableClient;
 import dev.sixik.sdmshop2.libs.shop.base.limiter.ShopLimiterTableServer;
@@ -96,7 +97,13 @@ public class ShopUtils {
             ModularUI ui = new ModularUI(panel, IUIHolder.EMPTY, entityPlayer);
             ui.setFullScreen();
             ui.initWidgets();
-            ModularUIGuiContainer ModularUIGuiContainer = new ModularUIGuiContainer(ui, entityPlayer.containerMenu.containerId);
+            ModularUIGuiContainer ModularUIGuiContainer = new ModularUIGuiContainer(ui, entityPlayer.containerMenu.containerId) {
+                @Override
+                public void removed() {
+                    ShopUIUtils.disposeTree(panel);
+                    super.removed();
+                }
+            };
 
             minecraft.setScreen(ModularUIGuiContainer);
             entityPlayer.containerMenu = ModularUIGuiContainer.getMenu();

@@ -6,6 +6,15 @@ import com.mojang.blaze3d.platform.Window;
 import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
 import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.base.ShopWidgetGroup;
 import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIEventScope;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUIUtils;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIDisposable;
+import dev.sixik.sdmshop2.libs.platform.utils.eventbus.DODEventBus;
+import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventPtr;
+import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventSubscription;
+import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopOffersPanelElement;
+import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopToolPanelElement;
+import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.ShopOffersContainerComponent;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
@@ -17,7 +26,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.Map;
 
-public class ShopScreen extends ShopWidgetGroup {
+public class ShopScreen extends ShopWidgetGroup implements UIDisposable {
 
     public static ShopScreen Instance;
 
@@ -31,16 +40,17 @@ public class ShopScreen extends ShopWidgetGroup {
     private ShopTabsPanel tabsPanel;
 
     @Getter
-    private ShopSearchPanel searchPanel;
+    private ShopOffersPanelElement shopOffersPanel;
 
     @Getter
-    private ShopOffersPanel shopOffersPanel;
+    private ShopToolPanelElement toolPanel;
 
     @Getter
     private ObjectArrayList<CatalogComponent> catalogComponents;
     @Getter
     private ShopOffersContainerComponent entriesContainer;
 
+    private final UIEventScope screenEventScope = new UIEventScope();
     private final Map<String, State> states = new Object2ObjectOpenHashMap<>();
 
     public ShopScreen() {
@@ -57,9 +67,9 @@ public class ShopScreen extends ShopWidgetGroup {
         this.entriesContainer = SDMShopClient.Shop.getEntries();
 
         alightWidget();
+        addWidget(toolPanel = new ShopToolPanelElement(this));
         addWidget(tabsPanel = new ShopTabsPanel(this));
-        addWidget(searchPanel = new ShopSearchPanel(this));
-        addWidget(shopOffersPanel = new ShopOffersPanel(this));
+        addWidget(shopOffersPanel = new ShopOffersPanelElement(this));
         customInitWidget();
     }
 
@@ -76,9 +86,19 @@ public class ShopScreen extends ShopWidgetGroup {
         final Size cur_size = getSize();
         final int cur_w     = cur_size.width;
         final int cur_h     = cur_size.height;
+        final int x_w_space = 4;
+        final int y_h_space = 4;
 
+        toolPanel.setSize(
+                cur_w - x_w_space * 2,
+                25
+        );
+        toolPanel.setSelfPosition(
+                x_w_space,
+                y_h_space / 2
+        );
 
-        final int tsw_w         = cur_w / 4;
+        final int tsw_w         = cur_w  / 4;
         final int tsw_h_offset  = (cur_h / 4);
         final int tsw_h         = cur_h - tsw_h_offset * 2;
         tabsPanel.setSize(
@@ -90,16 +110,8 @@ public class ShopScreen extends ShopWidgetGroup {
         final int tsw_y = tsw_h_offset;
         tabsPanel.setSelfPosition(tsw_x, tsw_y);
 
-        /*
-            sp_* = SearchPanel
-         */
-        searchPanel.setSize(
-                cur_w,
-                25
-        );
-
-        final var sp_widgets    = searchPanel.getWidgets();
-        final var sp_size       = searchPanel.getSize();
+        final var sp_widgets    = toolPanel.getWidgets();
+        final var sp_size       = toolPanel.getSize();
         for (int i = 0; i < sp_widgets.size(); i++) {
             final Widget sp_widget = sp_widgets.get(i);
             sp_widget.setSelfPositionY(
@@ -110,15 +122,13 @@ public class ShopScreen extends ShopWidgetGroup {
         /*
             ep_* = OffersPanel
          */
-        final int op_x_space = 4;
-        final int op_y_space = 4;
         shopOffersPanel.setSize(
-                cur_w  - tsw_w          - op_x_space  * 2,
-                cur_h - sp_size.height - op_y_space  * 2
+                cur_w  - tsw_w          - x_w_space  * 2,
+                cur_h - sp_size.height - y_h_space  * 2
         );
         shopOffersPanel.setSelfPosition(
-                tsw_w          + op_x_space,
-                sp_size.height + op_y_space
+                tsw_w          + x_w_space,
+                sp_size.height + y_h_space
         );
     }
 
@@ -151,6 +161,23 @@ public class ShopScreen extends ShopWidgetGroup {
         if(state.type != type)
             throw new IllegalArgumentException("Can't update state because '" + type.name() + " != " + state.type.name() + "' !");
         state.update(type, defaultValue);
+    }
+
+    public UIEventScope screenEventScope() {
+        return screenEventScope;
+    }
+
+    public <Event> EventSubscription listenScreen(EventPtr<Event> event, DODEventBus.EventListener<Event> listener) {
+        return screenEventScope.listen(event, listener);
+    }
+
+    @Override
+    public void dispose() {
+        screenEventScope.close();
+        ShopUIUtils.disposeChildren(this);
+        if (Instance == this) {
+            Instance = null;
+        }
     }
 
     public static class State {

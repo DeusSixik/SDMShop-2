@@ -8,8 +8,8 @@ public class EventPtr<T> {
         this.eventType = eventType;
     }
 
-    public void subscribe(DODEventBus.EventListener<T> listener) {
-        DODEventBus.DEFAULT_BUS.subscribe(eventType, listener);
+    public EventSubscription subscribe(DODEventBus.EventListener<T> listener) {
+        return DODEventBus.DEFAULT_BUS.subscribe(eventType, listener);
     }
 
     public void unsubscribe(DODEventBus.EventListener<T> listener) {

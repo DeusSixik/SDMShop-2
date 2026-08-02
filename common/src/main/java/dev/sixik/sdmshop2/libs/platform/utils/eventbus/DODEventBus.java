@@ -1,5 +1,8 @@
 package dev.sixik.sdmshop2.libs.platform.utils.eventbus;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReferenceArray;
@@ -11,6 +14,7 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
 public final class DODEventBus {
 
     public static final DODEventBus DEFAULT_BUS = new DODEventBus();
+    private static final Logger LOGGER = LoggerFactory.getLogger(DODEventBus.class);
 
     /**
      * Глобальный генератор ID для типов событий.
@@ -46,7 +50,7 @@ public final class DODEventBus {
      * Использует synchronized, так как подписки происходят редко (обычно при загрузке мира/мода).
      */
     @SuppressWarnings("unchecked")
-    public synchronized <T> void subscribe(EventType<T> type, EventListener<T> listener) {
+    public synchronized <T> EventSubscription subscribe(EventType<T> type, EventListener<T> listener) {
         ensureCapacity(type.id);
 
         final EventListener<T>[] currentListeners = (EventListener<T>[]) subscribers.get(type.id);
@@ -60,6 +64,20 @@ public final class DODEventBus {
 
             subscribers.set(type.id, newListeners);
         }
+
+        return new EventSubscription() {
+            private boolean closed;
+
+            @Override
+            public synchronized void unsubscribe() {
+                if (closed) {
+                    return;
+                }
+
+                closed = true;
+                DODEventBus.this.unsubscribe(type, listener);
+            }
+        };
     }
 
     /**
@@ -104,7 +122,11 @@ public final class DODEventBus {
 
         if (listeners != null) {
             for (int i = 0; i < listeners.length; i++) {
-                listeners[i].onEvent(event);
+                try {
+                    listeners[i].onEvent(event);
+                } catch (RuntimeException exception) {
+                    LOGGER.error("Failed to handle event {}", type.name, exception);
+                }
             }
         }
     }

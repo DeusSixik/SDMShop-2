@@ -8,7 +8,9 @@ import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.ShopUiElement;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUIUtils;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.ThemeApi;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.StyleApi;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIDisposable;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIEventScope;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ContextMenuWidget;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
@@ -18,24 +20,21 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-public class ShopOfferElement extends WidgetGroup implements ShopUiElement, WidgetContextRender {
+public class ShopOfferElement extends WidgetGroup implements ShopUiElement, WidgetContextRender, UIDisposable {
 
     @Nullable
     private final ShopOffer shopEntity;
 
     protected final WidgetRender render;
-
-    protected final EnumMap<CallbackType, Consumer<?>> callbacks;
+    protected final UIEventScope eventScope = new UIEventScope();
 
     public ShopOfferElement(@Nullable ShopOffer shopEntity) {
-        this(shopEntity, ThemeApi.getDefaultTheme(ThemeApi.Category.Offers).get());
+        this(shopEntity, StyleApi.getDefaultStyle(StyleApi.Category.Offers).get());
     }
 
     public ShopOfferElement(@Nullable ShopOffer shopEntity, WidgetRender render) {
         this.shopEntity = shopEntity;
         this.render = Objects.requireNonNull(render, "render");
-        this.callbacks = new EnumMap<>(CallbackType.class);
-        this.callbacks.put(CallbackType.InvokeBuy, (money_group) -> onBuy((String) money_group));
 
         this.render.constructor(this);
         refresh(false);
@@ -87,6 +86,8 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement, Widg
      * @return этот же виджет для цепочки вызовов
      */
     public ShopOfferElement refresh(boolean relayout) {
+        eventScope.clear();
+        ShopUIUtils.disposeChildren(this);
         clearAllWidgets();
         render.addWidgets(this);
 
@@ -98,8 +99,14 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement, Widg
     }
 
     @Override
-    public Map<CallbackType, Consumer<?>> getCallbacks() {
-        return callbacks;
+    public UIEventScope eventScope() {
+        return eventScope;
+    }
+
+    @Override
+    public void dispose() {
+        eventScope.close();
+        ShopUIUtils.disposeChildren(this);
     }
 
     @Override
@@ -151,6 +158,4 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement, Widg
     public Widget getOwner() {
         return this;
     }
-
-    public void onBuy(String money_group) {}
 }

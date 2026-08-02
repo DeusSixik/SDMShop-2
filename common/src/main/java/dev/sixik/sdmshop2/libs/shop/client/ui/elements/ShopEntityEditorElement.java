@@ -3,10 +3,12 @@ package dev.sixik.sdmshop2.libs.shop.client.ui.elements;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.ThemeApi;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUIUtils;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.StyleApi;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIDisposable;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIEventScope;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ContextMenuWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ModalWidget;
 import lombok.Getter;
 import net.minecraft.client.Minecraft;
@@ -14,13 +16,14 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
 
-public class ShopEntityEditorElement extends ModalWidget implements WidgetContextRender {
+public class ShopEntityEditorElement extends ModalWidget implements WidgetContextRender, UIDisposable {
 
     @Nullable
     @Getter
     private final ShopEntity shopEntity;
 
     protected final WidgetRender render;
+    protected final UIEventScope eventScope = new UIEventScope();
     @Nullable
     protected final Runnable onEdit;
     protected boolean editCallbackInvoked;
@@ -38,7 +41,7 @@ public class ShopEntityEditorElement extends ModalWidget implements WidgetContex
     }
 
     protected ShopEntityEditorElement(Widget owner, @Nullable ShopEntity shopEntity, @Nullable Runnable onEdit) {
-        this(owner, shopEntity, ThemeApi.getDefaultTheme(ThemeApi.Category.Editor).get(), onEdit);
+        this(owner, shopEntity, StyleApi.getDefaultStyle(StyleApi.Category.Editor).get(), onEdit);
     }
 
     protected ShopEntityEditorElement(Widget owner, @Nullable ShopEntity shopEntity, WidgetRender render) {
@@ -69,6 +72,7 @@ public class ShopEntityEditorElement extends ModalWidget implements WidgetContex
     @Override
     public ShopEntityEditorElement close() {
         final boolean shouldInvokeCallback = !editCallbackInvoked && onEdit != null && (getParent() != null || attachedParent != null);
+        dispose();
         super.close();
 
         if (shouldInvokeCallback) {
@@ -77,6 +81,17 @@ public class ShopEntityEditorElement extends ModalWidget implements WidgetContex
         }
 
         return this;
+    }
+
+    @Override
+    public UIEventScope eventScope() {
+        return eventScope;
+    }
+
+    @Override
+    public void dispose() {
+        eventScope.close();
+        ShopUIUtils.disposeChildren(this);
     }
 
     @Override

@@ -1,4 +1,4 @@
-package dev.sixik.sdmshop2.libs.shop.client.ui.theme;
+package dev.sixik.sdmshop2.libs.shop.client.ui.style;
 
 import com.lowdragmc.lowdraglib.gui.editor.ColorPattern;
 import com.lowdragmc.lowdraglib.gui.util.ClickData;
@@ -12,6 +12,7 @@ import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.config.component_selector.ComponentSelectionMenu;
 import dev.sixik.sdmshop2.libs.shop.client.config.constructors.ComponentConfigWidgetConstructor;
 import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUIUtils;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopOfferElement;
@@ -207,6 +208,7 @@ public class DefaultEditMenuRender implements WidgetRender {
         renderedEntity = ctx.getShopEntity();
         renderedContentWidth = Math.max(1, contentWidth);
 
+        ShopUIUtils.disposeChildren(contentWrapper);
         contentWrapper.clearAllWidgets();
         contentWrapper.setSizeWidth(renderedContentWidth);
         contentWrapper.setSelfPosition(0, 0);
@@ -222,6 +224,7 @@ public class DefaultEditMenuRender implements WidgetRender {
         renderedActionEntity = ctx.getShopEntity();
         renderedActionWidth = Math.max(1, actionWidth);
 
+        ShopUIUtils.disposeChildren(actionWrapper);
         actionWrapper.clearAllWidgets();
         actionWrapper.setSizeWidth(renderedActionWidth);
         actionWrapper.setSelfPosition(0, 0);
@@ -302,6 +305,7 @@ public class DefaultEditMenuRender implements WidgetRender {
 
         previewEntity = ctx.getShopEntity();
         previewElement = null;
+        ShopUIUtils.disposeChildren(previewContainer);
         previewContainer.clearAllWidgets();
 
         if (previewEntity instanceof ShopOffer offer) {

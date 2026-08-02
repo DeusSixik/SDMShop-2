@@ -2,13 +2,16 @@ package dev.sixik.sdmshop2.libs.shop.client.ui.api;
 
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
+import dev.sixik.sdmshop2.libs.platform.utils.eventbus.DODEventBus;
+import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventPtr;
+import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventSubscription;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
+import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.ShopScreen;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
 import java.util.Map;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 /**
  * Контекст для тем и отрисовки.
@@ -37,15 +40,31 @@ public interface WidgetContextRender {
      */
     void removeWidget(Widget widget);
 
-    default Map<CallbackType, Consumer<?>> getCallbacks() {
-        return Collections.emptyMap();
+    default UIEventScope eventScope() {
+        return UIEventScope.noop();
     }
 
-    enum CallbackType {
-        /**
-         * Доступен только в {@link ThemeApi.Category#Offers} <br>
-         * Принимает {@link String} {@code groupId} в качестве аргумента
-         */
-        InvokeBuy
+    default <Event> EventSubscription listen(EventPtr<Event> event, DODEventBus.EventListener<Event> listener) {
+        return eventScope().listen(event, listener);
+    }
+
+    default UIEventScope screenEventScope() {
+        Widget owner = getOwner();
+        while (owner != null) {
+            if (owner instanceof ShopScreen screen) {
+                return screen.screenEventScope();
+            }
+            owner = owner.getParent();
+        }
+
+        if (ShopScreen.Instance != null) {
+            return ShopScreen.Instance.screenEventScope();
+        }
+
+        return eventScope();
+    }
+
+    default <Event> EventSubscription listenScreen(EventPtr<Event> event, DODEventBus.EventListener<Event> listener) {
+        return screenEventScope().listen(event, listener);
     }
 }
