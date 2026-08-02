@@ -65,31 +65,20 @@ public class ShopOffersPanel extends ShopDraggableScrollableWidgetGroup implemen
         final ShopOfferElement firstOfferElement = widgets.get(0) instanceof ShopOfferElement offerElement
                 ? offerElement
                 : null;
-
-        final Size minSize = firstOfferElement == null
-                ? new Size(120, DEFAULT_ITEM_HEIGHT)
-                : firstOfferElement.getMinimumLayoutSize();
-        final Size preferredSize = firstOfferElement == null
-                ? new Size(160, 120)
-                : firstOfferElement.getPreferredLayoutSize();
-        final Size maxSize = firstOfferElement == null
-                ? new Size(240, 180)
-                : firstOfferElement.getMaximumLayoutSize();
+        final LayoutConstraints layoutConstraints = resolveLayoutConstraints();
 
         int availableWidth = Math.max(1, getSizeWidth() - SCROLLBAR_WIDTH - PADDING * 2);
-        int minWidth = Math.max(1, minSize.width);
-        int preferredWidth = Math.max(minWidth, preferredSize.width);
-        int maxWidth = maxSize.width <= 0 ? Integer.MAX_VALUE : Math.max(minWidth, maxSize.width);
+        int minWidth = layoutConstraints.minWidth();
+        int preferredWidth = layoutConstraints.preferredWidth();
+        int maxWidth = layoutConstraints.maxWidth();
 
-        int maxColumns = Math.max(1, (availableWidth + SPACING) / (minWidth + SPACING));
-        int preferredColumns = Math.max(1, (availableWidth + SPACING) / (preferredWidth + SPACING));
-        int columns = Math.max(1, Math.min(Math.min(maxColumns, preferredColumns), widgets.size()));
+        int columns = chooseColumns(availableWidth, widgets.size(), minWidth, preferredWidth, maxWidth);
 
         int itemWidth = Math.max(1, (availableWidth - (columns - 1) * SPACING) / columns);
         itemWidth = Math.min(itemWidth, maxWidth);
 
         int itemHeight = firstOfferElement == null
-                ? Math.max(DEFAULT_ITEM_HEIGHT, minSize.height)
+                ? DEFAULT_ITEM_HEIGHT
                 : firstOfferElement.getPreferredLayoutHeight(itemWidth);
         itemHeight = Math.max(1, itemHeight);
 
@@ -127,5 +116,78 @@ public class ShopOffersPanel extends ShopDraggableScrollableWidgetGroup implemen
                 element.alightWidget();
             }
         }
+    }
+
+    private LayoutConstraints resolveLayoutConstraints() {
+        int minWidth = 120;
+        int preferredWidth = 160;
+        int maxWidth = 240;
+        boolean hasOfferElement = false;
+
+        for (var widget : widgets) {
+            if (!(widget instanceof ShopOfferElement offerElement)) {
+                continue;
+            }
+
+            Size minSize = offerElement.getMinimumLayoutSize();
+            Size preferredSize = offerElement.getPreferredLayoutSize();
+            Size maxSize = offerElement.getMaximumLayoutSize();
+
+            int elementMinWidth = Math.max(1, minSize.width);
+            int elementPreferredWidth = Math.max(elementMinWidth, preferredSize.width);
+            int elementMaxWidth = maxSize.width <= 0
+                    ? Integer.MAX_VALUE
+                    : Math.max(elementMinWidth, maxSize.width);
+
+            if (!hasOfferElement) {
+                minWidth = elementMinWidth;
+                preferredWidth = elementPreferredWidth;
+                maxWidth = elementMaxWidth;
+                hasOfferElement = true;
+                continue;
+            }
+
+            minWidth = Math.max(minWidth, elementMinWidth);
+            preferredWidth = Math.max(preferredWidth, elementPreferredWidth);
+            maxWidth = Math.min(maxWidth, elementMaxWidth);
+        }
+
+        preferredWidth = Math.max(minWidth, preferredWidth);
+        maxWidth = maxWidth == Integer.MAX_VALUE ? maxWidth : Math.max(minWidth, maxWidth);
+        return new LayoutConstraints(minWidth, preferredWidth, maxWidth);
+    }
+
+    private int chooseColumns(int availableWidth, int itemCount, int minWidth, int preferredWidth, int maxWidth) {
+        int maxColumns = Math.max(1, Math.min(itemCount, (availableWidth + SPACING) / (minWidth + SPACING)));
+        int bestColumns = 1;
+        int bestScore = Integer.MAX_VALUE;
+
+        for (int columns = 1; columns <= maxColumns; columns++) {
+            int rawWidth = Math.max(1, (availableWidth - (columns - 1) * SPACING) / columns);
+            if (rawWidth < minWidth) {
+                continue;
+            }
+
+            int width = Math.min(rawWidth, maxWidth);
+            int score = Math.abs(width - preferredWidth);
+
+            if (width >= minWidth && width <= maxWidth) {
+                score -= 8;
+            }
+
+            if (columns > 1 && width >= preferredWidth) {
+                score -= columns;
+            }
+
+            if (score < bestScore) {
+                bestScore = score;
+                bestColumns = columns;
+            }
+        }
+
+        return Math.max(1, bestColumns);
+    }
+
+    private record LayoutConstraints(int minWidth, int preferredWidth, int maxWidth) {
     }
 }
