@@ -1,5 +1,6 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.elements;
 
+import com.lowdragmc.lowdraglib.utils.Size;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
@@ -43,6 +44,30 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement, Widg
     @Override
     public void alightWidget() {
         render.alightWidgets(this);
+    }
+
+    public Size getMinimumLayoutSize() {
+        return render.getMinimumSize(this);
+    }
+
+    public Size getPreferredLayoutSize() {
+        return render.getPreferredSize(this);
+    }
+
+    public Size getMaximumLayoutSize() {
+        return render.getMaximumSize(this);
+    }
+
+    public int getPreferredLayoutHeight(int width) {
+        return render.getPreferredHeight(this, width);
+    }
+
+    @Override
+    public void setSize(Size size) {
+        super.setSize(size);
+        if (!getContainedWidgets(true).isEmpty()) {
+            alightWidget();
+        }
     }
 
     /**

@@ -32,6 +32,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -105,12 +106,24 @@ public class ShopUtils {
     @Nullable
     @Environment(EnvType.CLIENT)
     public static TransformTexture getCurrencyTexture(ICurrency currency) {
-        return getCurrencyTexture(currency.getIcon());
+        return getCurrencyTexture(currency.getIcon(), 0);
+    }
+
+    @Nullable
+    @Environment(EnvType.CLIENT)
+    public static TransformTexture getCurrencyTexture(ICurrency currency, double count) {
+        return getCurrencyTexture(currency.getIcon(), count);
     }
 
     @Nullable
     @Environment(EnvType.CLIENT)
     public static TransformTexture getCurrencyTexture(CurrencyIcon icon) {
+        return getCurrencyTexture(icon, 0);
+    }
+
+    @Nullable
+    @Environment(EnvType.CLIENT)
+    public static TransformTexture getCurrencyTexture(CurrencyIcon icon, double count) {
         final Object icon_object = icon.icon();
 
         TransformTexture texture = null;
@@ -121,9 +134,9 @@ public class ShopUtils {
                 if(icon_object instanceof Item item) {
                     texture = new ItemStackTexture(item);
                 } else if(icon_object instanceof ItemStack item) {
-                    texture = new ItemStackTexture(item);
+                    texture = new ItemStackTexture(item.copyWithCount(Math.max(1, (int) count)));
                 } else if(icon_object instanceof Ingredient ingredient) {
-                    texture = new ItemStackTexture(ingredient.getItems());
+                    texture = new ItemStackTexture((ItemStack[]) Arrays.stream(ingredient.getItems()).map(s -> s.copyWithCount(Math.max(1, (int) count))).toArray(ItemStack[]::new));
                 }
             }
             case TEXTURE -> {

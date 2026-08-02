@@ -4,6 +4,7 @@ import com.lowdragmc.lowdraglib.gui.texture.ColorBorderTexture;
 import com.lowdragmc.lowdraglib.gui.texture.GuiTextureGroup;
 import com.lowdragmc.lowdraglib.gui.texture.TransformTexture;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
+import com.lowdragmc.lowdraglib.utils.Size;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ShopBadgeHBoxWidget;
@@ -44,9 +45,14 @@ import java.util.Optional;
 public class DefaultShopOfferElementRender implements WidgetRender {
 
     private static final int DEBUG_SIZE_ELEMENT = 8;
+    private static final int MAX_REWARD_CELL_SIZE = 18;
     private static final int OFFER_ELEMENTS_TABLE_VISIBLE_ROWS = 2;
     private static final int OFFER_ELEMENTS_TABLE_PADDING = 4;
     private static final int OFFER_ELEMENTS_TABLE_TOP_GAP = 4;
+    private static final int CONTENT_PADDING = 4;
+    private static final int MONEY_TYPES_TOP_GAP = 2;
+    private static final int MAX_VISIBLE_MONEY_ROWS = 3;
+    private static final int LIMIT_BAR_HEIGHT = 14;
 
     private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("#.##");
 
@@ -111,8 +117,8 @@ public class DefaultShopOfferElementRender implements WidgetRender {
     public void alightWidgets(WidgetContextRender ctx) {
         final Widget owner = ctx.getOwner();
 
-        int contentPadding = 4;
-        int currentY = 4;
+        int contentPadding = CONTENT_PADDING;
+        int currentY = CONTENT_PADDING;
         int contentWidth = Math.max(1, owner.getSizeWidth() - contentPadding * 2);
 
         if (badgesBox != null) {
@@ -126,8 +132,8 @@ public class DefaultShopOfferElementRender implements WidgetRender {
 
         if (limitBar != null) {
             limitBar.setBarHeight(4);
-            limitBar.setSelfPosition(contentPadding / 2, owner.getSize().height - limitBar.getSizeHeight());
-            limitBar.setSize(owner.getSize().width - contentPadding, 14);
+            limitBar.setSelfPosition(contentPadding / 2, owner.getSize().height - LIMIT_BAR_HEIGHT);
+            limitBar.setSize(owner.getSize().width - contentPadding, LIMIT_BAR_HEIGHT);
         }
 
         if (titleLabel != null) {
@@ -141,17 +147,18 @@ public class DefaultShopOfferElementRender implements WidgetRender {
         if (moneyTypesContainer != null) {
             int moneyTypesVisualWidth = Math.max(1, owner.getSizeWidth() - contentPadding);
             int moneyTypesLogicalWidth = Math.max(1, Math.round(moneyTypesVisualWidth / moneyTypesContainer.getScale()));
-            int moneyTypesY = currentY + 2;
+            int moneyTypesY = currentY + MONEY_TYPES_TOP_GAP;
             int availableBottom = limitBar == null
                     ? owner.getSizeHeight() - contentPadding
                     : limitBar.getSelfPositionY() - contentPadding;
-            int moneyTypesVisualHeight = Math.max(1, availableBottom - moneyTypesY);
+            int maxMoneyTypesVisualHeight = getVisibleMoneyRows() * getMoneyRowHeight();
+            int moneyTypesVisualHeight = Math.max(1, Math.min(maxMoneyTypesVisualHeight, availableBottom - moneyTypesY));
             int moneyTypesLogicalHeight = Math.max(1, Math.round(moneyTypesVisualHeight / moneyTypesContainer.getScale()));
 
             moneyTypesContainer.setSize(moneyTypesLogicalWidth, moneyTypesLogicalHeight);
             moneyTypesContainer.setSelfPosition(contentPadding / 2, moneyTypesY);
             for (HorizontalContainer row : moneyTypeRows) {
-                row.setSize(moneyTypesLogicalWidth, Math.max(1, row.getSizeHeight()));
+                row.setSize(moneyTypesLogicalWidth, Math.max(getMoneyRowHeight(), row.getSizeHeight()));
             }
         }
 
@@ -159,6 +166,69 @@ public class DefaultShopOfferElementRender implements WidgetRender {
             favoriteButton.setSelfPosition(owner.getSizeWidth() - favoriteButton.getSizeWidth() / 2, -favoriteButton.getSizeHeight() / 2);
         }
 
+    }
+
+    @Override
+    public Size getMinimumSize(WidgetContextRender ctx) {
+        return new Size(118, 96);
+    }
+
+    @Override
+    public Size getPreferredSize(WidgetContextRender ctx) {
+        return new Size(160, getPreferredHeight(ctx, 160));
+    }
+
+    @Override
+    public Size getMaximumSize(WidgetContextRender ctx) {
+        return new Size(220, 220);
+    }
+
+    @Override
+    public int getPreferredHeight(WidgetContextRender ctx, int width) {
+        Size min = getMinimumSize(ctx);
+        Size max = getMaximumSize(ctx);
+        int height = calculatePreferredContentHeight(width);
+        return Math.max(min.height, Math.min(height, max.height));
+    }
+
+    private int calculatePreferredContentHeight(int width) {
+        int contentWidth = Math.max(1, width - CONTENT_PADDING * 2);
+        int height = CONTENT_PADDING;
+
+        if (badgesBox != null) {
+            height = Math.max(height, -2 + 14 + OFFER_ELEMENTS_TABLE_TOP_GAP);
+        }
+
+        if (titleLabel != null) {
+            height += Minecraft.getInstance().font.lineHeight + OFFER_ELEMENTS_TABLE_TOP_GAP;
+        }
+
+        if (offerElementsTable != null || offerElement != null) {
+            height += getPreferredRewardBlockHeight(contentWidth);
+        }
+
+        if (moneyTypesContainer != null && !moneyTypeRows.isEmpty()) {
+            height += MONEY_TYPES_TOP_GAP + getVisibleMoneyRows() * getMoneyRowHeight();
+        }
+
+        if (limitBar != null) {
+            height += CONTENT_PADDING + LIMIT_BAR_HEIGHT;
+        }
+
+        return height + CONTENT_PADDING;
+    }
+
+    private int getPreferredRewardBlockHeight(int contentWidth) {
+        int cellSize = Math.max(DEBUG_SIZE_ELEMENT, Math.min(MAX_REWARD_CELL_SIZE, Math.max(1, contentWidth / 4)));
+        return cellSize * OFFER_ELEMENTS_TABLE_VISIBLE_ROWS;
+    }
+
+    private int getVisibleMoneyRows() {
+        return Math.min(MAX_VISIBLE_MONEY_ROWS, Math.max(1, moneyTypeRows.size()));
+    }
+
+    private int getMoneyRowHeight() {
+        return Minecraft.getInstance().font.lineHeight + 7;
     }
 
     private void clearWidgetsState() {
@@ -371,13 +441,18 @@ public class DefaultShopOfferElementRender implements WidgetRender {
         int bottomLimit = limitBar == null
                 ? owner.getSizeHeight() - contentPadding
                 : limitBar.getSelfPositionY() - OFFER_ELEMENTS_TABLE_PADDING;
+        int reservedMoneyHeight = moneyTypesContainer == null
+                ? 0
+                : getVisibleMoneyRows() * getMoneyRowHeight();
+        bottomLimit -= reservedMoneyHeight;
+        int cellSize = Math.max(DEBUG_SIZE_ELEMENT, Math.min(MAX_REWARD_CELL_SIZE, Math.min(tableAvailableWidth / 4, Math.max(1, bottomLimit - currentY))));
         int tableMaxRows = Math.max(1, Math.min(
                 OFFER_ELEMENTS_TABLE_VISIBLE_ROWS,
-                Math.max(1, (bottomLimit - currentY) / Math.max(1, DEBUG_SIZE_ELEMENT))
+                Math.max(1, (bottomLimit - currentY) / Math.max(1, cellSize))
         ));
 
         offerElementsTable
-                .setCellSize(DEBUG_SIZE_ELEMENT, DEBUG_SIZE_ELEMENT)
+                .setCellSize(cellSize, cellSize)
                 .setColumnsToFitWidth(tableAvailableWidth)
                 .setMaxRows(tableMaxRows);
 
@@ -391,9 +466,19 @@ public class DefaultShopOfferElementRender implements WidgetRender {
         if (offerElement == null)
             return currentY;
 
-        final int offer_pos_x = Math.max(0, (owner.getSizeWidth() - offerElement.getSizeWidth()) / 2);
         final int space_y = 2;
         final int titleBottom = titleLabel == null ? currentY : titleLabel.getSelfPositionY() + titleLabel.getSizeHeight();
+        int bottomLimit = limitBar == null
+                ? owner.getSizeHeight() - contentPadding
+                : limitBar.getSelfPositionY() - contentPadding;
+        int reservedMoneyHeight = moneyTypesContainer == null
+                ? 0
+                : getVisibleMoneyRows() * getMoneyRowHeight();
+        int availableIconHeight = Math.max(DEBUG_SIZE_ELEMENT, bottomLimit - titleBottom - space_y - reservedMoneyHeight);
+        int maxSingleRewardSize = MAX_REWARD_CELL_SIZE * OFFER_ELEMENTS_TABLE_VISIBLE_ROWS;
+        int iconSize = Math.max(DEBUG_SIZE_ELEMENT, Math.min(maxSingleRewardSize, Math.min(contentWidth, availableIconHeight)));
+        offerElement.setSize(iconSize, iconSize);
+        final int offer_pos_x = Math.max(0, (owner.getSizeWidth() - offerElement.getSizeWidth()) / 2);
         offerElement.setSelfPosition(offer_pos_x, titleBottom + space_y);
 
         return offerElement.getSelfPositionY() + offerElement.getSizeHeight();

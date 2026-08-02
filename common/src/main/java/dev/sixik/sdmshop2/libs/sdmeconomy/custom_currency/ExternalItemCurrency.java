@@ -38,7 +38,8 @@ public class ExternalItemCurrency implements IExternalCurrency {
     public ExternalItemCurrency(ResourceLocation id, ItemStack itemType) {
         Objects.requireNonNull(id, "Id cannot be null!");
         this.id = id;
-        this.displayName = Component.translatable(id.toString().replace(":", "_"));
+//        this.displayName = Component.translatable(id.toString().replace(":", "_"));
+        this.displayName = Component.empty().append(itemType.getHoverName()).withStyle(itemType.getRarity().color);
         this.itemType = itemType;
         this.currencyIcon = new CurrencyIcon(IconType.ITEM, itemType);
     }

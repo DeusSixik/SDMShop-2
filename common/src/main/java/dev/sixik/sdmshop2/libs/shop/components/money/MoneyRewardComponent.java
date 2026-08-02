@@ -34,6 +34,7 @@ import net.minecraft.world.item.crafting.Ingredient;
 import org.jetbrains.annotations.Nullable;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -91,7 +92,7 @@ public class MoneyRewardComponent extends RewardComponent {
 
         final IExternalCurrency money = cur_map.get(moneyId);
         final ShopEmptyWidget widget = new ShopEmptyWidget();
-        final TransformTexture texture = ShopUtils.getCurrencyTexture(money);
+        final TransformTexture texture = ShopUtils.getCurrencyTexture(money, amount);
 
         if(texture != null) {
             widget.setBackground(texture).setHoverTexture(texture);
