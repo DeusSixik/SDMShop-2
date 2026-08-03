@@ -1,7 +1,7 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.elements;
 
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
-import dev.sixik.sdmshop2.libs.sdmeconomy.IExternalCurrency;
+import dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
@@ -298,12 +298,12 @@ public class ShopPurchaseModalElement extends ModalWidget implements
 
     public int getCostLineColor(CostComponent cost) {
         if (cost instanceof MoneyCostComponent moneyCost) {
-            IExternalCurrency currency = currency(moneyCost.getMoneyId());
+            ICurrency currency = currency(moneyCost.getMoneyId());
             Player player = Minecraft.getInstance().player;
 
             if (currency != null && player != null) {
                 double required = getUnitAmount(cost) * Math.max(0, quantity);
-                if (currency.getBalance(player).doubleValue() < required) {
+                if (SDMEconomyServiceClient.getBalance(currency, player).doubleValue() < required) {
                     return 0xFFFF7777;
                 }
             }
@@ -367,7 +367,7 @@ public class ShopPurchaseModalElement extends ModalWidget implements
 
     public String formatCost(CostComponent cost, double amount) {
         if (cost instanceof MoneyCostComponent moneyCost) {
-            IExternalCurrency currency = currency(moneyCost.getMoneyId());
+            ICurrency currency = currency(moneyCost.getMoneyId());
             if (currency != null) {
                 return currency.format(BigDecimal.valueOf(amount));
             }
@@ -378,11 +378,11 @@ public class ShopPurchaseModalElement extends ModalWidget implements
 
     public String getBalanceText(CostComponent cost) {
         if (cost instanceof MoneyCostComponent moneyCost) {
-            IExternalCurrency currency = currency(moneyCost.getMoneyId());
+            ICurrency currency = currency(moneyCost.getMoneyId());
             Player player = Minecraft.getInstance().player;
 
             if (currency != null && player != null) {
-                return currency.format(currency.getBalance(player));
+                return currency.format(SDMEconomyServiceClient.getBalance(currency, player));
             }
         }
 
@@ -443,14 +443,14 @@ public class ShopPurchaseModalElement extends ModalWidget implements
                     continue;
                 }
 
-                IExternalCurrency currency = currency(moneyCost.getMoneyId());
+                ICurrency currency = currency(moneyCost.getMoneyId());
                 double unit = getUnitAmount(cost);
 
                 if (currency == null || unit <= 0.0D) {
                     continue;
                 }
 
-                int affordable = (int) Math.floor(currency.getBalance(player).doubleValue() / unit);
+                int affordable = (int) Math.floor(SDMEconomyServiceClient.getBalance(currency, player).doubleValue() / unit);
 
                 balanceMax = Math.min(balanceMax, Math.max(0, affordable));
                 max = Math.min(max, Math.max(0, affordable));
@@ -479,8 +479,8 @@ public class ShopPurchaseModalElement extends ModalWidget implements
         return Double.isFinite(value) && value > 0.0D ? value : 0.0D;
     }
 
-    private @Nullable IExternalCurrency currency(ResourceLocation id) {
-        return SDMEconomyServiceClient.getAllCurrencies().get(id);
+    private @Nullable ICurrency currency(ResourceLocation id) {
+        return SDMEconomyServiceClient.getCurrency(id);
     }
 
     public ShopOffer getOffer() {

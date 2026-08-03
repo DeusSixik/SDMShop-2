@@ -18,6 +18,7 @@ import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentCategory;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.NameComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.ShopOffersContainerComponent;
+import dev.sixik.sdmshop2.libs.shop.components.money.MoneyCostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.utils.ShopComponentsUtils;
 import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.client.resources.language.I18n;
@@ -72,7 +73,8 @@ public class DefaultShopOffersPanelRender implements WidgetRender {
                 .filter(view -> selectedCategory == null || isInCategory(view.offer(), selectedCategory))
                 .filter(view -> searchText.isEmpty() || view.searchTitle().contains(searchText))
                 .sorted(Comparator
-                        .comparing(OfferView::sortTitle)
+                        .comparing(OfferView::sortMoneyId)
+                        .thenComparing(OfferView::sortTitle)
                         .thenComparing(view -> view.offer().getUUID()))
                 .map(OfferView::offer)
                 .collect(Collectors.toCollection(ArrayList::new));
@@ -282,12 +284,20 @@ public class DefaultShopOffersPanelRender implements WidgetRender {
     protected record LayoutConstraints(int minWidth, int preferredWidth, int maxWidth) {
     }
 
-    protected record OfferView(ShopOffer offer, String title, String sortTitle, String searchTitle) {
+    protected static String resolveFirstMoneyId(ShopOffer offer) {
+        return offer.getComponents(MoneyCostComponent.class).stream()
+                .findFirst()
+                .map(MoneyCostComponent::getMoneyId)
+                .map(Object::toString)
+                .orElse("￿");
+    }
+
+    protected record OfferView(ShopOffer offer, String title, String sortTitle, String searchTitle, String sortMoneyId) {
 
         protected static OfferView from(ShopOffer offer) {
             String title = resolveTitle(offer);
             String normalized = title.toLowerCase(Locale.ROOT);
-            return new OfferView(offer, title, normalized, normalized);
+            return new OfferView(offer, title, normalized, normalized, resolveFirstMoneyId(offer));
         }
     }
 }

@@ -7,7 +7,7 @@ import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import com.lowdragmc.lowdraglib.gui.widget.layout.Layout;
 import com.lowdragmc.lowdraglib.utils.Size;
-import dev.sixik.sdmshop2.libs.sdmeconomy.IExternalCurrency;
+import dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
 import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopEmptyWidget;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUiElement;
@@ -113,7 +113,7 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
         final Font font = minecraft.font;
         final int textureSize = font.lineHeight + 3;
 
-        for (IExternalCurrency value : SDMEconomyServiceClient.getAllCurrencies().values()) {
+        for (ICurrency value : SDMEconomyServiceClient.getAllCurrencies().values()) {
             int h = font.lineHeight;
 
             final HorizontalContainer hBox = new HorizontalContainer();
@@ -136,7 +136,7 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
             hBox.addWidget(name);
 
             final PriceWidget money_count = new PriceWidget()
-                    .setPriceText(value.format(value.getBalance(minecraft.player)))
+                    .setPriceText(value.format(SDMEconomyServiceClient.getBalance(value, minecraft.player)))
                     .alignRight()
                     .alignBottom()
                     .autoSize();
@@ -159,18 +159,18 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
         }
 
         final Minecraft minecraft = Minecraft.getInstance();
-        final Map<ResourceLocation, IExternalCurrency> currencies = SDMEconomyServiceClient.getAllCurrencies();
+        final Map<ResourceLocation, ICurrency> currencies = SDMEconomyServiceClient.getAllCurrencies();
         if (!currencyPriceWidgets.keySet().equals(currencies.keySet())) {
             return false;
         }
 
-        for (Map.Entry<ResourceLocation, IExternalCurrency> entry : currencies.entrySet()) {
+        for (Map.Entry<ResourceLocation, ICurrency> entry : currencies.entrySet()) {
             PriceWidget widget = currencyPriceWidgets.get(entry.getKey());
             if (widget == null) {
                 return false;
             }
 
-            widget.setPriceText(entry.getValue().format(entry.getValue().getBalance(minecraft.player))).autoSize();
+            widget.setPriceText(entry.getValue().format(SDMEconomyServiceClient.getBalance(entry.getValue(), minecraft.player))).autoSize();
         }
 
         return true;

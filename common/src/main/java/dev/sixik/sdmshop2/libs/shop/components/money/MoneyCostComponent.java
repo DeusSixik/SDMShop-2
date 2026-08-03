@@ -11,6 +11,7 @@ import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentNumberRan
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
 import dev.sixik.sdmshop2.utils.ShopUtils;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import lombok.Getter;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -54,7 +55,7 @@ public class MoneyCostComponent extends CostComponent {
         }
 
         final Map<ResourceLocation, IExternalCurrency> currencies = player.isLocalPlayer() ?
-                SDMEconomyServiceClient.getAllCurrencies()
+                SDMEconomyServiceClient.getAllExternalCurrencies()
                 : SDMEconomyCurrencyRegistry.getCurrenciesMap();
 
         if(currencies.containsKey(moneyId))
@@ -67,7 +68,7 @@ public class MoneyCostComponent extends CostComponent {
                 ? SDMEconomyServiceClient.getInstanceClient().getBankAccount()
                 : SDMEconomyService.getInstance().getAccount(player.getGameProfile().getId());
 
-        return account.getBalance(DYNAMIC_CURRENCY.get().setId(moneyId)).doubleValue() >= actualPrice;
+        return account.getBalance(storedCurrency(moneyId)).doubleValue() >= actualPrice;
     }
 
     @Override
@@ -103,7 +104,7 @@ public class MoneyCostComponent extends CostComponent {
 
         SDMEconomyService.getInstance()
                 .getAccount(player.getGameProfile().getId())
-                .modify(DYNAMIC_CURRENCY.get().setId(moneyId), value.negate());
+                .modify(storedCurrency(moneyId), value.negate());
         return true;
     }
 
@@ -123,7 +124,7 @@ public class MoneyCostComponent extends CostComponent {
 
         SDMEconomyService.getInstance()
                 .getAccount(player.getGameProfile().getId())
-                .modify(DYNAMIC_CURRENCY.get().setId(moneyId), value);
+                .modify(storedCurrency(moneyId), value);
     }
 
     @Override
@@ -139,14 +140,18 @@ public class MoneyCostComponent extends CostComponent {
     @Override
     @Environment(EnvType.CLIENT)
     public TransformTexture getRenderIcon() {
-        final Map<ResourceLocation, IExternalCurrency> cur_map = SDMEconomyCurrencyRegistry.getCurrenciesMap();
-        if(!cur_map.containsKey(moneyId)) {
+        final ICurrency money = SDMEconomyServiceClient.getCurrency(moneyId);
+        if(money == null) {
             SDMShop2.LOGGER.error("Can't find money with id '{}' and can't create render widget", moneyId);
             return null;
         }
 
-        final IExternalCurrency money = cur_map.get(moneyId);
         return ShopUtils.getCurrencyTexture(money);
+    }
+
+    public static IStoredCurrency storedCurrency(ResourceLocation moneyId) {
+        IStoredCurrency storedCurrency = SDMEconomyCurrencyRegistry.getStoredCurrency(moneyId);
+        return storedCurrency == null ? DYNAMIC_CURRENCY.get().setId(moneyId) : storedCurrency;
     }
 
     private static class Type extends SerializedComponentType<MoneyCostComponent> {

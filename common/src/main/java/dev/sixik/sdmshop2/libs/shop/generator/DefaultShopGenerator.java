@@ -37,12 +37,13 @@ public class DefaultShopGenerator {
             throw new IllegalStateException("ShopTable is not initialized");
         }
 
-        if(ShopTable.Instance.getShop(ID) != null) {
-            return;
-        }
-
         try {
             registerUnknownCurrencies();
+
+            if(ShopTable.Instance.getShop(ID) != null) {
+                return;
+            }
+
             ShopTable.Instance.addShop(generate());
         } catch (Exception e) {
             SDMShop2.LOGGER.error("Failed to register default shop", e);

@@ -2,7 +2,7 @@ package dev.sixik.sdmshop2.libs.shop.client.config.constructors;
 
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import dev.sixik.sdmshop2.SDMShop2;
-import dev.sixik.sdmshop2.libs.sdmeconomy.IExternalCurrency;
+import dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
 import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
@@ -76,12 +76,12 @@ public final class ComponentConfigOptionProviders {
 
     private static List<Option> moneyOptions(ShopComponent component, ComponentConfigAccess.CachedField field) {
         List<Option> options = new ArrayList<>();
-        Map<ResourceLocation, IExternalCurrency> currencies = SDMEconomyServiceClient.getAllCurrencies();
+        Map<ResourceLocation, ICurrency> currencies = SDMEconomyServiceClient.getAllCurrencies();
         currencies.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey(Comparator.comparing(ResourceLocation::toString)))
                 .forEach(entry -> {
                     ResourceLocation id = entry.getKey();
-                    IExternalCurrency currency = entry.getValue();
+                    ICurrency currency = entry.getValue();
                     Component label = currency.getDisplayName().copy()
                             .append(Component.literal(" §8(" + id + ")"));
                     options.add(new Option(id, label, ShopUtils.getCurrencyTexture(currency)));

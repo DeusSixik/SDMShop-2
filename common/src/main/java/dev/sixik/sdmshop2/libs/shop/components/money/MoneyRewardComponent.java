@@ -3,9 +3,11 @@ package dev.sixik.sdmshop2.libs.shop.components.money;
 import com.lowdragmc.lowdraglib.gui.texture.TransformTexture;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import dev.sixik.sdmshop2.SDMShop2;
+import dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency;
 import dev.sixik.sdmshop2.libs.sdmeconomy.IExternalCurrency;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyCurrencyRegistry;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyService;
+import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
 import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopEmptyWidget;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
@@ -61,7 +63,7 @@ public class MoneyRewardComponent extends RewardComponent {
 
         SDMEconomyService.getInstance()
                 .getAccount(player.getGameProfile().getId())
-                .modify(MoneyCostComponent.DYNAMIC_CURRENCY.get().setId(moneyId), value);
+                .modify(MoneyCostComponent.storedCurrency(moneyId), value);
     }
 
     @Override
@@ -72,13 +74,12 @@ public class MoneyRewardComponent extends RewardComponent {
     @Override
     @Environment(EnvType.CLIENT)
     public @Nullable Widget createRender() {
-        final Map<ResourceLocation, IExternalCurrency> cur_map = SDMEconomyCurrencyRegistry.getCurrenciesMap();
-        if(!cur_map.containsKey(moneyId)) {
+        final ICurrency money = SDMEconomyServiceClient.getCurrency(moneyId);
+        if(money == null) {
             SDMShop2.LOGGER.error("Can't find money with id '{}' and can't create render widget", moneyId);
             return null;
         }
 
-        final IExternalCurrency money = cur_map.get(moneyId);
         final ShopEmptyWidget widget = new ShopEmptyWidget();
         final TransformTexture texture = ShopUtils.getCurrencyTexture(money, amount);
 

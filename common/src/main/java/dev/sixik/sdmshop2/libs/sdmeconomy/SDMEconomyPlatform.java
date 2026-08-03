@@ -10,6 +10,7 @@ import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepositoryManage
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepositoryManagerRegistry;
 import dev.sixik.sdmshop2.libs.sdmeconomy.config.SDMEconomyDataStorageConfig;
 import dev.sixik.sdmshop2.libs.sdmeconomy.custom_currency.ExternalItemCurrency;
+import dev.sixik.sdmshop2.libs.sdmeconomy.custom_currency.BasicCoinCurrency;
 import dev.sixik.sdmshop2.libs.sdmeconomy.network.SDMEconomyNetwork;
 import dev.sixik.sdmshop2.libs.sdmeconomy.network.packets.SendDynamicCurrencyS2C;
 import dev.sixik.sdmshop2.libs.sdmeconomy.network.packets.SendPlayerAccountS2C;
@@ -119,6 +120,7 @@ public class SDMEconomyPlatform {
 
         SDMEconomyPlatform.loadConfigDir(Platform.getConfigFolder());
 
+        SDMEconomyCurrencyRegistry.registerStoredCurrency(BasicCoinCurrency.CURRENCY);
         SDMEconomyCurrencyRegistry.registerType(ResourceLocation.tryBuild("minecraft", "item"), ExternalItemCurrency.TYPE);
         shutdownHook();
 

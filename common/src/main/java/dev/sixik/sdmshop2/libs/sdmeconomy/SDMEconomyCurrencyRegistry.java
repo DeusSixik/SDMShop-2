@@ -46,6 +46,7 @@ public class SDMEconomyCurrencyRegistry {
     private static final Map<Class<?>, ResourceLocation> TYPE_IDS_BY_CLASS = new ConcurrentHashMap<>();
 
     private static final Map<ResourceLocation, IExternalCurrency> CURRENCIES = new ConcurrentHashMap<>();
+    private static final Map<ResourceLocation, IStoredCurrency> STORED_CURRENCIES = new ConcurrentHashMap<>();
 
     @Nullable
     private static volatile Repository<ResourceLocation, IExternalCurrency> repository;
@@ -58,6 +59,12 @@ public class SDMEconomyCurrencyRegistry {
         TYPE_IDS_BY_CLASS.put(type.getOwnerClass(), id);
     }
 
+    public static <T extends IStoredCurrency> T registerStoredCurrency(T currency) {
+        Objects.requireNonNull(currency, "currency");
+        STORED_CURRENCIES.put(currency.getId(), currency);
+        return currency;
+    }
+
     public static void initRepository(RepositoryManager manager) {
         Objects.requireNonNull(manager, "manager");
         manager.init();
@@ -66,8 +73,8 @@ public class SDMEconomyCurrencyRegistry {
                 SDMEconomyPlatform.getCurrenciesDir(),
                 currenciesCollectionName(),
                 new RepoDefinition<>(
-                        ResourceLocation::toString,
-                        ResourceLocation::new,
+                        SDMEconomyCurrencyRegistry::currencyStorageKey,
+                        SDMEconomyCurrencyRegistry::currencyStorageId,
                         IExternalCurrency::getId,
                         SDMEconomyCurrencyRegistry::serializeStoredCurrency,
                         SDMEconomyCurrencyRegistry::deserializeStoredCurrency
@@ -107,6 +114,7 @@ public class SDMEconomyCurrencyRegistry {
 
             CURRENCIES.put(id, currency);
             SDMEconomyPlatform.broadcastCurrencies();
+            LOGGER.info("Registered new currency with id: '{}'", id);
             return true;
         } catch (Exception e) {
             LOGGER.error("Failed to save currency {}", id, e);
@@ -128,8 +136,34 @@ public class SDMEconomyCurrencyRegistry {
         return CURRENCIES.get(id);
     }
 
+    @Nullable
+    public static IStoredCurrency getStoredCurrency(ResourceLocation id) {
+        return STORED_CURRENCIES.get(id);
+    }
+
+    @Nullable
+    public static ICurrency getAnyCurrency(ResourceLocation id) {
+        IExternalCurrency external = getCurrency(id);
+        if (external != null) {
+            return external;
+        }
+
+        return getStoredCurrency(id);
+    }
+
     public static Map<ResourceLocation, IExternalCurrency> getCurrenciesMap() {
         return new Object2ObjectOpenHashMap<>(CURRENCIES);
+    }
+
+    public static Map<ResourceLocation, IStoredCurrency> getStoredCurrenciesMap() {
+        return new Object2ObjectOpenHashMap<>(STORED_CURRENCIES);
+    }
+
+    public static Map<ResourceLocation, ICurrency> getAllCurrenciesMap() {
+        Object2ObjectOpenHashMap<ResourceLocation, ICurrency> currencies = new Object2ObjectOpenHashMap<>();
+        currencies.putAll(STORED_CURRENCIES);
+        currencies.putAll(CURRENCIES);
+        return currencies;
     }
 
     public static Collection<IExternalCurrency> getCurrencies() {
@@ -191,6 +225,22 @@ public class SDMEconomyCurrencyRegistry {
         }
 
         return SDMEconomyPlatform.getDataStorageConfig().getCurrentConfig().mongodb.currenciesCollection;
+    }
+
+    private static String currencyStorageKey(ResourceLocation id) {
+        if ("sdm".equals(id.getNamespace())) {
+            return id.getPath();
+        }
+
+        return id.toString();
+    }
+
+    private static ResourceLocation currencyStorageId(String id) {
+        if (id.contains(":")) {
+            return ResourceLocation.tryParse(id);
+        }
+
+        return ResourceLocation.tryBuild("sdm", id);
     }
 
     private static Map<ResourceLocation, IExternalCurrency> loadCurrencyFiles(Path configDir, boolean legacyOnly) {
@@ -321,6 +371,10 @@ public class SDMEconomyCurrencyRegistry {
     }
 
     private static Path currencyFile(Path root, ResourceLocation id) {
+        if ("sdm".equals(id.getNamespace())) {
+            return root.resolve(id.getPath() + ".json");
+        }
+
         return root.resolve(id.getNamespace()).resolve(id.getPath() + ".json");
     }
 

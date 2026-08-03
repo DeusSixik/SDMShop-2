@@ -15,6 +15,7 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -142,6 +143,10 @@ public class JsonGenericRepository<K, V> implements Repository<K, V> {
         try (Stream<Path> paths = Files.walk(collectionDirectory)) {
             paths.filter(Files::isRegularFile)
                     .filter(p -> p.toString().endsWith(".json"))
+                    .sorted(Comparator
+                            .comparingInt((Path p) -> collectionDirectory.relativize(p).getNameCount())
+                            .reversed()
+                            .thenComparing(Path::toString))
                     .forEach(path -> {
                         try (Reader reader = Files.newBufferedReader(path)) {
                             JsonObject json = JsonParser.parseReader(reader).getAsJsonObject();
