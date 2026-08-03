@@ -61,6 +61,10 @@ public class DefaultShopOffersPanelRender implements WidgetRender {
         }
 
         final ShopOffersContainerComponent entriesContainer = panel.getShopScreen().getEntriesContainer();
+        if (entriesContainer == null) {
+            return;
+        }
+
         final String searchText = normalizeSearch(panel.getSearchText());
         final CatalogComponent selectedCategory = panel.getSelectedCategory();
         List<ShopOffer> offers = entriesContainer.getEntryMap().values().stream()

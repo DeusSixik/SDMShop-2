@@ -5,7 +5,7 @@ import dev.sixik.sdmshop2.libs.platform.utils.network.async.BlobTransfer;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
-import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopScreenElement;
+import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentRegistry;
 import dev.sixik.sdmshop2.utils.ShopUtils;
@@ -31,6 +31,7 @@ public class AsyncClientTasks {
         AsyncBridge.registerHandler(AsyncServerTasks.SEND_SHOP_DATA, (buf, ctx) -> {
             SDMShopClient.Shop = ShopInstance.fromNetwork(buf);
             ACCEPT_SHOP_EVENT.invoker().onAcceptShopEvent(SDMShopClient.Shop);
+            ShopUIEvents.invokeRefreshAll();
             return null;
         });
 
@@ -44,10 +45,7 @@ public class AsyncClientTasks {
         AsyncBridge.registerHandler(AsyncServerTasks.SEND_SHOP_LIMITER_DATA, (buf, ctx) -> {
             ShopUtils.getLimiterTable(true).ifPresent(limiterTable -> {
                 limiterTable.fromNetwork(buf);
-                ShopScreenElement screen = ShopScreenElement.Instance;
-                if (screen != null && screen.getShopOffersPanel() != null) {
-                    screen.getShopOffersPanel().rebuildOffers();
-                }
+                ShopUIEvents.invokeRefreshOffers();
             });
             return null;
         });
@@ -78,6 +76,7 @@ public class AsyncClientTasks {
             entity.addComponent(component);
             component.init();
             ACCEPT_NEW_COMPONENT_DATA_EVENT.invoker().onAcceptNewComponentDataEvent(shop, entity, component);
+            ShopUIEvents.invokeRefreshOffer(entityId);
 
             return null;
         });

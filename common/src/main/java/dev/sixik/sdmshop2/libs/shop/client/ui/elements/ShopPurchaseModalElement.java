@@ -5,6 +5,7 @@ import dev.sixik.sdmshop2.libs.sdmeconomy.IExternalCurrency;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
+import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUiElement;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUIUtils;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.StyleApi;
@@ -12,10 +13,12 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIDisposable;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIEventScope;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
+import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
 import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopPurchaseModalRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.toast.ShopToasts;
 import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.limiter.LimiterComponent;
+import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.sdmshop2.libs.shop.components.money.MoneyCostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.utils.ShopComponentsUtils;
 import dev.sixik.sdmshop2.libs.shop.network.ShopNetworkManager;
@@ -43,9 +46,9 @@ public class ShopPurchaseModalElement extends ModalWidget implements
     public static final int DEFAULT_HEIGHT = 252;
     public static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("#,##0.##");
 
-    private final ShopOffer offer;
+    private ShopOffer offer;
     private final String moneyGroup;
-    private final List<CostComponent> costs;
+    private List<CostComponent> costs;
     private final WidgetRender render;
     private final UIEventScope eventScope = new UIEventScope();
 
@@ -57,6 +60,7 @@ public class ShopPurchaseModalElement extends ModalWidget implements
     private boolean purchasing;
     private boolean loadingPrice = true;
     private boolean priceLoadFailed;
+    private boolean disposed;
 
     private Component actionStatus = Component.empty();
     private Map<CostComponent, Double> unitPrices = Map.of();
@@ -83,15 +87,86 @@ public class ShopPurchaseModalElement extends ModalWidget implements
         this.offer = Objects.requireNonNull(offer, "offer");
         this.moneyGroup = moneyGroup == null ? "" : moneyGroup;
         this.render = Objects.requireNonNull(render, "render");
-        this.costs = ShopComponentsUtils.getCostComponentsByGroups(offer)
-                .getOrDefault(this.moneyGroup, Collections.emptyList());
+        this.costs = resolveCosts(offer);
 
         recomputeMaxQuantity();
 
         this.render.constructor(this);
+        registerDefaultHandlers();
         refresh(false);
         refreshRenderState();
         loadServerPrice();
+    }
+
+    protected void registerDefaultHandlers() {
+        listen(ShopUIEvents.REFRESH_UI, this::handleRefresh);
+    }
+
+    protected void handleRefresh(ShopUIEvents.RefreshUI event) {
+        if (event.affectsCurrencies()) {
+            recomputeMaxQuantity();
+            refreshRenderState();
+        }
+
+        if (!shouldRefreshOffer(event)) {
+            return;
+        }
+
+        if (!reloadOfferFromShop(true)) {
+            return;
+        }
+
+        actionStatus = Component.empty();
+        loadingPrice = true;
+        priceLoadFailed = false;
+        unitPrices = Map.of();
+        recomputeMaxQuantity();
+        refresh(event.relayout());
+        refreshRenderState();
+        loadServerPrice();
+    }
+
+    protected boolean shouldRefreshOffer(ShopUIEvents.RefreshUI event) {
+        if (!event.affectsOffers()) {
+            return false;
+        }
+
+        if (event.target() == ShopUIEvents.RefreshTarget.OFFER) {
+            return event.affectsOffer(offer.getUUID());
+        }
+
+        if (event.target() == ShopUIEvents.RefreshTarget.CATEGORY) {
+            return event.affectsCategory(getOfferCategory(offer));
+        }
+
+        return true;
+    }
+
+    protected boolean reloadOfferFromShop(boolean closeIfMissing) {
+        ShopOffer currentOffer = SDMShopClient.Shop == null
+                ? null
+                : SDMShopClient.Shop.getEntries().getEntry(offer.getUUID());
+
+        if (currentOffer == null) {
+            if (closeIfMissing) {
+                close();
+                ShopToasts.warning(Component.literal("Товара больше не существует"));
+            }
+            return false;
+        }
+
+        offer = currentOffer;
+        costs = resolveCosts(currentOffer);
+        return true;
+    }
+
+    protected List<CostComponent> resolveCosts(ShopOffer offer) {
+        return ShopComponentsUtils.getCostComponentsByGroups(offer)
+                .getOrDefault(this.moneyGroup, Collections.emptyList());
+    }
+
+    protected @Nullable CatalogComponent getOfferCategory(ShopOffer offer) {
+        return offer.getComponent(CatalogComponent.class).orElse(null);
     }
 
     @Override
@@ -159,6 +234,10 @@ public class ShopPurchaseModalElement extends ModalWidget implements
 
         ShopNetworkManager.purchaseOffer(offer, moneyGroup, quantity).whenComplete((success, throwable) -> {
             Minecraft.getInstance().execute(() -> {
+                if (disposed) {
+                    return;
+                }
+
                 purchasing = false;
 
                 if (throwable != null) {
@@ -313,6 +392,10 @@ public class ShopPurchaseModalElement extends ModalWidget implements
     private void loadServerPrice() {
         ShopNetworkManager.getOfferPrice(offer, moneyGroup).whenComplete((prices, throwable) -> {
             Minecraft.getInstance().execute(() -> {
+                if (disposed) {
+                    return;
+                }
+
                 loadingPrice = false;
                 priceLoadFailed = throwable != null || ((prices == null || prices.isEmpty()) && !costs.isEmpty());
                 if (throwable != null) {
@@ -456,7 +539,19 @@ public class ShopPurchaseModalElement extends ModalWidget implements
     }
 
     @Override
+    public ShopPurchaseModalElement close() {
+        dispose();
+        super.close();
+        return this;
+    }
+
+    @Override
     public void dispose() {
+        if (disposed) {
+            return;
+        }
+
+        disposed = true;
         eventScope.close();
         ShopUIUtils.disposeChildren(getContent());
     }

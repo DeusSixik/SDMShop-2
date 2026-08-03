@@ -106,7 +106,6 @@ public class ShopUtils {
             };
 
             minecraft.setScreen(ModularUIGuiContainer);
-            entityPlayer.containerMenu = ModularUIGuiContainer.getMenu();
         });
     }
 

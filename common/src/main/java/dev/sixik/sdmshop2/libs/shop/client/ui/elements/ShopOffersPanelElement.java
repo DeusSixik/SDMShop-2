@@ -63,6 +63,11 @@ public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup i
         listenScreen(ShopUIEvents.SEARCH_UPDATE, event -> setSearchText(event.text()));
         listenScreen(ShopUIEvents.FAVORITES_CHANGED, event -> refresh(initialized));
         listenScreen(ShopUIEvents.SELECT_CATEGORY, event -> setSelectedCategory(event.selected()));
+        listenScreen(ShopUIEvents.REFRESH_UI, event -> {
+            if (shouldRefreshFor(event)) {
+                refresh(initialized && event.relayout());
+            }
+        });
         listenScreen(ShopUIEvents.SORT_SHOP_OFFERS, event -> {
             if (event.panel() != this) {
                 return;
@@ -133,6 +138,18 @@ public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup i
 
     public boolean isSelectedCategory(@Nullable CatalogComponent category) {
         return sameCategory(selectedCategory, category);
+    }
+
+    protected boolean shouldRefreshFor(ShopUIEvents.RefreshUI event) {
+        if (!event.affectsOffers()) {
+            return false;
+        }
+
+        if (event.target() == ShopUIEvents.RefreshTarget.CATEGORY) {
+            return selectedCategory == null || event.affectsCategory(selectedCategory);
+        }
+
+        return true;
     }
 
     protected static boolean sameCategory(@Nullable CatalogComponent first, @Nullable CatalogComponent second) {

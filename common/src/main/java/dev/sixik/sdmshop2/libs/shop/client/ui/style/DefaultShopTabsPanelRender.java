@@ -25,11 +25,14 @@ import dev.sixik.sdmshop2.utils.ShopUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public class DefaultShopTabsPanelRender implements WidgetRender {
 
@@ -46,6 +49,7 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
     protected TextLabel moneyCategoryTitle;
 
     protected final List<HorizontalContainer> currencyRows = new ArrayList<>();
+    protected final Map<ResourceLocation, PriceWidget> currencyPriceWidgets = new LinkedHashMap<>();
 
     @Override
     public void constructor(WidgetContextRender ctx) {
@@ -103,6 +107,7 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
         currenciesVBox = new VerticalContainer();
         currenciesVBox.setDynamicSized(true);
         currencyRows.clear();
+        currencyPriceWidgets.clear();
 
         final Minecraft minecraft = Minecraft.getInstance();
         final Font font = minecraft.font;
@@ -136,6 +141,7 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
                     .alignBottom()
                     .autoSize();
             hBox.addWidget(money_count);
+            currencyPriceWidgets.put(value.getId(), money_count);
 
             hBox.setSizeHeight(h);
 
@@ -145,6 +151,29 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
 
         currenciesContainer.addWidget(moneyCategoryTitle);
         currenciesContainer.addWidgets(currenciesVBox);
+    }
+
+    public boolean refreshCurrencies() {
+        if (currencyPriceWidgets.isEmpty()) {
+            return false;
+        }
+
+        final Minecraft minecraft = Minecraft.getInstance();
+        final Map<ResourceLocation, IExternalCurrency> currencies = SDMEconomyServiceClient.getAllCurrencies();
+        if (!currencyPriceWidgets.keySet().equals(currencies.keySet())) {
+            return false;
+        }
+
+        for (Map.Entry<ResourceLocation, IExternalCurrency> entry : currencies.entrySet()) {
+            PriceWidget widget = currencyPriceWidgets.get(entry.getKey());
+            if (widget == null) {
+                return false;
+            }
+
+            widget.setPriceText(entry.getValue().format(entry.getValue().getBalance(minecraft.player))).autoSize();
+        }
+
+        return true;
     }
 
     protected static String sortKey(CatalogComponent component) {

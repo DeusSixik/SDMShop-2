@@ -61,8 +61,8 @@ public class ShopScreenElement extends ShopWidgetGroup implements UIDisposable {
     public void initWidget() {
 //        setBackground(new ColorRectAndBorderTexture());
 
-        this.catalogComponents = SDMShopClient.Shop.getCategories().getCatalogsComponents();
-        this.entriesContainer = SDMShopClient.Shop.getEntries();
+        reloadShopData();
+        listenScreen(ShopUIEvents.REFRESH_UI, this::handleRefresh);
 
         alightWidget();
         addWidget(toolPanel = new ShopToolPanelElement(this));
@@ -71,6 +71,58 @@ public class ShopScreenElement extends ShopWidgetGroup implements UIDisposable {
         ShopToasts.attachTo(this);
         listenScreen(ShopUIEvents.BUY_SHOP_ENTITY, event -> ShopPurchaseModalElement.open(this, event.entity(), event.money_group()));
         customInitWidget();
+    }
+
+    protected void handleRefresh(ShopUIEvents.RefreshUI event) {
+        reloadShopData();
+
+        if (!event.affectsCategories() || tabsPanel == null || tabsPanel.getSelectedCategory() == null) {
+            return;
+        }
+
+        if (!hasCategory(tabsPanel.getSelectedCategory())) {
+            ShopUIEvents.invokeSelectCategory(null);
+        }
+    }
+
+    protected void reloadShopData() {
+        if (SDMShopClient.Shop == null) {
+            catalogComponents = new ObjectArrayList<>();
+            entriesContainer = null;
+            return;
+        }
+
+        SDMShopClient.Shop.getCategories().reindex();
+        this.catalogComponents = SDMShopClient.Shop.getCategories().getCatalogsComponents();
+        this.entriesContainer = SDMShopClient.Shop.getEntries();
+    }
+
+    protected boolean hasCategory(CatalogComponent category) {
+        if (category == null || catalogComponents == null) {
+            return false;
+        }
+
+        for (CatalogComponent current : catalogComponents) {
+            if (sameCategory(current, category)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    protected static boolean sameCategory(CatalogComponent first, CatalogComponent second) {
+        if (first == second) {
+            return true;
+        }
+        if (first == null || second == null) {
+            return false;
+        }
+        if (first.getUuid() != null && second.getUuid() != null) {
+            return first.getUuid().equals(second.getUuid());
+        }
+
+        return java.util.Objects.equals(first.getId(), second.getId());
     }
 
     @Override

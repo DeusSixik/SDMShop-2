@@ -59,6 +59,20 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
         }
 
         defaultHandlersRegistered = true;
+        listenScreen(ShopUIEvents.REFRESH_UI, event -> {
+            if (event.affectsCategories()) {
+                refresh(initialized && event.relayout());
+                return;
+            }
+
+            if (event.affectsCurrencies()) {
+                if (render instanceof DefaultShopTabsPanelRender tabsRender && tabsRender.refreshCurrencies()) {
+                    return;
+                }
+
+                refresh(initialized && event.relayout());
+            }
+        });
         listenScreen(ShopUIEvents.SELECT_CATEGORY, event -> {
             if (!setSelectedCategory(event.selected())) {
                 return;
