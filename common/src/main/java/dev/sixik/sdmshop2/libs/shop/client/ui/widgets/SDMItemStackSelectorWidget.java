@@ -1,4 +1,4 @@
-package dev.sixik.sdmshop2.libs.shop.client.screens.widgets;
+package dev.sixik.sdmshop2.libs.shop.client.ui.widgets;
 
 import com.lowdragmc.lowdraglib.gui.texture.ColorBorderTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ResourceBorderTexture;
@@ -11,7 +11,7 @@ import com.lowdragmc.lowdraglib.utils.Size;
 import com.lowdragmc.lowdraglib.misc.ItemStackTransfer;
 import com.lowdragmc.lowdraglib.side.item.IItemTransfer;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
+import dev.sixik.sdmshop2.libs.shop.client.ui.textures.ColorRectAndBorderTexture;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.InputTextBox;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ModalWidget;

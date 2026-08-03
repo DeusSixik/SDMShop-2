@@ -1,4 +1,4 @@
-package dev.sixik.sdmshop2.libs.shop.client.screens.widgets;
+package dev.sixik.sdmshop2.libs.shop.client.ui.widgets;
 
 import com.lowdragmc.lowdraglib.gui.widget.DraggableScrollableWidgetGroup;
 import net.minecraft.client.gui.GuiGraphics;

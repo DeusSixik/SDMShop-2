@@ -1,4 +1,4 @@
-package dev.sixik.sdmshop2.libs.shop.client.textures;
+package dev.sixik.sdmshop2.libs.shop.client.ui.textures;
 
 import com.lowdragmc.lowdraglib.gui.editor.annotation.Configurable;
 import com.lowdragmc.lowdraglib.gui.editor.annotation.LDLRegister;

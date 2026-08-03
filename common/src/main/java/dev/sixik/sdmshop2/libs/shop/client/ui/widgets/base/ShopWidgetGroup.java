@@ -1,8 +1,8 @@
-package dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.base;
+package dev.sixik.sdmshop2.libs.shop.client.ui.widgets.base;
 
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
-import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.ShopUiElement;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUiElement;
 
 import java.util.List;
 

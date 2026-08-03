@@ -1,8 +1,8 @@
-package dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.tabs;
+package dev.sixik.sdmshop2.libs.shop.client.ui.elements;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.ShopUiElement;
-import dev.sixik.sdmshop2.libs.shop.client.textures.PixelBevelTexture;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUiElement;
+import dev.sixik.sdmshop2.libs.shop.client.ui.textures.PixelBevelTexture;
 import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;

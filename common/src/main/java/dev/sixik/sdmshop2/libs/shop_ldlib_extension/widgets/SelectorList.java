@@ -3,7 +3,7 @@ package dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.utils.Position;
 import com.lowdragmc.lowdraglib.utils.Size;
-import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
+import dev.sixik.sdmshop2.libs.shop.client.ui.textures.ColorRectAndBorderTexture;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.LinearContainer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;

@@ -6,7 +6,8 @@ import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import com.lowdragmc.lowdraglib.utils.Position;
 import com.lowdragmc.lowdraglib.utils.Size;
-import dev.sixik.sdmshop2.libs.shop.client.textures.PixelBevelTexture;
+import dev.sixik.sdmshop2.libs.shop.client.ui.textures.PixelBevelTexture;
+import dev.sixik.sdmshop2.libs.shop.client.ui.toast.ShopToasts;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
 import lombok.Getter;
@@ -180,6 +181,7 @@ public class ModalWidget extends WidgetGroup {
         centerPanel();
         blockWidgetsBehind();
         parent.addWidget(this);
+        ShopToasts.bringOverlayToFront();
         setFocus(true);
         return this;
     }

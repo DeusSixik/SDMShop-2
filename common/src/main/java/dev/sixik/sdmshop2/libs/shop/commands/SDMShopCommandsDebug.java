@@ -5,7 +5,6 @@ import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.base.ShopTable;
 import dev.sixik.sdmshop2.libs.shop.client.config.ComponentConfigurationGroup;
-import dev.sixik.sdmshop2.libs.shop.client.screens.ShopScreenManager;
 import dev.sixik.sdmshop2.libs.shop.commands.builder.CommandBuilder;
 import dev.sixik.sdmshop2.libs.shop.components.limiter.LimiterComponent;
 import dev.sixik.sdmshop2.libs.shop.generator.DefaultShopGenerator;

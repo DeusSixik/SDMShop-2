@@ -5,7 +5,7 @@ import dev.sixik.sdmshop2.libs.sdmeconomy.IExternalCurrency;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
-import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.ShopUiElement;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUiElement;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUIUtils;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.StyleApi;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIDisposable;
@@ -13,6 +13,7 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIEventScope;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopPurchaseModalRender;
+import dev.sixik.sdmshop2.libs.shop.client.ui.toast.ShopToasts;
 import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.limiter.LimiterComponent;
 import dev.sixik.sdmshop2.libs.shop.components.money.MoneyCostComponent;
@@ -162,16 +163,19 @@ public class ShopPurchaseModalElement extends ModalWidget implements
 
                 if (throwable != null) {
                     actionStatus = Component.literal("Purchase failed: " + throwable.getMessage());
+                    ShopToasts.error(actionStatus);
                     refreshRenderState();
                     return;
                 }
 
                 if (Boolean.TRUE.equals(success)) {
+                    ShopToasts.success(Component.literal("Purchase complete"));
                     close();
                     return;
                 }
 
                 actionStatus = Component.literal("Purchase failed");
+                ShopToasts.error(actionStatus);
                 refreshRenderState();
             });
         });
@@ -311,6 +315,9 @@ public class ShopPurchaseModalElement extends ModalWidget implements
             Minecraft.getInstance().execute(() -> {
                 loadingPrice = false;
                 priceLoadFailed = throwable != null || ((prices == null || prices.isEmpty()) && !costs.isEmpty());
+                if (throwable != null) {
+                    ShopToasts.warning(Component.literal("Failed to load actual price"));
+                }
 
                 if (!priceLoadFailed && prices != null && !prices.isEmpty()) {
                     unitPrices = prices;
@@ -454,4 +461,3 @@ public class ShopPurchaseModalElement extends ModalWidget implements
         ShopUIUtils.disposeChildren(getContent());
     }
 }
-

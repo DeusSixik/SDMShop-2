@@ -3,9 +3,8 @@ package dev.sixik.sdmshop2.libs.shop.client.ui.elements;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.utils.Size;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
-import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.ShopScreen;
-import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.ShopUiElement;
-import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.base.ShopWidgetGroup;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUiElement;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.base.ShopWidgetGroup;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUIUtils;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.StyleApi;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIDisposable;
@@ -24,16 +23,16 @@ import java.util.Objects;
 public class ShopToolPanelElement extends ShopWidgetGroup implements ShopUiElement, WidgetContextRender, UIDisposable {
 
     @Getter
-    protected final @NotNull ShopScreen screen;
+    protected final @NotNull ShopScreenElement screen;
     protected final WidgetRender render;
     protected final UIEventScope eventScope = new UIEventScope();
 
-    public ShopToolPanelElement(@NotNull ShopScreen screen) {
+    public ShopToolPanelElement(@NotNull ShopScreenElement screen) {
         this(screen, StyleApi.getDefaultStyle(StyleApi.Category.ToolPanel).get());
     }
 
 
-    public ShopToolPanelElement(@NotNull ShopScreen screen, WidgetRender render) {
+    public ShopToolPanelElement(@NotNull ShopScreenElement screen, WidgetRender render) {
         this.screen = screen;
         this.render = Objects.requireNonNull(render, "render");
         this.render.constructor(this);

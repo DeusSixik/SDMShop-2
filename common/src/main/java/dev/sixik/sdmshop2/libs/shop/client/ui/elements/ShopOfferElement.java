@@ -4,7 +4,7 @@ import com.lowdragmc.lowdraglib.utils.Size;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
-import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.ShopUiElement;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUiElement;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUIUtils;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
@@ -15,10 +15,7 @@ import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ContextMe
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.EnumMap;
-import java.util.Map;
 import java.util.Objects;
-import java.util.function.Consumer;
 
 public class ShopOfferElement extends WidgetGroup implements ShopUiElement, WidgetContextRender, UIDisposable {
 

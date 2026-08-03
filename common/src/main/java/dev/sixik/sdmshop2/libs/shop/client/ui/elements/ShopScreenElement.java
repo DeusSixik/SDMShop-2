@@ -1,21 +1,18 @@
-package dev.sixik.sdmshop2.libs.shop.client.screens_2.elements;
+package dev.sixik.sdmshop2.libs.shop.client.ui.elements;
 
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.utils.Size;
 import com.mojang.blaze3d.platform.Window;
 import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
-import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.base.ShopWidgetGroup;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.base.ShopWidgetGroup;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIEventScope;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUIUtils;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIDisposable;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.DODEventBus;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventPtr;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventSubscription;
-import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopOffersPanelElement;
-import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopPurchaseModalElement;
-import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopTabsPanelElement;
-import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopToolPanelElement;
 import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
+import dev.sixik.sdmshop2.libs.shop.client.ui.toast.ShopToasts;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.ShopOffersContainerComponent;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
@@ -27,9 +24,9 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.Map;
 
-public class ShopScreen extends ShopWidgetGroup implements UIDisposable {
+public class ShopScreenElement extends ShopWidgetGroup implements UIDisposable {
 
-    public static ShopScreen Instance;
+    public static ShopScreenElement Instance;
 
     @Getter
     private final Minecraft minecraft;
@@ -54,7 +51,7 @@ public class ShopScreen extends ShopWidgetGroup implements UIDisposable {
     private final UIEventScope screenEventScope = new UIEventScope();
     private final Map<String, State> states = new Object2ObjectOpenHashMap<>();
 
-    public ShopScreen() {
+    public ShopScreenElement() {
         this.minecraft = Minecraft.getInstance();
         this.window = minecraft.getWindow();
         Instance = this;
@@ -71,6 +68,7 @@ public class ShopScreen extends ShopWidgetGroup implements UIDisposable {
         addWidget(toolPanel = new ShopToolPanelElement(this));
         addWidget(tabsPanel = new ShopTabsPanelElement(this));
         addWidget(shopOffersPanel = new ShopOffersPanelElement(this));
+        ShopToasts.attachTo(this);
         listenScreen(ShopUIEvents.BUY_SHOP_ENTITY, event -> ShopPurchaseModalElement.open(this, event.entity(), event.money_group()));
         customInitWidget();
     }
@@ -177,6 +175,7 @@ public class ShopScreen extends ShopWidgetGroup implements UIDisposable {
     public void dispose() {
         screenEventScope.close();
         ShopUIUtils.disposeChildren(this);
+        ShopToasts.clear();
         if (Instance == this) {
             Instance = null;
         }

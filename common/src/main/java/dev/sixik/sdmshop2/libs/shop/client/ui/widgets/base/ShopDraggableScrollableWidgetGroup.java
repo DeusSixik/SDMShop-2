@@ -1,8 +1,8 @@
-package dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.base;
+package dev.sixik.sdmshop2.libs.shop.client.ui.widgets.base;
 
 import com.lowdragmc.lowdraglib.gui.widget.DraggableScrollableWidgetGroup;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
-import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.ShopUiElement;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUiElement;
 
 public class ShopDraggableScrollableWidgetGroup extends DraggableScrollableWidgetGroup implements ShopUiElement {
 

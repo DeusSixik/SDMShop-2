@@ -4,9 +4,8 @@ import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.utils.Size;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
-import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.ShopScreen;
-import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.ShopUiElement;
-import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.base.ShopDraggableScrollableWidgetGroup;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUiElement;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.base.ShopDraggableScrollableWidgetGroup;
 import dev.sixik.sdmshop2.libs.shop.client.cache.ShopClientCache;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUIUtils;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.StyleApi;
@@ -30,7 +29,7 @@ public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup i
         ShopUiElement, WidgetContextRender, UIDisposable {
 
     @Getter
-    protected final @NotNull ShopScreen shopScreen;
+    protected final @NotNull ShopScreenElement shopScreen;
     protected final WidgetRender render;
     protected final UIEventScope eventScope = new UIEventScope();
     protected boolean defaultHandlersRegistered;
@@ -39,11 +38,11 @@ public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup i
     @Getter
     protected @Nullable CatalogComponent selectedCategory;
 
-    public ShopOffersPanelElement(@NotNull ShopScreen shopScreen) {
+    public ShopOffersPanelElement(@NotNull ShopScreenElement shopScreen) {
         this(shopScreen, StyleApi.getDefaultStyle(StyleApi.Category.OffersPanel).get());
     }
 
-    public ShopOffersPanelElement(@NotNull ShopScreen shopScreen, WidgetRender render) {
+    public ShopOffersPanelElement(@NotNull ShopScreenElement shopScreen, WidgetRender render) {
         this.shopScreen = shopScreen;
         this.render = Objects.requireNonNull(render, "render");
 

@@ -6,12 +6,8 @@ import dev.sixik.sdmshop2.libs.platform.utils.eventbus.DODEventBus;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventPtr;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventSubscription;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
-import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.ShopScreen;
+import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopScreenElement;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.Collections;
-import java.util.Map;
-import java.util.function.Consumer;
 
 /**
  * Контекст для тем и отрисовки.
@@ -51,14 +47,14 @@ public interface WidgetContextRender {
     default UIEventScope screenEventScope() {
         Widget owner = getOwner();
         while (owner != null) {
-            if (owner instanceof ShopScreen screen) {
+            if (owner instanceof ShopScreenElement screen) {
                 return screen.screenEventScope();
             }
             owner = owner.getParent();
         }
 
-        if (ShopScreen.Instance != null) {
-            return ShopScreen.Instance.screenEventScope();
+        if (ShopScreenElement.Instance != null) {
+            return ShopScreenElement.Instance.screenEventScope();
         }
 
         return eventScope();

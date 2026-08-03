@@ -1,8 +1,7 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.style;
 
 import com.lowdragmc.lowdraglib.utils.Size;
-import dev.sixik.sdmshop2.libs.shop.client.textures.PixelBevelTexture;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUIUtils;
+import dev.sixik.sdmshop2.libs.shop.client.ui.textures.PixelBevelTexture;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;

@@ -3,10 +3,8 @@ package dev.sixik.sdmshop2.libs.shop.client.ui.elements;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.utils.Size;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
-import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.ShopScreen;
-import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.ShopUiElement;
-import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.base.ShopDraggableScrollableWidgetGroup;
-import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.base.ShopWidgetGroup;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUiElement;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.base.ShopWidgetGroup;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUIUtils;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.StyleApi;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIDisposable;
@@ -34,7 +32,7 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
     public int widgetSpace = 4;
 
     @Getter
-    protected final @NotNull ShopScreen shopScreen;
+    protected final @NotNull ShopScreenElement shopScreen;
 
     protected final WidgetRender render;
     protected final UIEventScope eventScope = new UIEventScope();
@@ -42,11 +40,11 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
     @Getter
     protected @Nullable CatalogComponent selectedCategory;
 
-    public ShopTabsPanelElement(@NotNull ShopScreen screen) {
+    public ShopTabsPanelElement(@NotNull ShopScreenElement screen) {
         this(screen, StyleApi.getDefaultStyle(StyleApi.Category.TabsPanel).get());
     }
 
-    public ShopTabsPanelElement(@NotNull ShopScreen screen, WidgetRender render) {
+    public ShopTabsPanelElement(@NotNull ShopScreenElement screen, WidgetRender render) {
         this.shopScreen = screen;
         this.render = Objects.requireNonNull(render, "render");
 
