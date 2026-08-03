@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import org.jetbrains.annotations.Nullable;
 
@@ -73,6 +74,10 @@ public abstract class CostComponent extends ShopComponent {
     @Environment(EnvType.CLIENT)
     @Nullable
     public abstract TransformTexture getRenderIcon();
+
+    public Component getDisplayName() {
+        return Component.empty();
+    }
 
     @Override
     public ShopComponentCategory getCategory() {

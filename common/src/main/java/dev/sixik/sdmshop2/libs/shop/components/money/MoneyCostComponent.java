@@ -15,6 +15,7 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import lombok.Getter;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -147,6 +148,15 @@ public class MoneyCostComponent extends CostComponent {
         }
 
         return ShopUtils.getCurrencyTexture(money);
+    }
+
+    @Override
+    public Component getDisplayName() {
+        final ICurrency money = SDMEconomyServiceClient.getCurrency(moneyId);
+        if(money == null)
+            return Component.empty();
+
+        return money.getDisplayName();
     }
 
     public static IStoredCurrency storedCurrency(ResourceLocation moneyId) {

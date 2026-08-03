@@ -387,6 +387,7 @@ public class DefaultShopPurchaseModalRender implements WidgetRender {
         ShopEmptyWidget icon = new ShopEmptyWidget();
         icon.setBackground(texture);
         icon.setHoverTexture(new ColorBorderTexture(1, 0xFFFFFFFF));
+        icon.setHoverTooltips(cost.getDisplayName());
 
         return icon;
     }
