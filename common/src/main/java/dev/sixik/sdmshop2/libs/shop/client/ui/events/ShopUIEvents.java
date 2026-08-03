@@ -7,6 +7,7 @@ import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopOffersPanelElement;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -19,6 +20,8 @@ public final class ShopUIEvents {
 
     private static final EventPtrInvoker<OnSearchUpdate> SEARCH_UPDATE_INVOKER =
             new EventPtrInvoker<>(new DODEventBus.EventType<>("UI.SEARCH_UPDATE"));
+    private static final EventPtrInvoker<CurrencyFilterUpdate> CURRENCY_FILTER_UPDATE_INVOKER =
+            new EventPtrInvoker<>(new DODEventBus.EventType<>("UI.CURRENCY_FILTER_UPDATE"));
     private static final EventPtrInvoker<FavoritesChanged> FAVORITES_CHANGED_INVOKER =
             new EventPtrInvoker<>(new DODEventBus.EventType<>("UI.FAVORITES_CHANGED"));
     private static final EventPtrInvoker<OnBuyShopEntity> BUY_SHOP_ENTITY_INVOKER =
@@ -31,6 +34,7 @@ public final class ShopUIEvents {
             new EventPtrInvoker<>(new DODEventBus.EventType<>("UI.REFRESH"));
 
     public static final EventPtr<OnSearchUpdate> SEARCH_UPDATE = SEARCH_UPDATE_INVOKER;
+    public static final EventPtr<CurrencyFilterUpdate> CURRENCY_FILTER_UPDATE = CURRENCY_FILTER_UPDATE_INVOKER;
     public static final EventPtr<FavoritesChanged> FAVORITES_CHANGED = FAVORITES_CHANGED_INVOKER;
     public static final EventPtr<OnBuyShopEntity> BUY_SHOP_ENTITY = BUY_SHOP_ENTITY_INVOKER;
     public static final EventPtr<SortShopOffers> SORT_SHOP_OFFERS = SORT_SHOP_OFFERS_INVOKER;
@@ -39,6 +43,10 @@ public final class ShopUIEvents {
 
     public static void invokeSearchUpdate(String text) {
         SEARCH_UPDATE_INVOKER.invoke(new OnSearchUpdate(text));
+    }
+
+    public static void invokeCurrencyFilterUpdate(Set<ResourceLocation> currencies) {
+        CURRENCY_FILTER_UPDATE_INVOKER.invoke(new CurrencyFilterUpdate(currencies == null ? Set.of() : Set.copyOf(currencies)));
     }
 
     public static void invokeFavoritesChanged(UUID offerId, boolean favorite, Set<UUID> favorites) {
@@ -110,6 +118,8 @@ public final class ShopUIEvents {
     }
 
     public record OnSearchUpdate(String text) { }
+
+    public record CurrencyFilterUpdate(Set<ResourceLocation> currencies) { }
 
     public record FavoritesChanged(UUID offerId, boolean favorite, Set<UUID> favorites) { }
 

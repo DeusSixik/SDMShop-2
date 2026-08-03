@@ -1,4 +1,6 @@
 {
+  "sdm_coin" : "Coin",
+
   "shop.component.cost.group_id": "Group ID",
   "shop.component.promo.conditions.promo_id": "Promo ID",
   "shop.component.promo.effects.target_promo_id": "Target Promo ID",

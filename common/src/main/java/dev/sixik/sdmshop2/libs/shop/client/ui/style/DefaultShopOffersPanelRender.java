@@ -20,15 +20,19 @@ import dev.sixik.sdmshop2.libs.shop.components.misc.NameComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.ShopOffersContainerComponent;
 import dev.sixik.sdmshop2.libs.shop.components.money.MoneyCostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.utils.ShopComponentsUtils;
+import dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency;
+import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
 import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class DefaultShopOffersPanelRender implements WidgetRender {
@@ -67,10 +71,12 @@ public class DefaultShopOffersPanelRender implements WidgetRender {
         }
 
         final String searchText = normalizeSearch(panel.getSearchText());
+        final Set<ResourceLocation> selectedCurrencies = panel.getSelectedCurrencyFilters();
         final CatalogComponent selectedCategory = panel.getSelectedCategory();
         List<ShopOffer> offers = entriesContainer.getEntryMap().values().stream()
                 .map(OfferView::from)
                 .filter(view -> selectedCategory == null || isInCategory(view.offer(), selectedCategory))
+                .filter(view -> selectedCurrencies.isEmpty() || view.hasAnyCurrency(selectedCurrencies))
                 .filter(view -> searchText.isEmpty() || view.searchTitle().contains(searchText))
                 .sorted(Comparator
                         .comparing(OfferView::sortMoneyId)
@@ -289,15 +295,61 @@ public class DefaultShopOffersPanelRender implements WidgetRender {
                 .findFirst()
                 .map(MoneyCostComponent::getMoneyId)
                 .map(Object::toString)
-                .orElse("￿");
+                .orElse("~~~~");
     }
 
-    protected record OfferView(ShopOffer offer, String title, String sortTitle, String searchTitle, String sortMoneyId) {
+    protected static String resolveCurrencySearchText(ShopOffer offer) {
+        return offer.getComponents(MoneyCostComponent.class).stream()
+                .map(MoneyCostComponent::getMoneyId)
+                .distinct()
+                .map(DefaultShopOffersPanelRender::resolveCurrencySearchText)
+                .filter(text -> !text.isBlank())
+                .collect(Collectors.joining(" "));
+    }
+
+    protected static String resolveCurrencySearchText(ResourceLocation moneyId) {
+        StringBuilder search = new StringBuilder(moneyId.toString());
+        ICurrency currency = SDMEconomyServiceClient.getCurrency(moneyId);
+        if (currency != null && currency.getDisplayName() != null) {
+            String displayName = currency.getDisplayName().getString();
+            if (!displayName.isBlank()) {
+                search.append(' ').append(displayName);
+            }
+        }
+
+        return search.toString().toLowerCase(Locale.ROOT);
+    }
+
+    protected record OfferView(
+            ShopOffer offer,
+            String title,
+            String sortTitle,
+            String searchTitle,
+            String sortMoneyId,
+            Set<ResourceLocation> moneyIds
+    ) {
 
         protected static OfferView from(ShopOffer offer) {
             String title = resolveTitle(offer);
             String normalized = title.toLowerCase(Locale.ROOT);
-            return new OfferView(offer, title, normalized, normalized, resolveFirstMoneyId(offer));
+            Set<ResourceLocation> moneyIds = offer.getComponents(MoneyCostComponent.class).stream()
+                    .map(MoneyCostComponent::getMoneyId)
+                    .collect(Collectors.toUnmodifiableSet());
+            String currencySearchText = resolveCurrencySearchText(offer);
+            String searchTitle = currencySearchText.isBlank()
+                    ? normalized
+                    : normalized + " " + currencySearchText;
+            return new OfferView(offer, title, normalized, searchTitle, resolveFirstMoneyId(offer), moneyIds);
+        }
+
+        protected boolean hasAnyCurrency(Set<ResourceLocation> currencies) {
+            for (ResourceLocation moneyId : moneyIds) {
+                if (currencies.contains(moneyId)) {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

@@ -19,11 +19,13 @@ import dev.sixik.sdmshop2.libs.platform.utils.eventbus.DODEventBus;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventPtr;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventSubscription;
 import lombok.Getter;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup implements
         ShopUiElement, WidgetContextRender, UIDisposable {
@@ -35,6 +37,8 @@ public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup i
     protected boolean defaultHandlersRegistered;
     @Getter
     protected String searchText = "";
+    @Getter
+    protected Set<ResourceLocation> selectedCurrencyFilters = Set.of();
     @Getter
     protected @Nullable CatalogComponent selectedCategory;
 
@@ -61,6 +65,7 @@ public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup i
 
         defaultHandlersRegistered = true;
         listenScreen(ShopUIEvents.SEARCH_UPDATE, event -> setSearchText(event.text()));
+        listenScreen(ShopUIEvents.CURRENCY_FILTER_UPDATE, event -> setSelectedCurrencyFilters(event.currencies()));
         listenScreen(ShopUIEvents.FAVORITES_CHANGED, event -> refresh(initialized));
         listenScreen(ShopUIEvents.SELECT_CATEGORY, event -> setSelectedCategory(event.selected()));
         listenScreen(ShopUIEvents.REFRESH_UI, event -> {
@@ -133,6 +138,18 @@ public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup i
         }
 
         this.selectedCategory = selectedCategory;
+        refresh(initialized);
+    }
+
+    public void setSelectedCurrencyFilters(Set<ResourceLocation> selectedCurrencyFilters) {
+        Set<ResourceLocation> safeFilters = selectedCurrencyFilters == null || selectedCurrencyFilters.isEmpty()
+                ? Set.of()
+                : Set.copyOf(selectedCurrencyFilters);
+        if (this.selectedCurrencyFilters.equals(safeFilters)) {
+            return;
+        }
+
+        this.selectedCurrencyFilters = safeFilters;
         refresh(initialized);
     }
 
