@@ -13,6 +13,9 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIDisposable;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIEventScope;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
+import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
+import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopTabsPanelRender;
+import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.DODEventBus;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventPtr;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventSubscription;
@@ -35,6 +38,9 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
 
     protected final WidgetRender render;
     protected final UIEventScope eventScope = new UIEventScope();
+    protected boolean defaultHandlersRegistered;
+    @Getter
+    protected @Nullable CatalogComponent selectedCategory;
 
     public ShopTabsPanelElement(@NotNull ShopScreen screen) {
         this(screen, StyleApi.getDefaultStyle(StyleApi.Category.TabsPanel).get());
@@ -45,7 +51,54 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
         this.render = Objects.requireNonNull(render, "render");
 
         this.render.constructor(this);
+        registerDefaultHandlers();
         refresh(false);
+    }
+
+    protected void registerDefaultHandlers() {
+        if (defaultHandlersRegistered) {
+            return;
+        }
+
+        defaultHandlersRegistered = true;
+        listenScreen(ShopUIEvents.SELECT_CATEGORY, event -> {
+            if (!setSelectedCategory(event.selected())) {
+                return;
+            }
+
+            if (render instanceof DefaultShopTabsPanelRender tabsRender) {
+                tabsRender.updateSelectedTabs(this);
+            } else {
+                refresh(initialized);
+            }
+        });
+    }
+
+    public boolean setSelectedCategory(@Nullable CatalogComponent selectedCategory) {
+        if (sameCategory(this.selectedCategory, selectedCategory)) {
+            return false;
+        }
+
+        this.selectedCategory = selectedCategory;
+        return true;
+    }
+
+    public boolean isSelectedCategory(@Nullable CatalogComponent category) {
+        return sameCategory(selectedCategory, category);
+    }
+
+    protected static boolean sameCategory(@Nullable CatalogComponent first, @Nullable CatalogComponent second) {
+        if (first == second) {
+            return true;
+        }
+        if (first == null || second == null) {
+            return false;
+        }
+        if (first.getUuid() != null && second.getUuid() != null) {
+            return first.getUuid().equals(second.getUuid());
+        }
+
+        return Objects.equals(first.getId(), second.getId());
     }
 
     @Override

@@ -9,7 +9,7 @@ import com.lowdragmc.lowdraglib.gui.widget.layout.Layout;
 import com.lowdragmc.lowdraglib.utils.Size;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
-import dev.sixik.sdmshop2.libs.shop.client.config.component_selector.ComponentSelectionMenu;
+import dev.sixik.sdmshop2.libs.shop.client.config.component_selector.ModalComponentSelectionMenu;
 import dev.sixik.sdmshop2.libs.shop.client.config.constructors.ComponentConfigWidgetConstructor;
 import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUIUtils;
@@ -275,7 +275,7 @@ public class DefaultEditMenuRender implements WidgetRender {
             return;
         }
 
-        ComponentSelectionMenu.showComponentSelector(parent, component -> addComponent(ctx, component));
+        ModalComponentSelectionMenu.showComponentSelector(parent, component -> addComponent(ctx, component));
     }
 
     protected void addComponent(WidgetContextRender ctx, ShopComponent component) {

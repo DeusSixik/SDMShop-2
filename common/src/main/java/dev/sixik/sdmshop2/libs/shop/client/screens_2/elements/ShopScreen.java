@@ -5,7 +5,6 @@ import com.lowdragmc.lowdraglib.utils.Size;
 import com.mojang.blaze3d.platform.Window;
 import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
 import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.base.ShopWidgetGroup;
-import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIEventScope;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUIUtils;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIDisposable;
@@ -13,8 +12,10 @@ import dev.sixik.sdmshop2.libs.platform.utils.eventbus.DODEventBus;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventPtr;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventSubscription;
 import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopOffersPanelElement;
+import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopPurchaseModalElement;
 import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopTabsPanelElement;
 import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopToolPanelElement;
+import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.ShopOffersContainerComponent;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
@@ -61,7 +62,7 @@ public class ShopScreen extends ShopWidgetGroup implements UIDisposable {
 
     @Override
     public void initWidget() {
-        setBackground(new ColorRectAndBorderTexture());
+//        setBackground(new ColorRectAndBorderTexture());
 
         this.catalogComponents = SDMShopClient.Shop.getCategories().getCatalogsComponents();
         this.entriesContainer = SDMShopClient.Shop.getEntries();
@@ -70,6 +71,7 @@ public class ShopScreen extends ShopWidgetGroup implements UIDisposable {
         addWidget(toolPanel = new ShopToolPanelElement(this));
         addWidget(tabsPanel = new ShopTabsPanelElement(this));
         addWidget(shopOffersPanel = new ShopOffersPanelElement(this));
+        listenScreen(ShopUIEvents.BUY_SHOP_ENTITY, event -> ShopPurchaseModalElement.open(this, event.entity(), event.money_group()));
         customInitWidget();
     }
 

@@ -80,6 +80,11 @@ public class ShopNetworkManager {
      * Запросить серверные условия для списка товаров (батч)
      */
     @Environment(EnvType.CLIENT)
+    public static CompletableFuture<Boolean> purchaseOffer(ShopOffer shopOffer, @Nullable String chosenGroupId, int amount) {
+        return ShopNetworkManagerNative.purchaseOffer(shopOffer, chosenGroupId, amount);
+    }
+
+    @Environment(EnvType.CLIENT)
     public static CompletableFuture<Map<UUID, Map<ConditionComponent, Boolean>>> fetchServerConditions(Collection<ShopOffer> shopOffers) {
         return ShopNetworkManagerNative.fetchServerConditions(shopOffers);
     }

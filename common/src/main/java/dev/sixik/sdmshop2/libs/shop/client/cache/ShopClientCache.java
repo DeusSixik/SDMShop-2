@@ -16,6 +16,7 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
 import java.nio.file.Path;
@@ -90,6 +91,43 @@ public final class ShopClientCache {
         }
 
         toggleFavorite(offerId);
+    }
+
+    public static Set<ResourceLocation> getFavoriteComponents() {
+        return new LinkedHashSet<>(get().get(ClientCacheKeys.COMPONENT_FAVORITES, ClientCacheCodecs.COMPONENT_FAVORITES, List.of()));
+    }
+
+    public static boolean isFavoriteComponent(ResourceLocation componentId) {
+        return componentId != null && getFavoriteComponents().contains(componentId);
+    }
+
+    public static boolean toggleFavoriteComponent(ResourceLocation componentId) {
+        if (componentId == null) {
+            return false;
+        }
+
+        List<ResourceLocation> current = new ArrayList<>(get().get(ClientCacheKeys.COMPONENT_FAVORITES, ClientCacheCodecs.COMPONENT_FAVORITES, List.of()));
+        boolean removed = false;
+        while (current.remove(componentId)) {
+            removed = true;
+        }
+
+        boolean favorite = !removed;
+        if (favorite) {
+            current.add(componentId);
+        }
+
+        get().set(ClientCacheKeys.COMPONENT_FAVORITES, ClientCacheCodecs.COMPONENT_FAVORITES, current);
+        get().saveAsync();
+        return favorite;
+    }
+
+    public static void setFavoriteComponent(ResourceLocation componentId, boolean favorite) {
+        if (componentId == null || isFavoriteComponent(componentId) == favorite) {
+            return;
+        }
+
+        toggleFavoriteComponent(componentId);
     }
 
     public static List<EditorHistoryEntry> getEditorHistory() {

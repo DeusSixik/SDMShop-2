@@ -15,6 +15,7 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopOffersPanelElement;
 import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentCategory;
+import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.NameComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.ShopOffersContainerComponent;
 import dev.sixik.sdmshop2.libs.shop.components.money.MoneyCostComponent;
@@ -62,8 +63,10 @@ public class DefaultShopOffersPanelRender implements WidgetRender {
 
         final ShopOffersContainerComponent entriesContainer = panel.getShopScreen().getEntriesContainer();
         final String searchText = normalizeSearch(panel.getSearchText());
+        final CatalogComponent selectedCategory = panel.getSelectedCategory();
         List<ShopOffer> offers = entriesContainer.getEntryMap().values().stream()
                 .map(OfferView::from)
+                .filter(view -> selectedCategory == null || isInCategory(view.offer(), selectedCategory))
                 .filter(view -> searchText.isEmpty() || view.searchTitle().contains(searchText))
                 .sorted(Comparator
                         .comparing(OfferView::sortTitle)
@@ -104,6 +107,26 @@ public class DefaultShopOffersPanelRender implements WidgetRender {
 
     protected static String resolveDisplayText(String value) {
         return I18n.exists(value) ? Component.translatable(value).getString() : value;
+    }
+
+    protected static boolean isInCategory(ShopOffer offer, CatalogComponent selectedCategory) {
+        return offer.getComponent(CatalogComponent.class)
+                .map(category -> sameCategory(category, selectedCategory))
+                .orElse(false);
+    }
+
+    protected static boolean sameCategory(CatalogComponent first, CatalogComponent second) {
+        if (first == second) {
+            return true;
+        }
+        if (first == null || second == null) {
+            return false;
+        }
+        if (first.getUuid() != null && second.getUuid() != null) {
+            return first.getUuid().equals(second.getUuid());
+        }
+
+        return java.util.Objects.equals(first.getId(), second.getId());
     }
 
     @Override

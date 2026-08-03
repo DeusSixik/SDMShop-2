@@ -15,6 +15,7 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIEventScope;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
+import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.DODEventBus;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventPtr;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventSubscription;
@@ -35,6 +36,8 @@ public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup i
     protected boolean defaultHandlersRegistered;
     @Getter
     protected String searchText = "";
+    @Getter
+    protected @Nullable CatalogComponent selectedCategory;
 
     public ShopOffersPanelElement(@NotNull ShopScreen shopScreen) {
         this(shopScreen, StyleApi.getDefaultStyle(StyleApi.Category.OffersPanel).get());
@@ -45,6 +48,9 @@ public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup i
         this.render = Objects.requireNonNull(render, "render");
 
         this.render.constructor(this);
+        if (shopScreen.getTabsPanel() != null) {
+            this.selectedCategory = shopScreen.getTabsPanel().getSelectedCategory();
+        }
         registerDefaultHandlers();
         refresh(false);
     }
@@ -57,6 +63,7 @@ public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup i
         defaultHandlersRegistered = true;
         listenScreen(ShopUIEvents.SEARCH_UPDATE, event -> setSearchText(event.text()));
         listenScreen(ShopUIEvents.FAVORITES_CHANGED, event -> refresh(initialized));
+        listenScreen(ShopUIEvents.SELECT_CATEGORY, event -> setSelectedCategory(event.selected()));
         listenScreen(ShopUIEvents.SORT_SHOP_OFFERS, event -> {
             if (event.panel() != this) {
                 return;
@@ -114,6 +121,33 @@ public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup i
 
         this.searchText = safeSearchText;
         refresh(initialized);
+    }
+
+    public void setSelectedCategory(@Nullable CatalogComponent selectedCategory) {
+        if (sameCategory(this.selectedCategory, selectedCategory)) {
+            return;
+        }
+
+        this.selectedCategory = selectedCategory;
+        refresh(initialized);
+    }
+
+    public boolean isSelectedCategory(@Nullable CatalogComponent category) {
+        return sameCategory(selectedCategory, category);
+    }
+
+    protected static boolean sameCategory(@Nullable CatalogComponent first, @Nullable CatalogComponent second) {
+        if (first == second) {
+            return true;
+        }
+        if (first == null || second == null) {
+            return false;
+        }
+        if (first.getUuid() != null && second.getUuid() != null) {
+            return first.getUuid().equals(second.getUuid());
+        }
+
+        return Objects.equals(first.getId(), second.getId());
     }
 
     public List<ShopOffer> applyCustomSort(List<ShopOffer> offers) {

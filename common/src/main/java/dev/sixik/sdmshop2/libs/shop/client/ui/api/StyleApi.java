@@ -4,6 +4,7 @@ import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultEditMenuRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopOfferElementRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopOffersPanelRender;
+import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopPurchaseModalRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopTabsPanelRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopToolPanelElementRender;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
@@ -24,6 +25,7 @@ public final class StyleApi {
         OffersPanel,
         ToolPanel,
         TabsPanel,
+        PurchaseModal,
         Editor
     }
 
@@ -48,5 +50,6 @@ public final class StyleApi {
         registerStyle(Category.Editor, DEFAULT, DefaultEditMenuRender::new);
         registerStyle(Category.ToolPanel, DEFAULT, DefaultShopToolPanelElementRender::new);
         registerStyle(Category.TabsPanel, DEFAULT, DefaultShopTabsPanelRender::new);
+        registerStyle(Category.PurchaseModal, DEFAULT, DefaultShopPurchaseModalRender::new);
     }
 }

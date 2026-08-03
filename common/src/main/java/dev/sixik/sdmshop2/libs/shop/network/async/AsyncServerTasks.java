@@ -164,6 +164,23 @@ public class AsyncServerTasks {
             }
         });
 
+        AsyncBridge.registerHandler(AsyncClientTasks.PURCHASE_SHOP_OFFER, (request, ctx) -> {
+            if (!request.isReadable() || !(ctx.getPlayer() instanceof ServerPlayer player)) return null;
+
+            final ResourceLocation shopId = request.readResourceLocation();
+            final UUID offerId = request.readUUID();
+            final String chosenGroupId = request.readUtf();
+            final int amount = request.readVarInt();
+
+            final ShopInstance shopInstance = ShopTable.Instance.getShop(shopId);
+            final ShopOffer offer = shopInstance == null ? null : shopInstance.getEntries().getEntry(offerId);
+            final boolean success = offer != null && ShopTransactionProcessor.executePlayerPurchase(offer, player, chosenGroupId, amount);
+
+            FriendlyByteBuf reply = new FriendlyByteBuf(Unpooled.buffer());
+            reply.writeBoolean(success);
+            return reply;
+        });
+
         AsyncBridge.registerHandler(AsyncClientTasks.REQUEST_SHOP, (request, ctx) -> {
             if (!request.isReadable()) return null;
             final ResourceLocation shopId = request.readResourceLocation();

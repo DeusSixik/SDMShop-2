@@ -82,5 +82,6 @@
 
   "shop.ui.offer_element.context_menu.edit" : "Edit",
   "shop.ui.offer_element.context_menu.copy" : "Copy",
-  "shop.ui.offer_element.context_menu.delete" : "Delete"
+  "shop.ui.offer_element.context_menu.delete" : "Delete",
+  "shop.ui.tabs.button.all" : "All"
 }

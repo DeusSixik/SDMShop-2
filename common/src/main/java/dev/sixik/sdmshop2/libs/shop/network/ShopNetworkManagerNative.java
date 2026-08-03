@@ -212,6 +212,27 @@ class ShopNetworkManagerNative {
         });
     }
 
+    @Environment(EnvType.CLIENT)
+    public static CompletableFuture<Boolean> purchaseOffer(ShopOffer shopOffer, @Nullable String chosenGroupId, int amount) {
+        if (shopOffer == null || amount <= 0) {
+            return CompletableFuture.completedFuture(false);
+        }
+
+        return AsyncBridge.askServer(AsyncClientTasks.PURCHASE_SHOP_OFFER, buf -> {
+            buf.writeResourceLocation(SDMShopClient.Shop.getId());
+            buf.writeUUID(shopOffer.getUUID());
+            buf.writeUtf(chosenGroupId == null ? "" : chosenGroupId);
+            buf.writeVarInt(amount);
+            return buf;
+        }).thenApply(response -> {
+            try {
+                return response.isReadable() && response.readBoolean();
+            } finally {
+                response.release();
+            }
+        });
+    }
+
     /**
      * Запросить серверные условия для списка товаров (батч)
      */

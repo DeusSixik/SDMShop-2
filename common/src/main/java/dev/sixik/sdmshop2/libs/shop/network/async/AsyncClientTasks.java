@@ -5,6 +5,7 @@ import dev.sixik.sdmshop2.libs.platform.utils.network.async.BlobTransfer;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
+import dev.sixik.sdmshop2.libs.shop.client.screens_2.elements.ShopScreen;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentRegistry;
 import dev.sixik.sdmshop2.utils.ShopUtils;
@@ -20,6 +21,7 @@ public class AsyncClientTasks {
 
     public static final String GET_PRICES_FOR_OFFER = "get_prices_for_offer";
     public static final String GET_CONDITIONS_FOR_OFFER = "get_conditions_for_offer";
+    public static final String PURCHASE_SHOP_OFFER = "purchase_shop_offer";
     public static final String REQUEST_SHOP = "request_shop";
 
     public static void init() {
@@ -40,7 +42,13 @@ public class AsyncClientTasks {
         });
 
         AsyncBridge.registerHandler(AsyncServerTasks.SEND_SHOP_LIMITER_DATA, (buf, ctx) -> {
-            ShopUtils.getLimiterTable(true).ifPresent(limiterTable -> limiterTable.fromNetwork(buf));
+            ShopUtils.getLimiterTable(true).ifPresent(limiterTable -> {
+                limiterTable.fromNetwork(buf);
+                ShopScreen screen = ShopScreen.Instance;
+                if (screen != null && screen.getShopOffersPanel() != null) {
+                    screen.getShopOffersPanel().rebuildOffers();
+                }
+            });
             return null;
         });
 

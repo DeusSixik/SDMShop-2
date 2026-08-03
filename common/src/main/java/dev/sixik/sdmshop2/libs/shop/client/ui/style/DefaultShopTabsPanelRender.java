@@ -71,7 +71,7 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
         tabsContainer.setYBarStyle(null, new ColorRectTexture(-1));
         tabsContainer.setClientSideWidget();
 
-        tabsContent = new WidgetGroup();
+        tabsContent = new ScrollClippedWidgetGroup();
         tabsContent.setLayout(Layout.NONE);
         tabsContent.setClientSideWidget();
         tabsContainer.addWidget(tabsContent);
@@ -80,10 +80,16 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
         ctx.addWidget(currenciesContainer = new WidgetGroup());
         currenciesContainer.setBackground(PixelBevelTexture.panelLow());
 
+        tabsContent.addWidget(new ShopTabElement(null).setSelected(panel.getSelectedCategory() == null));
+
         if (panel.getShopScreen().getCatalogComponents() != null) {
-            panel.getShopScreen().getCatalogComponents().stream()
+            List<CatalogComponent> categories = panel.getShopScreen().getCatalogComponents().stream()
                     .sorted(Comparator.comparing(DefaultShopTabsPanelRender::sortKey))
-                    .forEach(component -> tabsContent.addWidget(new ShopTabElement(component)));
+                    .toList();
+
+            categories.forEach(component -> tabsContent.addWidget(
+                    new ShopTabElement(component).setSelected(panel.isSelectedCategory(component))
+            ));
         }
 
         moneyCategoryTitle = new TextLabel(Component.literal("You money")).setAutoSize(false)
@@ -147,6 +153,18 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
                 : component.getId().toLowerCase(Locale.ROOT);
     }
 
+    public void updateSelectedTabs(ShopTabsPanelElement panel) {
+        if (tabsContent == null) {
+            return;
+        }
+
+        for (Widget widget : collectTabWidgets(tabsContent)) {
+            if (widget instanceof ShopTabElement tab) {
+                tab.setSelected(panel.isSelectedCategory(tab.getComponent()));
+            }
+        }
+    }
+
     @Override
     public void alightWidgets(WidgetContextRender ctx) {
         if (!(ctx instanceof ShopTabsPanelElement panel) || !(ctx.getOwner() instanceof WidgetGroup)) {
@@ -158,8 +176,8 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
         }
 
         final Widget root = ctx.getOwner();
-        final Size root_size = root.getSize();
-        if (root_size.width <= HORIZONTAL_PADDING * 2 || root_size.height <= VERTICAL_PADDING * 2 + SECTION_GAP) {
+        final Size rootSize = root.getSize();
+        if (rootSize.width <= HORIZONTAL_PADDING * 2 || rootSize.height <= VERTICAL_PADDING * 2 + SECTION_GAP) {
             for (Widget widget : collectTabWidgets(tabsContent)) {
                 widget.setVisible(true);
                 widget.setActive(true);
@@ -167,11 +185,11 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
             return;
         }
 
-        final int contentWidth = Math.max(1, root_size.width - HORIZONTAL_PADDING * 2);
-        final int contentHeight = Math.max(1, root_size.height - VERTICAL_PADDING * 2 - SECTION_GAP);
+        final int contentWidth = Math.max(1, rootSize.width - HORIZONTAL_PADDING * 2);
+        final int contentHeight = Math.max(1, rootSize.height - VERTICAL_PADDING * 2 - SECTION_GAP);
         final int tabsHeight = Math.max(1, contentHeight / 2);
         final int currenciesHeight = Math.max(1, contentHeight - tabsHeight);
-        final int font_height = Minecraft.getInstance().font.lineHeight;
+        final int fontHeight = Minecraft.getInstance().font.lineHeight;
 
         tabsContainer.setSelfPosition(HORIZONTAL_PADDING, VERTICAL_PADDING);
         tabsContainer.setSize(contentWidth, tabsHeight);
@@ -183,12 +201,12 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
 
 
         moneyCategoryTitle.setSelfPosition(0, 2);
-        moneyCategoryTitle.setSize(currenciesWidth, font_height);
+        moneyCategoryTitle.setSize(currenciesWidth, fontHeight);
 
         currenciesVBox.setSelfPosition(2 , 4 + moneyCategoryTitle.getSizeHeight());
         currenciesVBox.setSize(currenciesWidth, Math.max(1, currenciesHeight - 4));
         for (HorizontalContainer row : currencyRows) {
-            row.setSize(currenciesWidth, Math.max(row.getSizeHeight(), font_height + 3));
+            row.setSize(currenciesWidth, Math.max(row.getSizeHeight(), fontHeight + 3));
         }
 
         int tabViewportWidth = Math.max(1, tabsContainer.getSizeWidth() - SCROLLBAR_WIDTH - HORIZONTAL_PADDING);
@@ -223,5 +241,53 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
         }
 
         return tabWidgets;
+    }
+
+    protected static boolean isInsideScrollViewport(Widget widget, double mouseX, double mouseY) {
+        Widget current = widget;
+        while (current != null) {
+            if (current instanceof DraggableScrollableWidgetGroup scroll) {
+                return mouseX >= scroll.getPositionX()
+                        && mouseY >= scroll.getPositionY()
+                        && mouseX < scroll.getPositionX() + scroll.getSizeWidth()
+                        && mouseY < scroll.getPositionY() + scroll.getSizeHeight();
+            }
+
+            current = current.getParent();
+        }
+
+        return true;
+    }
+
+    protected static class ScrollClippedWidgetGroup extends WidgetGroup {
+
+        protected ScrollClippedWidgetGroup() {
+            super(0, 0, 1, 1);
+        }
+
+        @Override
+        public Widget getHoverElement(double mouseX, double mouseY) {
+            return isInsideScrollViewport(this, mouseX, mouseY) ? super.getHoverElement(mouseX, mouseY) : null;
+        }
+
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            return isInsideScrollViewport(this, mouseX, mouseY) && super.mouseClicked(mouseX, mouseY, button);
+        }
+
+        @Override
+        public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+            return isInsideScrollViewport(this, mouseX, mouseY) && super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+        }
+
+        @Override
+        public boolean mouseReleased(double mouseX, double mouseY, int button) {
+            return isInsideScrollViewport(this, mouseX, mouseY) && super.mouseReleased(mouseX, mouseY, button);
+        }
+
+        @Override
+        public boolean mouseWheelMove(double mouseX, double mouseY, double wheelDelta) {
+            return isInsideScrollViewport(this, mouseX, mouseY) && super.mouseWheelMove(mouseX, mouseY, wheelDelta);
+        }
     }
 }

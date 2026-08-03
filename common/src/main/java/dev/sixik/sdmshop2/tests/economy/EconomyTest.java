@@ -50,6 +50,8 @@ public class EconomyTest {
     }
 
     private static EventResult drop(Player player, ItemEntity itemEntity) {
+        if(!(player instanceof ServerPlayer))
+            return EventResult.interruptDefault();
 
         ShopInstance shop = ShopTable.Instance.getShop(DefaultShopGenerator.ID);
         if(shop == null) {
