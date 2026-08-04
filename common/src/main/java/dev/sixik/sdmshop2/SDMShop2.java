@@ -60,8 +60,6 @@ public final class SDMShop2 {
     public static void init() {
         SDMPlatform.init();
 
-        EconomyTest.init();
-
         SDMPlatform.addOperation(new ServerOperation() {
             @Override
             public void onReload() {

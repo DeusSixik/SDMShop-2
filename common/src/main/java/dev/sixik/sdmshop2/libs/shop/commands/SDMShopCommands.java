@@ -84,12 +84,6 @@ public class SDMShopCommands {
                 )
                 .register(dispatcher);
 
-        CommandBuilder.create("sdm_shop test")
-                .executesVoid(ctx -> {
-                    EconomyTest.commandTest(ctx.getSource().getPlayerOrException());
-                })
-                .register(dispatcher);
-
         CommandBuilder.create("sdm_shop synchronization limiter_data")
                 .requires(2)
                 .executesVoid(ctx -> {
