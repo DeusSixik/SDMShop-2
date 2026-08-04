@@ -1,6 +1,9 @@
 {
   "sdm_coin" : "Coin",
 
+  "key.categories.sdmshop2": "SDM Shop 2",
+  "key.sdmshop2.open_shop": "Open Shop",
+
   "shop.component.cost.group_id": "Group ID",
   "shop.component.promo.conditions.promo_id": "Promo ID",
   "shop.component.promo.effects.target_promo_id": "Target Promo ID",

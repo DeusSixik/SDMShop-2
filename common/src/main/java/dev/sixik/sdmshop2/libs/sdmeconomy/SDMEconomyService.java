@@ -61,7 +61,7 @@ public class SDMEconomyService {
         }
         this.accountRepository = new RepositoryStorage<>(manager.createRepository(
                 dataFolder,
-                SDMEconomyPlatform.getDataStorageConfig().getCurrentConfig().mongodb.accountsCollection,
+                SDMEconomyPlatform.getDataStorageConfig().mongodb.accountsCollection,
                 new RepoDefinition<>(
                         UUID::toString,
                         UUID::fromString,

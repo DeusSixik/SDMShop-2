@@ -6,7 +6,7 @@ import dev.sixik.sdmshop2.libs.platform.ServerOperation;
 import dev.sixik.sdmshop2.libs.platform.utils.repository.RepositoryStorage;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepoDefinition;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepositoryManager;
-import dev.sixik.sdmshop2.libs.shop.config.ShopDataStorageConfig;
+import dev.sixik.sdmshop2.libs.shop.config.ShopConfig;
 import dev.sixik.sdmshop2.utils.exceptions.NotInitializedException;
 import lombok.Getter;
 import net.minecraft.network.FriendlyByteBuf;
@@ -65,7 +65,7 @@ public final class ShopLimiterTableServer implements ShopLimiterTable {
         if(isInstance)
             Instance = this;
 
-        final ShopDataStorageConfig.MongoConfig config = SDMShop2.getDataStorageConfig().getCurrentConfig().mongodb;
+        final ShopConfig.MongoConfig config = SDMShop2.getConfig().mongodb;
         final RepositoryManager repositoryManager = SDMShop2.getRepositoryManager(server);
         offersRepository = new RepositoryStorage<>(repositoryManager.createRepository(
                 shopDirWorld.resolve("limiter").resolve("offers"),

@@ -128,6 +128,11 @@ class ShopNetworkManagerNative {
     }
 
     @Environment(EnvType.CLIENT)
+    public static void requestConfiguredShopOpen() {
+        AsyncBridge.askServer(AsyncClientTasks.REQUEST_CONFIGURED_SHOP_OPEN, buf -> buf);
+    }
+
+    @Environment(EnvType.CLIENT)
     public static CompletableFuture<Boolean> sendShopChanges(ShopInstance draftShop) {
         if (draftShop == null) {
             return CompletableFuture.completedFuture(false);

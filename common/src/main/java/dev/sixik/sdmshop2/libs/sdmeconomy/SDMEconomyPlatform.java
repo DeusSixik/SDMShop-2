@@ -8,6 +8,7 @@ import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.JsonRepositoryMa
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.MongoRepositoryManager;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepositoryManager;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepositoryManagerRegistry;
+import dev.sixik.sdmshop2.libs.sdmeconomy.config.SDMEconomyConfigHolder;
 import dev.sixik.sdmshop2.libs.sdmeconomy.config.SDMEconomyDataStorageConfig;
 import dev.sixik.sdmshop2.libs.sdmeconomy.custom_currency.ExternalItemCurrency;
 import dev.sixik.sdmshop2.libs.sdmeconomy.custom_currency.BasicCoinCurrency;
@@ -15,14 +16,11 @@ import dev.sixik.sdmshop2.libs.sdmeconomy.network.SDMEconomyNetwork;
 import dev.sixik.sdmshop2.libs.sdmeconomy.network.packets.SendDynamicCurrencyS2C;
 import dev.sixik.sdmshop2.libs.sdmeconomy.network.packets.SendPlayerAccountS2C;
 import dev.sixik.sdmshop2.utils.exceptions.NotInitializedException;
-import lombok.Getter;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.storage.LevelResource;
-import net.shadowking21.shadowconfig.config.ConfigSide;
-import net.shadowking21.shadowconfig.config.exstensions.yaml.SCYamlConfig;
 import org.jetbrains.annotations.Nullable;
 
 import java.nio.file.Path;
@@ -40,15 +38,12 @@ public class SDMEconomyPlatform {
     private static Path PLAYERS_DATA_DIR;
     private static final AtomicBoolean SHUTDOWN_HOOK_REGISTERED = new AtomicBoolean();
 
-    @Getter
-    private static SCYamlConfig<SDMEconomyDataStorageConfig> dataStorageConfig;
-
     private static RepositoryManager instance;
 
     public static RepositoryManager getRepositoryManager(MinecraftServer server) {
         if (instance == null) {
-            final var config = SDMEconomyPlatform.getDataStorageConfig().getCurrentConfig();
-            instance = switch (config.type) {
+            final var config = SDMEconomyPlatform.getDataStorageConfig();
+            instance = switch (config.storageType) {
                 case JSON -> new JsonRepositoryManager(SDMPlatform.resolveSdmDir(Platform.getConfigFolder(), "economy"));
                 case MONGODB -> new MongoRepositoryManager(config.mongodb.uri, config.mongodb.database, config.mongodb.serverName);
                 case CUSTOM -> RepositoryManagerRegistry.createOrDefault(
@@ -93,13 +88,7 @@ public class SDMEconomyPlatform {
     }
 
     public static void init() {
-        dataStorageConfig = (SCYamlConfig<SDMEconomyDataStorageConfig>) SCYamlConfig.Builder.builder(SDMEconomyDataStorageConfig.class)
-                .defaults(new SDMEconomyDataStorageConfig())
-                .modId(MODID)
-                .side(ConfigSide.COMMON)
-                .path(SDMPlatform.resolveSdmDir(Platform.getConfigFolder(), "economy"))
-                .build();
-        dataStorageConfig.init();
+        SDMEconomyConfigHolder.getConfigRaw();
 
         SDMPlatform.addOperation(new ServerOperation() {
             @Override
@@ -127,6 +116,10 @@ public class SDMEconomyPlatform {
         SDMEconomyNetwork.init();
         PlayerEvent.PLAYER_JOIN.register(SDMEconomyPlatform::onPlayerJoin);
         PlayerEvent.PLAYER_QUIT.register(SDMEconomyPlatform::onPlayerLeft);
+    }
+
+    public static SDMEconomyDataStorageConfig getDataStorageConfig() {
+        return SDMEconomyConfigHolder.getConfig();
     }
 
     public static void onServerStart(MinecraftServer server) {
@@ -173,7 +166,7 @@ public class SDMEconomyPlatform {
     }
 
     public static void onReload() {
-
+        SDMEconomyConfigHolder.reloadConfig();
         SDMEconomyCurrencyRegistry.reload();
         broadcastCurrencies();
     }

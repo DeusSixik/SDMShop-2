@@ -47,14 +47,17 @@ dependencies {
 
     modImplementation("com.lowdragmc.ldlib:ldlib-fabric-${minecraft_version}:${ldlib_version}") { transitive = false }
     modImplementation("dev.latvian.mods:kubejs-fabric:${kjs_version}")
-    modImplementation("curse.maven:shadow-config-1421861:7922226")
     modImplementation('com.blamejared.crafttweaker:CraftTweaker-fabric-1.20.1:14.0.60')
 
     minecraftClientRuntimeLibraries("com.github.ben-manes.caffeine:caffeine:3.2.3")
     minecraftClientRuntimeLibraries("org.mongodb:mongodb-driver-sync:5.6.5")
+    minecraftClientRuntimeLibraries("org.yaml:snakeyaml:2.2")
+    minecraftClientRuntimeLibraries("com.github.DeusSixik:YamlConfig:1.2.0")
 
     include("com.github.ben-manes.caffeine:caffeine:3.2.3")
     include("org.mongodb:mongodb-driver-sync:5.6.5")
+    include("org.yaml:snakeyaml:2.2")
+    include("com.github.DeusSixik:YamlConfig:1.2.0")
 
 }
 

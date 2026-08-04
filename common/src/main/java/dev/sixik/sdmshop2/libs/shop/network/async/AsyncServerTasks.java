@@ -2,6 +2,7 @@ package dev.sixik.sdmshop2.libs.shop.network.async;
 
 import dev.sixik.sdmshop2.libs.platform.utils.network.async.AsyncBridge;
 import dev.sixik.sdmshop2.libs.platform.utils.network.async.BlobTransfer;
+import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.sdmeconomy.CurrencyDraft;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyCurrencyRegistry;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
@@ -198,6 +199,26 @@ public class AsyncServerTasks {
             return null;
         });
 
+        AsyncBridge.registerHandler(AsyncClientTasks.REQUEST_CONFIGURED_SHOP_OPEN, (request, ctx) -> {
+            if (!(ctx.getPlayer() instanceof ServerPlayer player)) {
+                return null;
+            }
+
+            ResourceLocation shopId = parseConfiguredOpenShopId();
+            if (shopId == null) {
+                return null;
+            }
+
+            final ShopInstance shopInstance = ShopTable.Instance.getShop(shopId);
+            if (shopInstance == null) {
+                SDMShop2.LOGGER.warn("Configured keybind shop '{}' was requested by {}, but it does not exist.", shopId, player.getScoreboardName());
+                return null;
+            }
+
+            ShopNetworkManager.sendShopDataAndOpen(shopInstance, player);
+            return null;
+        });
+
         AsyncBridge.registerHandler(AsyncClientTasks.SEND_SHOP_CHANGES, (request, ctx) -> {
             boolean success = false;
             if (request.isReadable() && ctx.getPlayer() instanceof ServerPlayer player && ShopUtils.isPlayerAdmin(player)) {
@@ -232,6 +253,16 @@ public class AsyncServerTasks {
             reply.writeBoolean(success);
             return reply;
         });
+    }
+
+    private static ResourceLocation parseConfiguredOpenShopId() {
+        String raw = SDMShop2.getConfig().openShopKeybindShopId;
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+
+        raw = raw.trim();
+        return raw.contains(":") ? ResourceLocation.tryParse(raw) : ResourceLocation.tryBuild("sdm", raw);
     }
 
     private static void getConditionForOfferWriteOfferData(UUID offerId, Map<ConditionComponent, Boolean> conditionMap, List<ConditionComponent> components, FriendlyByteBuf reply) {

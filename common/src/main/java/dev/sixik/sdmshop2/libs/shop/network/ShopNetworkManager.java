@@ -105,6 +105,11 @@ public class ShopNetworkManager {
     }
 
     @Environment(EnvType.CLIENT)
+    public static void requestConfiguredShopOpen() {
+        ShopNetworkManagerNative.requestConfiguredShopOpen();
+    }
+
+    @Environment(EnvType.CLIENT)
     public static CompletableFuture<Boolean> sendShopChanges(ShopInstance draftShop) {
         return ShopNetworkManagerNative.sendShopChanges(draftShop);
     }

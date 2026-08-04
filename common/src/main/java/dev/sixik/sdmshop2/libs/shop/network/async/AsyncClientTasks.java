@@ -27,6 +27,7 @@ public class AsyncClientTasks {
     public static final String GET_CONDITIONS_FOR_OFFER = "get_conditions_for_offer";
     public static final String PURCHASE_SHOP_OFFER = "purchase_shop_offer";
     public static final String REQUEST_SHOP = "request_shop";
+    public static final String REQUEST_CONFIGURED_SHOP_OPEN = "request_configured_shop_open";
     public static final String SEND_SHOP_CHANGES = "send_shop_changes";
     public static final String SEND_CURRENCY_CHANGES = "send_currency_changes";
 

@@ -38,7 +38,7 @@ SDM Shop 2 leverages modern libraries to provide the best experience:
 
 - [LDLib](https://www.curseforge.com/minecraft/mc-mods/ldlib) - The backbone of the new UI. Chosen for its rendering capabilities and stability compared to FTB Library.
 - [Caffeine](https://github.com/ben-manes/caffeine) - A high-performance caching library used for efficient data management and quick access to player accounts.
-- [Shadow Config](https://www.curseforge.com/minecraft/mc-mods/shadow-config) - A robust library for handling configuration files.
+- [Yaml Config](https://github.com/Tuinity/YamlConfig) - A robust library for handling configuration files.
 
 ---
 *Developed with* ❤️ *by* Sixik

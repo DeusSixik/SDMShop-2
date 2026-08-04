@@ -271,11 +271,7 @@ public class SDMEconomyCurrencyRegistry {
     }
 
     private static String currenciesCollectionName() {
-        if (SDMEconomyPlatform.getDataStorageConfig() == null) {
-            return "currencies";
-        }
-
-        return SDMEconomyPlatform.getDataStorageConfig().getCurrentConfig().mongodb.currenciesCollection;
+        return SDMEconomyPlatform.getDataStorageConfig().mongodb.currenciesCollection;
     }
 
     private static String currencyStorageKey(ResourceLocation id) {

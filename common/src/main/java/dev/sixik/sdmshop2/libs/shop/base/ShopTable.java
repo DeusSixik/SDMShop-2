@@ -81,7 +81,7 @@ public final class ShopTable {
 
         shopsRepository = new RepositoryStorage<>(manager.createRepository(
             shopsDir,
-            SDMShop2.getDataStorageConfig().getDefaultConfig().mongodb.shopsCollection,
+            SDMShop2.getConfig().mongodb.shopsCollection,
             new RepoDefinition<>(
                     ResourceLocation::toString,
                     ResourceLocation::new,
