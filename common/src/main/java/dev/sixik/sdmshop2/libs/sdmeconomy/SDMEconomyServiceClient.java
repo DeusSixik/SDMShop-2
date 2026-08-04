@@ -15,11 +15,14 @@ import java.util.UUID;
 public class SDMEconomyServiceClient extends SDMEconomyService {
 
     public static Object2ObjectOpenHashMap<ResourceLocation, IExternalCurrency> CURRENCIES = new Object2ObjectOpenHashMap<>();
+    public static Object2ObjectOpenHashMap<ResourceLocation, IStoredCurrency> STORED_CURRENCIES = new Object2ObjectOpenHashMap<>();
 
     public static Object2ObjectOpenHashMap<ResourceLocation, ICurrency> getAllCurrencies() {
         Object2ObjectOpenHashMap<ResourceLocation, ICurrency> map = new Object2ObjectOpenHashMap<>(SDMEconomyCurrencyRegistry.getAllCurrenciesMap());
-        if(SDMEconomyPlatform.server == null)
+        if(SDMEconomyPlatform.server == null) {
+            map.putAll(SDMEconomyServiceClient.STORED_CURRENCIES);
             map.putAll(SDMEconomyServiceClient.CURRENCIES);
+        }
         return map;
     }
 

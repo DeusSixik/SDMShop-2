@@ -3,6 +3,7 @@ package dev.sixik.sdmshop2.libs.shop.network;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
+import dev.sixik.sdmshop2.libs.sdmeconomy.CurrencyDraft;
 import dev.sixik.sdmshop2.libs.shop.components.api.ConditionComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
@@ -97,5 +98,15 @@ public class ShopNetworkManager {
     @Environment(EnvType.CLIENT)
     public static void requestShopAndOpen(ResourceLocation shopId) {
         ShopNetworkManagerNative.requestShopAndOpen(shopId);
+    }
+
+    @Environment(EnvType.CLIENT)
+    public static CompletableFuture<Boolean> sendShopChanges(ShopInstance draftShop) {
+        return ShopNetworkManagerNative.sendShopChanges(draftShop);
+    }
+
+    @Environment(EnvType.CLIENT)
+    public static CompletableFuture<Boolean> sendCurrencyChanges(Collection<CurrencyDraft> currencyDrafts) {
+        return ShopNetworkManagerNative.sendCurrencyChanges(currencyDrafts);
     }
 }

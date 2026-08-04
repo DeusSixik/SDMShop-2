@@ -87,7 +87,15 @@ public class DefaultShopOffersPanelRender implements WidgetRender {
 
         panel.applyCustomSort(offers);
         for (ShopOffer offer : offers) {
-            ctx.addWidget(new ShopOfferElement(offer));
+            ctx.addWidget(new ShopOfferElement(panel.getEditSession(), offer));
+        }
+
+        if (panel.isEditorMode()) {
+            ctx.addWidget(ShopOfferElement.editorAction(
+                    panel.getEditSession(),
+                    Component.literal("+ Offer"),
+                    panel::createDraftOffer
+            ));
         }
     }
 

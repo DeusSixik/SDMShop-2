@@ -9,14 +9,20 @@ import com.lowdragmc.lowdraglib.gui.widget.layout.Layout;
 import com.lowdragmc.lowdraglib.utils.Size;
 import dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
+import dev.sixik.sdmshop2.libs.shop.client.ui.ShopScreenController;
 import dev.sixik.sdmshop2.libs.shop.client.ui.textures.PixelBevelTexture;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
+import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopToolPanelElement;
 import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
+import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.InputTextBox;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ModalWidget;
+import dev.sixik.sdmshop2.libs.shop.client.ui.toast.ShopToasts;
+import dev.sixik.sdmshop2.utils.ShopUtils;
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
@@ -31,6 +37,9 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
 
     protected static final int SEARCH_HEIGHT = 18;
     protected static final int ADVANCED_BUTTON_SIZE = 18;
+    protected static final int EDIT_BUTTON_WIDTH = 48;
+    protected static final int RESET_SESSION_BUTTON_WIDTH = 84;
+    protected static final int SEND_CHANGES_BUTTON_WIDTH = 88;
     protected static final int TOOL_GAP = 4;
     protected static final int MODAL_WIDTH = 280;
     protected static final int MODAL_HEIGHT = 240;
@@ -41,6 +50,9 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
 
     protected InputTextBox searchBox;
     protected ButtonWidget advancedButton;
+    protected ButtonWidget editModeButton;
+    protected ButtonWidget resetSessionButton;
+    protected ButtonWidget sendChangesButton;
     protected final Set<ResourceLocation> selectedCurrencyFilters = new LinkedHashSet<>();
 
     public DefaultShopToolPanelElementRender() {
@@ -71,6 +83,18 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
         advancedButton.setOnPressCallback(ignored -> openAdvancedFilters(owner));
         updateAdvancedButton();
 
+        if (shouldShowEditModeButton()) {
+            editModeButton = createEditModeButton(ctx);
+            ctx.addWidget(editModeButton);
+        }
+
+        if (ctx instanceof ShopToolPanelElement toolPanel && toolPanel.getScreen().isEditorMode()) {
+            resetSessionButton = createResetSessionButton(toolPanel);
+            ctx.addWidget(resetSessionButton);
+            sendChangesButton = createSendChangesButton(toolPanel);
+            ctx.addWidget(sendChangesButton);
+        }
+
         ctx.addWidget(searchBox);
         ctx.addWidget(advancedButton);
     }
@@ -86,11 +110,139 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
         final int x = Math.max(0, w_root / 2 - groupWidth / 2);
         final int y = Math.max(0, h_root / 2 - SEARCH_HEIGHT / 2);
 
+        if (editModeButton != null) {
+            editModeButton.setSize(EDIT_BUTTON_WIDTH, SEARCH_HEIGHT);
+            editModeButton.setSelfPosition(TOOL_GAP, y);
+        }
+
+        if (resetSessionButton != null) {
+            resetSessionButton.setSize(RESET_SESSION_BUTTON_WIDTH, SEARCH_HEIGHT);
+            int xReset = editModeButton == null
+                    ? TOOL_GAP
+                    : editModeButton.getSelfPositionX() + EDIT_BUTTON_WIDTH + TOOL_GAP;
+            resetSessionButton.setSelfPosition(xReset, y);
+        }
+
+        if (sendChangesButton != null) {
+            sendChangesButton.setSize(SEND_CHANGES_BUTTON_WIDTH, SEARCH_HEIGHT);
+            sendChangesButton.setSelfPosition(Math.max(0, w_root - SEND_CHANGES_BUTTON_WIDTH - TOOL_GAP), y);
+        }
+
         searchBox.setSize(searchWidth, SEARCH_HEIGHT);
         searchBox.setSelfPosition(x, y);
 
         advancedButton.setSize(ADVANCED_BUTTON_SIZE, ADVANCED_BUTTON_SIZE);
         advancedButton.setSelfPosition(x + searchWidth + TOOL_GAP, y);
+    }
+
+    protected boolean shouldShowEditModeButton() {
+        return Minecraft.getInstance().player != null && ShopUtils.isPlayerAdmin(Minecraft.getInstance().player);
+    }
+
+    protected ButtonWidget createEditModeButton(WidgetContextRender ctx) {
+        boolean editorMode = ctx.getEditSession() != null;
+        ButtonWidget button = new ButtonWidget(Component.literal(editorMode ? "View" : "Edit"));
+        button.setTextPadding(4);
+        button.setMinTextScale(0.45f);
+        button.setHoverTooltips(Component.literal(editorMode ? "Exit edit mode" : "Open shop editor"));
+        button.setOnPressCallback(ignored -> {
+            if (ctx instanceof ShopToolPanelElement toolPanel && toolPanel.getScreen().isEditorMode()) {
+                ShopScreenController.openShop();
+            } else {
+                ShopScreenController.openShopEditor(ctx.getOwner());
+            }
+        });
+        button.setClientSideWidget();
+        styleButton(button, editorMode);
+        return button;
+    }
+
+    protected ButtonWidget createResetSessionButton(ShopToolPanelElement toolPanel) {
+        ButtonWidget button = new ButtonWidget(Component.literal("Reset Session"));
+        button.setTextPadding(4);
+        button.setMinTextScale(0.35f);
+        button.setHoverTooltips(Component.literal("Discard all unsent editor session changes"));
+        button.setOnPressCallback(ignored -> openResetSessionConfirm(toolPanel));
+        button.setClientSideWidget();
+        styleButton(button, false);
+        return button;
+    }
+
+    protected void openResetSessionConfirm(ShopToolPanelElement toolPanel) {
+        ShopEditSession session = toolPanel.getScreen().getEditSession();
+        int actionCount = session == null ? 0 : session.historySize();
+
+        ModalWidget modal = new ModalWidget(260, 118)
+                .setTitle(Component.literal("Reset Edit Session"))
+                .setCloseOnEsc(true)
+                .setCloseOnOutsideClick(false);
+        ModalWidget opened = ModalWidget.openNested(toolPanel, modal);
+        if (opened == null) {
+            return;
+        }
+
+        TextLabel warning = new TextLabel(0, 4, opened.getContentWidth(), 34,
+                Component.literal("This will discard all unsent editor changes."));
+        warning.setAutoSize(false)
+                .setWrapText(true)
+                .setColor(0xFFFFC95A)
+                .setAlignment(TextLabel.HorizontalAlignment.CENTER, TextLabel.VerticalAlignment.CENTER);
+        opened.addWidget(warning);
+
+        TextLabel details = new TextLabel(0, 38, opened.getContentWidth(), 18,
+                Component.literal("Recorded actions: " + actionCount));
+        details.setAutoSize(false)
+                .setColor(0xFFAEB4C6)
+                .setAlignment(TextLabel.HorizontalAlignment.CENTER, TextLabel.VerticalAlignment.CENTER);
+        opened.addWidget(details);
+
+        int buttonY = Math.max(60, opened.getContentHeight() - 24);
+        int buttonWidth = Math.max(1, opened.getContentWidth() / 2 - 4);
+
+        ButtonWidget cancel = createActionButton(0, buttonY, buttonWidth, 20, Component.literal("Cancel"), ignored -> opened.close());
+        ButtonWidget reset = createActionButton(buttonWidth + 8, buttonY, buttonWidth, 20, Component.literal("Reset"), ignored -> {
+            boolean resetDone = toolPanel.getScreen().resetEditorSession();
+            opened.close();
+            if (resetDone) {
+                ShopToasts.success(Component.literal("Edit session reset"));
+            } else {
+                ShopToasts.error(Component.literal("Failed to reset session"));
+            }
+        });
+        styleButton(reset, true);
+
+        opened.addWidget(cancel);
+        opened.addWidget(reset);
+    }
+
+    protected ButtonWidget createSendChangesButton(ShopToolPanelElement toolPanel) {
+        ButtonWidget button = new ButtonWidget(Component.literal("Send Changes"));
+        button.setTextPadding(4);
+        button.setMinTextScale(0.4f);
+        button.setHoverTooltips(Component.literal("Send editor changes to server"));
+        button.setOnPressCallback(ignored -> {
+            button.setActive(false);
+            button.setText(Component.literal("Sending..."));
+            toolPanel.getScreen().sendEditorChanges().whenComplete((success, throwable) ->
+                    Minecraft.getInstance().execute(() -> {
+                        button.setActive(true);
+                        button.setText(Component.literal("Send Changes"));
+                        if (throwable != null) {
+                            ShopToasts.error(Component.literal("Failed to send changes"));
+                            return;
+                        }
+
+                        if (Boolean.TRUE.equals(success)) {
+                            ShopToasts.success(Component.literal("Changes sent"));
+                        } else {
+                            ShopToasts.error(Component.literal("Changes rejected"));
+                        }
+                    })
+            );
+        });
+        button.setClientSideWidget();
+        styleButton(button, true);
+        return button;
     }
 
     protected void openAdvancedFilters(Widget owner) {

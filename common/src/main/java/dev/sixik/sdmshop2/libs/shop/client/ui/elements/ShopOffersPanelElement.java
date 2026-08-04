@@ -15,6 +15,7 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
+import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.DODEventBus;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventPtr;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventSubscription;
@@ -157,6 +158,17 @@ public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup i
         return sameCategory(selectedCategory, category);
     }
 
+    public boolean isEditorMode() {
+        return shopScreen.isEditorMode();
+    }
+
+    public void createDraftOffer() {
+        ShopOffer offer = shopScreen.createDraftOffer(selectedCategory);
+        if (offer != null) {
+            ShopUIUtils.createEditMenu(this, getEditSession(), offer, this::rebuildOffers);
+        }
+    }
+
     protected boolean shouldRefreshFor(ShopUIEvents.RefreshUI event) {
         if (!event.affectsOffers()) {
             return false;
@@ -193,6 +205,7 @@ public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup i
     }
 
     public ShopOffersPanelElement refresh(boolean relayout) {
+        int previousScrollY = getScrollYOffset();
         eventScope.clear();
         ShopUIUtils.disposeChildren(this);
         clearAllWidgets();
@@ -200,9 +213,23 @@ public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup i
 
         if (relayout) {
             alightWidget();
+            restoreScrollY(previousScrollY);
         }
 
         return this;
+    }
+
+    protected void restoreScrollY(int previousScrollY) {
+        int maxScrollY = Math.max(0, computeContentHeight() - getSizeHeight());
+        setScrollYOffset(Math.min(Math.max(0, previousScrollY), maxScrollY));
+    }
+
+    protected int computeContentHeight() {
+        int height = 0;
+        for (Widget widget : widgets) {
+            height = Math.max(height, widget.getSelfPositionY() + widget.getSizeHeight());
+        }
+        return height;
     }
 
     public void alightOffers() {
@@ -228,6 +255,11 @@ public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup i
     @Override
     public UIEventScope screenEventScope() {
         return shopScreen.screenEventScope();
+    }
+
+    @Override
+    public @Nullable ShopEditSession getEditSession() {
+        return shopScreen.getEditSession();
     }
 
     public <Event> EventSubscription listenScreen(EventPtr<Event> event, DODEventBus.EventListener<Event> listener) {

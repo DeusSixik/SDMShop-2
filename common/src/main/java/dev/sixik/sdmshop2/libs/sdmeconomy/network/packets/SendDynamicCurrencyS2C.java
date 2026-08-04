@@ -40,7 +40,12 @@ public class SendDynamicCurrencyS2C extends BaseS2CMessage {
     @Override
     public void handle(NetworkManager.PacketContext packetContext) {
         SDMEconomyServiceClient.CURRENCIES = SDMEconomyCurrencyRegistry.deserializeCurrencies(nbt);
+        SDMEconomyServiceClient.STORED_CURRENCIES = SDMEconomyCurrencyRegistry.deserializeStoredCurrencies(nbt);
         ShopUIEvents.invokeRefreshCurrencies();
-        SDMEconomyService.LOGGER.info("Accepted Custom Currencies from server ! Count: {}", SDMEconomyServiceClient.CURRENCIES.size());
+        SDMEconomyService.LOGGER.info(
+                "Accepted Custom Currencies from server ! External: {}, Stored: {}",
+                SDMEconomyServiceClient.CURRENCIES.size(),
+                SDMEconomyServiceClient.STORED_CURRENCIES.size()
+        );
     }
 }

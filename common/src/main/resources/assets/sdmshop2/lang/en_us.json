@@ -42,6 +42,8 @@
   "client.shop.component.editor.components.delete" : "§cDelete Component",
   "client.shop.component.editor.arrays.button.add_element" : "§a+ Add",
   "client.shop.component.editor.arrays.button.remove_element" : "§c-",
+  "client.shop.component.editor.arrays.button.edit" : "Edit (%s)",
+  "client.shop.component.editor.arrays.empty" : "Empty collection",
   "client.shop.component.editor.switch.off" : "off",
   "client.shop.component.editor.switch.on" : "on",
 

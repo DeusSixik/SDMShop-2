@@ -4,7 +4,9 @@ import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopEntityEditorElement;
+import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ModalWidget;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
@@ -12,6 +14,10 @@ public final class ShopUIUtils {
 
     public static ModalWidget createEditMenu(Widget owner, ShopEntity editable, Runnable onEdit) {
        return ShopEntityEditorElement.open(owner, editable, onEdit);
+    }
+
+    public static ModalWidget createEditMenu(Widget owner, @Nullable ShopEditSession editSession, ShopEntity editable, Runnable onEdit) {
+       return ShopEntityEditorElement.open(owner, editSession, editable, onEdit);
     }
 
     public static void disposeTree(Widget widget) {

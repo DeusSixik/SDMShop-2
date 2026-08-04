@@ -18,7 +18,9 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopTabsPanelElement;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.PriceWidget;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ContextMenuWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.HorizontalContainer;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.VerticalContainer;
 import dev.sixik.sdmshop2.utils.ShopUtils;
@@ -45,8 +47,10 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
     protected DraggableScrollableWidgetGroup tabsContainer;
     protected WidgetGroup tabsContent;
     protected WidgetGroup currenciesContainer;
+    protected DraggableScrollableWidgetGroup currenciesScrollContainer;
     protected VerticalContainer currenciesVBox;
     protected TextLabel moneyCategoryTitle;
+    protected ButtonWidget addCurrencyButton;
 
     protected final List<HorizontalContainer> currencyRows = new ArrayList<>();
     protected final Map<ResourceLocation, PriceWidget> currencyPriceWidgets = new LinkedHashMap<>();
@@ -84,16 +88,20 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
         ctx.addWidget(currenciesContainer = new WidgetGroup());
         currenciesContainer.setBackground(PixelBevelTexture.panelLow());
 
-        tabsContent.addWidget(new ShopTabElement(null).setSelected(panel.getSelectedCategory() == null));
+        tabsContent.addWidget(new ShopTabElement(panel, null).setSelected(panel.getSelectedCategory() == null));
 
         if (panel.getShopScreen().getCatalogComponents() != null) {
             List<CatalogComponent> categories = panel.getShopScreen().getCatalogComponents().stream()
-                    .sorted(Comparator.comparing(DefaultShopTabsPanelRender::sortKey))
+                    .sorted(DefaultShopTabsPanelRender::compareCategories)
                     .toList();
 
             categories.forEach(component -> tabsContent.addWidget(
-                    new ShopTabElement(component).setSelected(panel.isSelectedCategory(component))
+                    new ShopTabElement(panel, component).setSelected(panel.isSelectedCategory(component))
             ));
+        }
+
+        if (panel.isEditorMode()) {
+            tabsContent.addWidget(createAddCategoryButton(panel));
         }
 
         moneyCategoryTitle = new TextLabel(Component.literal("You money")).setAutoSize(false)
@@ -105,7 +113,17 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
                 .setAlignment(TextLabel.HorizontalAlignment.CENTER, TextLabel.VerticalAlignment.CENTER);
 
         currenciesVBox = new VerticalContainer();
-        currenciesVBox.setDynamicSized(true);
+        currenciesVBox.setDynamicSized(false);
+        currenciesVBox.setSpacing(2);
+
+        currenciesScrollContainer = new DraggableScrollableWidgetGroup();
+        currenciesScrollContainer.setScrollWheelDirection(DraggableScrollableWidgetGroup.ScrollWheelDirection.VERTICAL);
+        currenciesScrollContainer.setLayout(Layout.NONE);
+        currenciesScrollContainer.setYScrollBarWidth(SCROLLBAR_WIDTH);
+        currenciesScrollContainer.setYBarStyle(null, new ColorRectTexture(-1));
+        currenciesScrollContainer.setClientSideWidget();
+        currenciesScrollContainer.addWidget(currenciesVBox);
+
         currencyRows.clear();
         currencyPriceWidgets.clear();
 
@@ -113,14 +131,25 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
         final Font font = minecraft.font;
         final int textureSize = font.lineHeight + 3;
 
-        for (ICurrency value : SDMEconomyServiceClient.getAllCurrencies().values()) {
+        List<Map.Entry<ResourceLocation, ICurrency>> currencies = new ArrayList<>(
+                (panel.isEditorMode() ? panel.getShopScreen().getEditorCurrencies() : SDMEconomyServiceClient.getAllCurrencies()).entrySet()
+        );
+        currencies.sort(Map.Entry.comparingByKey(Comparator.comparing(ResourceLocation::toString)));
+
+        for (Map.Entry<ResourceLocation, ICurrency> entry : currencies) {
+            ResourceLocation id = entry.getKey();
+            ICurrency value = entry.getValue();
             int h = font.lineHeight;
 
-            final HorizontalContainer hBox = new HorizontalContainer();
+            final HorizontalContainer hBox = panel.isEditorMode()
+                    ? new CurrencyRow(panel, id, value)
+                    : new HorizontalContainer();
             final TransformTexture texture = ShopUtils.getCurrencyTexture(value);
 
             hBox.alignBottom();
-            hBox.pushLastElementToEnd();
+            if (!panel.isEditorMode()) {
+                hBox.pushLastElementToEnd();
+            }
             hBox.setDynamicSized(false);
             hBox.setSpacing(4);
             hBox.setPadding(2, 0);
@@ -135,13 +164,15 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
             final TextLabel name = new TextLabel(value.getDisplayName());
             hBox.addWidget(name);
 
-            final PriceWidget money_count = new PriceWidget()
-                    .setPriceText(value.format(SDMEconomyServiceClient.getBalance(value, minecraft.player)))
-                    .alignRight()
-                    .alignBottom()
-                    .autoSize();
-            hBox.addWidget(money_count);
-            currencyPriceWidgets.put(value.getId(), money_count);
+            if (!panel.isEditorMode()) {
+                final PriceWidget money_count = new PriceWidget()
+                        .setPriceText(value.format(SDMEconomyServiceClient.getBalance(value, minecraft.player)))
+                        .alignRight()
+                        .alignBottom()
+                        .autoSize();
+                hBox.addWidget(money_count);
+                currencyPriceWidgets.put(value.getId(), money_count);
+            }
 
             hBox.setSizeHeight(h);
 
@@ -149,8 +180,15 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
             currenciesVBox.addWidget(hBox);
         }
 
+        if (panel.isEditorMode()) {
+            addCurrencyButton = createAddCurrencyButton(panel);
+        }
+
         currenciesContainer.addWidget(moneyCategoryTitle);
-        currenciesContainer.addWidgets(currenciesVBox);
+        currenciesContainer.addWidget(currenciesScrollContainer);
+        if (addCurrencyButton != null) {
+            currenciesContainer.addWidget(addCurrencyButton);
+        }
     }
 
     public boolean refreshCurrencies() {
@@ -176,6 +214,45 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
         return true;
     }
 
+    public int getTabsScrollY() {
+        return tabsContainer == null ? 0 : tabsContainer.getScrollYOffset();
+    }
+
+    public void restoreTabsScrollY() {
+        restoreTabsScrollY(getTabsScrollY());
+    }
+
+    public void restoreTabsScrollY(int previousScrollY) {
+        if (tabsContainer == null || tabsContent == null) {
+            return;
+        }
+
+        int maxScrollY = Math.max(0, tabsContent.getSizeHeight() - tabsContainer.getSizeHeight());
+        tabsContainer.setScrollYOffset(Math.min(Math.max(0, previousScrollY), maxScrollY));
+    }
+
+    public int getCurrenciesScrollY() {
+        return currenciesScrollContainer == null ? 0 : currenciesScrollContainer.getScrollYOffset();
+    }
+
+    public void restoreCurrenciesScrollY(int previousScrollY) {
+        if (currenciesScrollContainer == null || currenciesVBox == null) {
+            return;
+        }
+
+        int maxScrollY = Math.max(0, currenciesVBox.getSizeHeight() - currenciesScrollContainer.getSizeHeight());
+        currenciesScrollContainer.setScrollYOffset(Math.min(Math.max(0, previousScrollY), maxScrollY));
+    }
+
+    protected static int compareCategories(CatalogComponent first, CatalogComponent second) {
+        int order = Integer.compare(first == null ? 0 : first.getOrder(), second == null ? 0 : second.getOrder());
+        if (order != 0) {
+            return order;
+        }
+
+        return sortKey(first).compareTo(sortKey(second));
+    }
+
     protected static String sortKey(CatalogComponent component) {
         return component == null || component.getId() == null
                 ? ""
@@ -194,13 +271,38 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
         }
     }
 
+    protected ButtonWidget createAddCategoryButton(ShopTabsPanelElement panel) {
+        ButtonWidget button = new ButtonWidget();
+        button.setText(Component.literal("+ Category"));
+        button.setButtonTexture(PixelBevelTexture.panel());
+        button.setHoverTexture(new PixelBevelTexture(0xFF111624, PixelBevelTexture.ACCENT_LOW_COLOR, PixelBevelTexture.ACCENT_HIGH_COLOR, 0.7f));
+        button.setClickedTexture(PixelBevelTexture.accent().pressed());
+        button.setOnClick(ignored -> panel.createDraftCategory());
+        button.setClientSideWidget();
+        return button;
+    }
+
+    protected ButtonWidget createAddCurrencyButton(ShopTabsPanelElement panel) {
+        ButtonWidget button = new ButtonWidget();
+        button.setText(Component.literal("+ Currency"));
+        button.setTextPadding(4);
+        button.setMinTextScale(0.35f);
+        button.setButtonTexture(PixelBevelTexture.panel());
+        button.setHoverTexture(new PixelBevelTexture(0xFF111624, PixelBevelTexture.ACCENT_LOW_COLOR, PixelBevelTexture.ACCENT_HIGH_COLOR, 0.7f));
+        button.setClickedTexture(PixelBevelTexture.accent().pressed());
+        button.setOnClick(ignored -> panel.openCreateCurrencyModal());
+        button.setClientSideWidget();
+        return button;
+    }
+
     @Override
     public void alightWidgets(WidgetContextRender ctx) {
         if (!(ctx instanceof ShopTabsPanelElement panel) || !(ctx.getOwner() instanceof WidgetGroup)) {
             return;
         }
 
-        if (tabsContainer == null || tabsContent == null || currenciesContainer == null) {
+        if (tabsContainer == null || tabsContent == null || currenciesContainer == null
+                || currenciesScrollContainer == null || currenciesVBox == null) {
             return;
         }
 
@@ -227,15 +329,35 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
         currenciesContainer.setSize(contentWidth, currenciesHeight);
 
         int currenciesWidth = Math.max(1, contentWidth - 4);
-
-
+        int previousCurrencyScrollY = getCurrenciesScrollY();
         moneyCategoryTitle.setSelfPosition(0, 2);
         moneyCategoryTitle.setSize(currenciesWidth, fontHeight);
 
-        currenciesVBox.setSelfPosition(2 , 4 + moneyCategoryTitle.getSizeHeight());
-        currenciesVBox.setSize(currenciesWidth, Math.max(1, currenciesHeight - 4));
+        int footerHeight = addCurrencyButton == null ? 0 : TAB_HEIGHT;
+        int footerGap = addCurrencyButton == null ? 0 : 4;
+        int scrollY = 4 + moneyCategoryTitle.getSizeHeight();
+        int scrollHeight = Math.max(1, currenciesHeight - scrollY - footerHeight - footerGap - 2);
+        int currencyViewportWidth = Math.max(1, currenciesWidth - SCROLLBAR_WIDTH - 2);
+
+        currenciesScrollContainer.setSelfPosition(2, scrollY);
+        currenciesScrollContainer.setSize(currenciesWidth, scrollHeight);
+
+        currenciesVBox.setSelfPosition(0, 0);
         for (HorizontalContainer row : currencyRows) {
-            row.setSize(currenciesWidth, Math.max(row.getSizeHeight(), fontHeight + 3));
+            row.setSize(currencyViewportWidth, Math.max(row.getSizeHeight(), fontHeight + 3));
+        }
+        int rowsHeight = 0;
+        for (HorizontalContainer row : currencyRows) {
+            rowsHeight += row.getSizeHeight();
+        }
+        if (!currencyRows.isEmpty()) {
+            rowsHeight += Math.max(0, currencyRows.size() - 1) * 2;
+        }
+        currenciesVBox.setSize(currencyViewportWidth, Math.max(scrollHeight, rowsHeight));
+
+        if (addCurrencyButton != null) {
+            addCurrencyButton.setSelfPosition(2, Math.max(scrollY + scrollHeight + footerGap, currenciesHeight - footerHeight - 2));
+            addCurrencyButton.setSize(currenciesWidth, footerHeight);
         }
 
         int tabViewportWidth = Math.max(1, tabsContainer.getSizeWidth() - SCROLLBAR_WIDTH - HORIZONTAL_PADDING);
@@ -259,14 +381,14 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
         }
 
         tabsContent.setSize(tabViewportWidth, Math.max(tabViewportHeight, y + VERTICAL_PADDING - panel.getWidgetSpace()));
+        restoreTabsScrollY();
+        restoreCurrenciesScrollY(previousCurrencyScrollY);
     }
 
     protected List<Widget> collectTabWidgets(WidgetGroup group) {
         List<Widget> tabWidgets = new ArrayList<>();
         for (Widget widget : group.widgets) {
-            if (widget instanceof ShopTabElement) {
-                tabWidgets.add(widget);
-            }
+            tabWidgets.add(widget);
         }
 
         return tabWidgets;
@@ -317,6 +439,37 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
         @Override
         public boolean mouseWheelMove(double mouseX, double mouseY, double wheelDelta) {
             return isInsideScrollViewport(this, mouseX, mouseY) && super.mouseWheelMove(mouseX, mouseY, wheelDelta);
+        }
+    }
+
+    protected static class CurrencyRow extends HorizontalContainer {
+
+        protected final ShopTabsPanelElement panel;
+        protected final ResourceLocation id;
+        protected final ICurrency currency;
+
+        protected CurrencyRow(ShopTabsPanelElement panel, ResourceLocation id, ICurrency currency) {
+            this.panel = panel;
+            this.id = id;
+            this.currency = currency;
+            setHoverTooltips(currency.getDisplayName().copy().append(Component.literal(" §8(" + id + ")")));
+        }
+
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            if (button == 1 && panel != null && panel.isEditorMode() && isMouseOverElement(mouseX, mouseY)) {
+                openContextMenu((int) mouseX, (int) mouseY);
+                return true;
+            }
+
+            return super.mouseClicked(mouseX, mouseY, button);
+        }
+
+        protected void openContextMenu(int mouseX, int mouseY) {
+            ContextMenuWidget menu = new ContextMenuWidget(mouseX, mouseY, 120);
+            menu.setScale(0.75f);
+            menu.addItem(Component.literal("Edit"), () -> panel.openEditCurrencyModal(id, currency));
+            ContextMenuWidget.open(this, menu);
         }
     }
 }

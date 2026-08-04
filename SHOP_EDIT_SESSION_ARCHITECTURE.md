@@ -33,6 +33,65 @@ Shop Edit Session — это слой чернового редактирова�
 
 ## Основные сущности
 
+### Редактор как платформа
+
+Редактор не должен быть жёстко привязан только к редактированию `ShopInstance`.
+Магазин — это первый модуль редактора, но не единственный. В будущем в том же окне должны жить:
+
+- создание и редактирование валют SDM Economy;
+- настройки магазина, категорий, офферов и компонентов;
+- addon-панели, которые добавляют свои страницы, инструменты и валидаторы;
+- служебные инструменты вроде diff, draft history, import/export, массовых операций.
+
+Поэтому session хранит не один `draftShop`, а набор typed draft targets:
+
+    ShopEditSession
+      -> ShopEditDraftStore
+          -> ShopEditTarget<ShopInstance> shop
+          -> ShopEditTarget<IExternalCurrency> external currency
+          -> ShopEditTarget<IStoredCurrency> stored currency
+          -> ShopEditTarget<AddonSettings> addon settings
+
+UI не должен напрямую читать live-регистры для редактируемых сущностей. Если объект редактируется,
+он сначала помещается в draft store, а виджеты получают draft через `ShopEditSession`.
+
+### ShopEditorModule
+
+`ShopEditorModule` — точка расширения редактора. Базовые модули:
+
+- `sdm:shop_entities` — текущий редактор магазинов, офферов и компонентов;
+- `sdm:economy_currencies` — будущий редактор SDM Economy валют;
+- addon modules — произвольные вкладки/страницы/валидаторы от стороннего кода.
+
+Модуль должен уметь:
+
+- объявить `id`, `title`, `priority`;
+- подготовить session при открытии редактора (`onSessionCreated`);
+- проверить свои draft-данные (`validate`);
+- позже — создать UI-страницу/toolbar/action list.
+
+Регистрация делается через `ShopEditorRegistry.register(module)`.
+Это важно для аддонов: они не должны патчить основной editor-класс, а просто регистрировать свой модуль.
+
+### ShopEditTarget и ShopEditDraftStore
+
+`ShopEditTarget<T>` — typed key для одного draft-объекта. Он решает проблему, что редактору нужно хранить
+разные типы данных одновременно, но при этом не терять проверку типа в рантайме.
+
+Пример:
+
+    ShopEditTarget<ShopInstance> shopTarget = ShopEditTargets.shop(shopId);
+    ShopEditTarget<IExternalCurrency> currencyTarget = ShopEditTargets.externalCurrency(currencyId);
+
+    session.setDraft(shopTarget, draftShop);
+    session.setDraft(currencyTarget, draftCurrency);
+
+Для addon-данных:
+
+    ShopEditTarget<MyAddonSettings> target = ShopEditTargets.addon(id, MyAddonSettings.class);
+
+Так редактор остаётся generic, но ключи не превращаются в россыпь строк.
+
 ### ShopEditSession
 
 ShopEditSession — активная сессия редактирования.
@@ -42,7 +101,7 @@ ShopEditSession — активная сессия редактирования.
 - sessionId — уникальный id сессии;
 - baseRevision — версия магазина, от которой начали редактирование;
 - author — администратор, который открыл сессию;
-- draftShop — копия магазина;
+- draft store — копии редактируемых объектов: shop, currencies, addon settings;
 - commands — список действий, сделанных в редакторе;
 - createdAt и updatedAt;
 - опционально name/description для сохранённых черновиков.
@@ -54,7 +113,7 @@ ShopEditSession — активная сессия редактирования.
         private final UUID baseRevision;
         private final UUID author;
 
-        private ShopInstance draftShop;
+        private final ShopEditDraftStore drafts;
         private final List<ShopEditCommand> commands;
 
         public ValidationReport validate() { ... }
@@ -62,7 +121,12 @@ ShopEditSession — активная сессия редактирования.
         public ShopEditBatch buildBatch() { ... }
     }
 
-UI должен получать именно draftShop или draft offer, а не live-объект.
+UI должен получать именно draft object: draftShop, draft offer, draft currency или addon draft,
+а не live-объект.
+
+На первом этапе `ShopEntityEditorElement` уже может принимать `ShopEditSession`.
+Старые вызовы без session остаются рабочими, но новые renderer-ы могут получить session через
+`WidgetContextRender#getEditSession()`.
 
 ### ShopEditCommand
 
@@ -433,4 +497,3 @@ Validator проверяет:
     UI -> ShopEditSession -> Commands -> Validation -> Server Transaction -> Live Shop
 
 Такой подход делает редактор безопасным, предсказуемым и расширяемым.
-

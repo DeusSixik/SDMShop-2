@@ -3,6 +3,7 @@ package dev.sixik.sdmshop2.libs.shop.client.ui.elements;
 import com.lowdragmc.lowdraglib.utils.Size;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
+import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUiElement;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUIUtils;
@@ -11,7 +12,9 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.StyleApi;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIDisposable;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIEventScope;
+import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ContextMenuWidget;
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
@@ -21,16 +24,47 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement, Widg
 
     @Nullable
     private final ShopOffer shopEntity;
+    @Nullable
+    private final ShopEditSession editSession;
+    @Nullable
+    private final Runnable emptyAction;
+    @Nullable
+    private final Component emptyActionTitle;
 
     protected final WidgetRender render;
     protected final UIEventScope eventScope = new UIEventScope();
 
     public ShopOfferElement(@Nullable ShopOffer shopEntity) {
-        this(shopEntity, StyleApi.getDefaultStyle(StyleApi.Category.Offers).get());
+        this(null, shopEntity, null, null, StyleApi.getDefaultStyle(StyleApi.Category.Offers).get());
+    }
+
+    public ShopOfferElement(@Nullable ShopEditSession editSession, @Nullable ShopOffer shopEntity) {
+        this(editSession, shopEntity, null, null, StyleApi.getDefaultStyle(StyleApi.Category.Offers).get());
+    }
+
+    public static ShopOfferElement editorAction(@Nullable ShopEditSession editSession, Component title, Runnable action) {
+        return new ShopOfferElement(editSession, null, action, title, StyleApi.getDefaultStyle(StyleApi.Category.Offers).get());
     }
 
     public ShopOfferElement(@Nullable ShopOffer shopEntity, WidgetRender render) {
+        this(null, shopEntity, null, null, render);
+    }
+
+    public ShopOfferElement(@Nullable ShopEditSession editSession, @Nullable ShopOffer shopEntity, WidgetRender render) {
+        this(editSession, shopEntity, null, null, render);
+    }
+
+    protected ShopOfferElement(
+            @Nullable ShopEditSession editSession,
+            @Nullable ShopOffer shopEntity,
+            @Nullable Runnable emptyAction,
+            @Nullable Component emptyActionTitle,
+            WidgetRender render
+    ) {
         this.shopEntity = shopEntity;
+        this.editSession = editSession;
+        this.emptyAction = emptyAction;
+        this.emptyActionTitle = emptyActionTitle;
         this.render = Objects.requireNonNull(render, "render");
 
         this.render.constructor(this);
@@ -112,7 +146,7 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement, Widg
             return true;
         }
 
-        if (button != 1) {
+        if (button != 1 || !isEditContextMenuEnabled()) {
             return super.mouseClicked(mouseX, mouseY, button);
         }
 
@@ -133,22 +167,59 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement, Widg
     }
 
     protected void addDefaultContextMenu(ContextMenuWidget menuWidget) {
+        if (shopEntity == null || !isEditContextMenuEnabled()) {
+            return;
+        }
+
         menuWidget
                 .addItem(Component.translatable("shop.ui.offer_element.context_menu.edit"), () -> {
-                    ShopUIUtils.createEditMenu(this, shopEntity, this::refresh);
+                    ShopUIUtils.createEditMenu(this, editSession, shopEntity, this::refresh);
                 }).addSeparator()
                 .addItem(Component.translatable("shop.ui.offer_element.context_menu.copy"), () -> {
-
+                    copyOfferJsonToClipboard();
                 }).addSeparator()
                 .addItem(Component.translatable("shop.ui.offer_element.context_menu.delete"), () -> {
-
+                    if (isEditContextMenuEnabled() && ShopScreenElement.Instance != null) {
+                        ShopScreenElement.Instance.deleteDraftOffer(shopEntity.getUUID());
+                    }
                 });
+    }
+
+    protected boolean isEditContextMenuEnabled() {
+        return editSession != null && !editSession.closed();
+    }
+
+    protected void copyOfferJsonToClipboard() {
+        if (shopEntity == null) {
+            return;
+        }
+
+        String formattedJson = SDMShop2.GSON.toJson(shopEntity.serialize());
+        Minecraft minecraft = Minecraft.getInstance();
+        minecraft.keyboardHandler.setClipboard(formattedJson);
+        if (minecraft.player != null) {
+            minecraft.player.sendSystemMessage(Component.translatable("client.shop.component.editor.copied"));
+        }
     }
 
     @Override
     @Nullable
     public ShopOffer getShopEntity() {
         return shopEntity;
+    }
+
+    @Override
+    public @Nullable ShopEditSession getEditSession() {
+        return editSession;
+    }
+
+    @Nullable
+    public Runnable getEmptyAction() {
+        return emptyAction;
+    }
+
+    public Component getEmptyActionTitle() {
+        return emptyActionTitle == null ? Component.literal("+ Offer") : emptyActionTitle;
     }
 
     @Override

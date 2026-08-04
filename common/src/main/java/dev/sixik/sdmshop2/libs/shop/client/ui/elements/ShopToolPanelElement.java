@@ -11,6 +11,7 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIDisposable;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIEventScope;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
+import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.DODEventBus;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventPtr;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventSubscription;
@@ -68,6 +69,11 @@ public class ShopToolPanelElement extends ShopWidgetGroup implements ShopUiEleme
     @Override
     public UIEventScope screenEventScope() {
         return screen.screenEventScope();
+    }
+
+    @Override
+    public @Nullable ShopEditSession getEditSession() {
+        return screen.getEditSession();
     }
 
     public <Event> EventSubscription listenScreen(EventPtr<Event> event, DODEventBus.EventListener<Event> listener) {

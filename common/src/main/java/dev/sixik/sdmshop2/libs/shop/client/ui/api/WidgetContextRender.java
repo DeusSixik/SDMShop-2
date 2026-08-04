@@ -7,6 +7,7 @@ import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventPtr;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventSubscription;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopScreenElement;
+import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -20,6 +21,11 @@ public interface WidgetContextRender {
      */
     @Nullable
     ShopEntity getShopEntity();
+
+    @Nullable
+    default ShopEditSession getEditSession() {
+        return null;
+    }
 
     /**
      * Виджет у которого вызываеться этот контекст

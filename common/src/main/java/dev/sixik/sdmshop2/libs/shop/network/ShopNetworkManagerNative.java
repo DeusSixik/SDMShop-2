@@ -1,6 +1,7 @@
 package dev.sixik.sdmshop2.libs.shop.network;
 
 import dev.sixik.sdmshop2.SDMShop2;
+import dev.sixik.sdmshop2.libs.sdmeconomy.CurrencyDraft;
 import dev.sixik.sdmshop2.libs.shop.base.ObjectIdGetter;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
@@ -115,6 +116,42 @@ class ShopNetworkManagerNative {
             buf.writeResourceLocation(shopId);
             buf.writeBoolean(true); // isOpen: true
             return buf;
+        });
+    }
+
+    @Environment(EnvType.CLIENT)
+    public static CompletableFuture<Boolean> sendShopChanges(ShopInstance draftShop) {
+        if (draftShop == null) {
+            return CompletableFuture.completedFuture(false);
+        }
+
+        return AsyncBridge.askServer(AsyncClientTasks.SEND_SHOP_CHANGES, buf -> {
+            draftShop.serializeNetwork(buf);
+            return buf;
+        }).thenApply(response -> {
+            try {
+                return response.isReadable() && response.readBoolean();
+            } finally {
+                response.release();
+            }
+        });
+    }
+
+    @Environment(EnvType.CLIENT)
+    public static CompletableFuture<Boolean> sendCurrencyChanges(Collection<CurrencyDraft> currencyDrafts) {
+        if (currencyDrafts == null || currencyDrafts.isEmpty()) {
+            return CompletableFuture.completedFuture(true);
+        }
+
+        return AsyncBridge.askServer(AsyncClientTasks.SEND_CURRENCY_CHANGES, buf -> {
+            CurrencyDraft.writeList(buf, List.copyOf(currencyDrafts));
+            return buf;
+        }).thenApply(response -> {
+            try {
+                return response.isReadable() && response.readBoolean();
+            } finally {
+                response.release();
+            }
         });
     }
 

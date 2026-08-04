@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 import dev.sixik.sdmshop2.libs.platform.utils.repository.Repository;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepoDefinition;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepositoryManager;
+import dev.sixik.sdmshop2.libs.sdmeconomy.custom_currency.SimpleTextCurrency;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -40,6 +41,9 @@ public class SDMEconomyCurrencyRegistry {
     private static final String ID_FIELD = "id";
     private static final String TYPE_FIELD = "type";
     private static final String LEGACY_OWNER_FIELD = "owner";
+    private static final ResourceLocation TEXT_TYPE_ID = ResourceLocation.tryBuild("sdm", "text");
+    private static final String DISPLAY_NAME_FIELD = "display_name";
+    private static final String ICON_TEXT_FIELD = "icon_text";
 
     private static final Map<ResourceLocation, ICurrencyType<?>> TYPES = new ConcurrentHashMap<>();
     private static final Map<Class<?>, ICurrencyType<?>> TYPES_BY_CLASS = new ConcurrentHashMap<>();
@@ -47,6 +51,7 @@ public class SDMEconomyCurrencyRegistry {
 
     private static final Map<ResourceLocation, IExternalCurrency> CURRENCIES = new ConcurrentHashMap<>();
     private static final Map<ResourceLocation, IStoredCurrency> STORED_CURRENCIES = new ConcurrentHashMap<>();
+    private static final Map<ResourceLocation, IStoredCurrency> CUSTOM_STORED_CURRENCIES = new ConcurrentHashMap<>();
 
     @Nullable
     private static volatile Repository<ResourceLocation, IExternalCurrency> repository;
@@ -122,6 +127,23 @@ public class SDMEconomyCurrencyRegistry {
         }
     }
 
+    public static boolean registerAndSaveStoredCurrency(IStoredCurrency currency) {
+        Objects.requireNonNull(currency, "currency");
+        ResourceLocation id = currency.getId();
+        SimpleTextCurrency textCurrency = toSimpleTextCurrency(currency);
+
+        try {
+            saveStoredCurrencyToFile(textCurrency);
+            CUSTOM_STORED_CURRENCIES.put(id, textCurrency);
+            SDMEconomyPlatform.broadcastCurrencies();
+            LOGGER.info("Registered stored currency with id: '{}'", id);
+            return true;
+        } catch (Exception e) {
+            LOGGER.error("Failed to save stored currency {}", id, e);
+            return false;
+        }
+    }
+
     @Nullable
     public static IExternalCurrency getCurrency(String id) {
         return getCurrency(
@@ -138,7 +160,8 @@ public class SDMEconomyCurrencyRegistry {
 
     @Nullable
     public static IStoredCurrency getStoredCurrency(ResourceLocation id) {
-        return STORED_CURRENCIES.get(id);
+        IStoredCurrency custom = CUSTOM_STORED_CURRENCIES.get(id);
+        return custom == null ? STORED_CURRENCIES.get(id) : custom;
     }
 
     @Nullable
@@ -156,12 +179,15 @@ public class SDMEconomyCurrencyRegistry {
     }
 
     public static Map<ResourceLocation, IStoredCurrency> getStoredCurrenciesMap() {
-        return new Object2ObjectOpenHashMap<>(STORED_CURRENCIES);
+        Object2ObjectOpenHashMap<ResourceLocation, IStoredCurrency> currencies = new Object2ObjectOpenHashMap<>(STORED_CURRENCIES);
+        currencies.putAll(CUSTOM_STORED_CURRENCIES);
+        return currencies;
     }
 
     public static Map<ResourceLocation, ICurrency> getAllCurrenciesMap() {
         Object2ObjectOpenHashMap<ResourceLocation, ICurrency> currencies = new Object2ObjectOpenHashMap<>();
         currencies.putAll(STORED_CURRENCIES);
+        currencies.putAll(CUSTOM_STORED_CURRENCIES);
         currencies.putAll(CURRENCIES);
         return currencies;
     }
@@ -177,6 +203,7 @@ public class SDMEconomyCurrencyRegistry {
     public static void reload() {
         Repository<ResourceLocation, IExternalCurrency> repo = repository;
         CURRENCIES.clear();
+        CUSTOM_STORED_CURRENCIES.clear();
 
         if (repo != null) {
             CURRENCIES.putAll(repo.loadAll());
@@ -188,6 +215,7 @@ public class SDMEconomyCurrencyRegistry {
 
     public static void reload(Path configDir) {
         CURRENCIES.clear();
+        CUSTOM_STORED_CURRENCIES.clear();
         CURRENCIES.putAll(loadCurrencyFiles(configDir, false));
     }
 
@@ -270,6 +298,15 @@ public class SDMEconomyCurrencyRegistry {
                 return;
             }
 
+            if (isTextCurrencyJson(json)) {
+                IStoredCurrency currency = deserializeTextCurrency(root, file.toPath(), json);
+                if (currency != null) {
+                    CUSTOM_STORED_CURRENCIES.put(currency.getId(), currency);
+                    LOGGER.info("Loaded stored currency: {}", currency.getId());
+                }
+                return;
+            }
+
             IExternalCurrency currency = deserializeCurrency(root, file.toPath(), json);
             if (currency != null) {
                 out.put(currency.getId(), currency);
@@ -299,6 +336,14 @@ public class SDMEconomyCurrencyRegistry {
             nbtCurrencies.add(data);
         }
 
+        for (Map.Entry<ResourceLocation, IStoredCurrency> entry : CUSTOM_STORED_CURRENCIES.entrySet()) {
+            CompoundTag data = new CompoundTag();
+            data.putString("key", entry.getKey().toString());
+            data.putString(TYPE_FIELD, TEXT_TYPE_ID.toString());
+            data.put("data", serializeTextCurrency(entry.getValue()));
+            nbtCurrencies.add(data);
+        }
+
         nbt.put("currencies", nbtCurrencies);
         return nbt;
     }
@@ -318,6 +363,10 @@ public class SDMEconomyCurrencyRegistry {
                 continue;
             }
 
+            if (isTextCurrencyType(data)) {
+                continue;
+            }
+
             ICurrencyType<?> type = readNetworkCurrencyType(data);
             if(type == null) {
                 continue;
@@ -325,6 +374,33 @@ public class SDMEconomyCurrencyRegistry {
 
             IExternalCurrency obj = deserializeNbtUnchecked(type, id, data.get("data"));
             out.put(id, obj);
+        }
+
+        return out;
+    }
+
+    public static Object2ObjectOpenHashMap<ResourceLocation, IStoredCurrency> deserializeStoredCurrencies(CompoundTag nbt) {
+        if(!nbt.contains("currencies")) return new Object2ObjectOpenHashMap<>();
+
+        Object2ObjectOpenHashMap<ResourceLocation, IStoredCurrency> out = new Object2ObjectOpenHashMap<>();
+
+        ListTag nbtCurrencies = (ListTag) nbt.get("currencies");
+        for (Tag nbtCurrency : nbtCurrencies) {
+            CompoundTag data = (CompoundTag) nbtCurrency;
+            if (!isTextCurrencyType(data)) {
+                continue;
+            }
+
+            ResourceLocation id = ResourceLocation.tryParse(data.getString("key"));
+            if (id == null) {
+                LOGGER.error("Invalid stored currency id in network data: {}", data.getString("key"));
+                continue;
+            }
+
+            IStoredCurrency currency = deserializeTextCurrency(id, data.getCompound("data"));
+            if (currency != null) {
+                out.put(id, currency);
+            }
         }
 
         return out;
@@ -344,6 +420,13 @@ public class SDMEconomyCurrencyRegistry {
 
     @Nullable
     private static IExternalCurrency deserializeStoredCurrency(JsonObject json) {
+        if (isTextCurrencyJson(json)) {
+            IStoredCurrency currency = deserializeTextCurrency(null, null, json);
+            if (currency != null) {
+                CUSTOM_STORED_CURRENCIES.put(currency.getId(), currency);
+            }
+            return null;
+        }
         return deserializeCurrency(null, null, json);
     }
 
@@ -395,6 +478,22 @@ public class SDMEconomyCurrencyRegistry {
         }
     }
 
+    private static void saveStoredCurrencyToFile(SimpleTextCurrency currency) throws IOException {
+        ResourceLocation id = currency.getId();
+        JsonObject json = serializeTextCurrencyJson(currency);
+        json.addProperty(ID_FIELD, id.toString());
+
+        File file = currencyFile(SDMEconomyPlatform.getCurrenciesDir(), id).toFile();
+        File parent = file.getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+            throw new IOException("Failed to create currency directory: " + parent);
+        }
+
+        try (FileWriter writer = new FileWriter(file)) {
+            GSON.toJson(json, writer);
+        }
+    }
+
     @Nullable
     private static ResourceLocation readCurrencyId(@Nullable Path root, @Nullable Path file, JsonObject json) {
         if (json.has(ID_FIELD)) {
@@ -421,6 +520,81 @@ public class SDMEconomyCurrencyRegistry {
         }
 
         return ResourceLocation.tryBuild(namespace, FilenameUtils.removeExtension(path.toString()).replace('\\', '/'));
+    }
+
+    private static boolean isTextCurrencyJson(JsonObject json) {
+        if (json == null || !json.has(TYPE_FIELD)) {
+            return false;
+        }
+
+        ResourceLocation typeId = ResourceLocation.tryParse(json.get(TYPE_FIELD).getAsString());
+        return TEXT_TYPE_ID.equals(typeId);
+    }
+
+    private static boolean isTextCurrencyType(CompoundTag data) {
+        if (data == null || !data.contains(TYPE_FIELD)) {
+            return false;
+        }
+
+        return TEXT_TYPE_ID.equals(ResourceLocation.tryParse(data.getString(TYPE_FIELD)));
+    }
+
+    @Nullable
+    private static IStoredCurrency deserializeTextCurrency(@Nullable Path root, @Nullable Path file, JsonObject json) {
+        ResourceLocation id = readCurrencyId(root, file, json);
+        if (id == null) {
+            LOGGER.error("Failed to load stored currency: invalid or missing currency id");
+            return null;
+        }
+
+        String displayName = json.has(DISPLAY_NAME_FIELD) ? json.get(DISPLAY_NAME_FIELD).getAsString() : id.toString();
+        String iconText = json.has(ICON_TEXT_FIELD) ? json.get(ICON_TEXT_FIELD).getAsString() : "$";
+        return new SimpleTextCurrency(id, displayName, iconText);
+    }
+
+    @Nullable
+    private static IStoredCurrency deserializeTextCurrency(ResourceLocation id, CompoundTag tag) {
+        if (id == null) {
+            return null;
+        }
+
+        String displayName = tag == null || !tag.contains(DISPLAY_NAME_FIELD) ? id.toString() : tag.getString(DISPLAY_NAME_FIELD);
+        String iconText = tag == null || !tag.contains(ICON_TEXT_FIELD) ? "$" : tag.getString(ICON_TEXT_FIELD);
+        return new SimpleTextCurrency(id, displayName, iconText);
+    }
+
+    private static JsonObject serializeTextCurrencyJson(IStoredCurrency currency) {
+        SimpleTextCurrency textCurrency = toSimpleTextCurrency(currency);
+        JsonObject json = new JsonObject();
+        json.addProperty(TYPE_FIELD, TEXT_TYPE_ID.toString());
+        json.addProperty(DISPLAY_NAME_FIELD, textCurrency.getDisplayNameValue());
+        json.addProperty(ICON_TEXT_FIELD, textCurrency.getIconText());
+        return json;
+    }
+
+    private static CompoundTag serializeTextCurrency(IStoredCurrency currency) {
+        SimpleTextCurrency textCurrency = toSimpleTextCurrency(currency);
+        CompoundTag tag = new CompoundTag();
+        tag.putString(DISPLAY_NAME_FIELD, textCurrency.getDisplayNameValue());
+        tag.putString(ICON_TEXT_FIELD, textCurrency.getIconText());
+        return tag;
+    }
+
+    private static SimpleTextCurrency toSimpleTextCurrency(IStoredCurrency currency) {
+        if (currency instanceof SimpleTextCurrency textCurrency) {
+            return textCurrency;
+        }
+
+        String displayName = currency.getDisplayName() == null
+                ? currency.getId().toString()
+                : currency.getDisplayName().getString();
+        String iconText = "$";
+        if (currency.getIcon() != null
+                && currency.getIcon().type() == dev.sixik.sdmshop2.libs.sdmeconomy.icons.IconType.TEXTURE
+                && currency.getIcon().icon() instanceof String text) {
+            iconText = text;
+        }
+        return new SimpleTextCurrency(currency.getId(), displayName, iconText);
     }
 
     @Nullable

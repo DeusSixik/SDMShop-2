@@ -51,6 +51,10 @@ public class SDMShopClient {
         ShopScreenController.openShop();
     }
 
+    public static void openShopEditorGui() {
+        ShopScreenController.openShopEditor();
+    }
+
     /**
      * Template !
      */

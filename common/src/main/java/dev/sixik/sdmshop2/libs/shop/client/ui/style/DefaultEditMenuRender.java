@@ -284,7 +284,16 @@ public class DefaultEditMenuRender implements WidgetRender {
         }
 
         renderedEntity.addComponent(component);
-        ComponentConfigWidgetConstructor.invokeUpdate(component);
+        if (ctx.getEditSession() != null) {
+            ctx.getEditSession().recordHistory(
+                    "component.add",
+                    renderedEntity.getClass().getSimpleName(),
+                    renderedEntity instanceof dev.sixik.sdmshop2.libs.shop.base.ObjectIdGetter idGetter ? idGetter.getUUID() : null,
+                    component.getType().getId(),
+                    "Added component " + component.getType().getId()
+            );
+        }
+        ComponentConfigWidgetConstructor.invokeUpdate(component, false);
         rebuildContent(ctx, renderedContentWidth);
         rebuildActions(ctx, renderedActionWidth);
         refreshPreview(ctx);

@@ -64,17 +64,34 @@ public class JsonGenericRepository<K, V> implements Repository<K, V> {
     }
 
     private Path getLegacyFilePath(K id) {
-        final String string = keyToString.apply(id);
-        final String[] spl = string.split(":");
-        return collectionDirectory.resolve((spl.length > 1 ? spl[1] : spl[0]) + ".json");
+        return collectionDirectory.resolve(toNamespacedStoragePath(keyToString.apply(id)) + ".json");
     }
 
     private String toStoragePath(String rawKey) {
         final String normalized = rawKey == null ? "null" : rawKey.replace('\\', '/');
         final int namespaceSeparator = normalized.indexOf(':');
         final String path = namespaceSeparator >= 0
+                ? defaultNamespaceStoragePath(normalized, namespaceSeparator)
+                : normalized;
+        return sanitizeStoragePath(path);
+    }
+
+    private String defaultNamespaceStoragePath(String normalized, int namespaceSeparator) {
+        String namespace = normalized.substring(0, namespaceSeparator);
+        String path = normalized.substring(namespaceSeparator + 1);
+        return "sdm".equals(namespace) ? path : namespace + "/" + path;
+    }
+
+    private String toNamespacedStoragePath(String rawKey) {
+        final String normalized = rawKey == null ? "null" : rawKey.replace('\\', '/');
+        final int namespaceSeparator = normalized.indexOf(':');
+        final String path = namespaceSeparator >= 0
                 ? normalized.substring(0, namespaceSeparator) + "/" + normalized.substring(namespaceSeparator + 1)
                 : normalized;
+        return sanitizeStoragePath(path);
+    }
+
+    private String sanitizeStoragePath(String path) {
         final String[] segments = path.split("/");
         final StringBuilder builder = new StringBuilder();
 

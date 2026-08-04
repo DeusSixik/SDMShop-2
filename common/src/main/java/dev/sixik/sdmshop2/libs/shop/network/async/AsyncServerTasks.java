@@ -2,6 +2,8 @@ package dev.sixik.sdmshop2.libs.shop.network.async;
 
 import dev.sixik.sdmshop2.libs.platform.utils.network.async.AsyncBridge;
 import dev.sixik.sdmshop2.libs.platform.utils.network.async.BlobTransfer;
+import dev.sixik.sdmshop2.libs.sdmeconomy.CurrencyDraft;
+import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyCurrencyRegistry;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.base.ShopTable;
@@ -10,6 +12,7 @@ import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
 import dev.sixik.sdmshop2.libs.shop.network.ShopNetworkManager;
 import dev.sixik.sdmshop2.libs.shop.processors.ShopTransactionProcessor;
 import dev.sixik.sdmshop2.utils.NetworkExtern;
+import dev.sixik.sdmshop2.utils.ShopUtils;
 import io.netty.buffer.Unpooled;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
@@ -193,6 +196,39 @@ public class AsyncServerTasks {
             else       ShopNetworkManager.sendShopData(shopInstance, (ServerPlayer) ctx.getPlayer());
 
             return null;
+        });
+
+        AsyncBridge.registerHandler(AsyncClientTasks.SEND_SHOP_CHANGES, (request, ctx) -> {
+            boolean success = false;
+            if (request.isReadable() && ctx.getPlayer() instanceof ServerPlayer player && ShopUtils.isPlayerAdmin(player)) {
+                ShopInstance draftShop = ShopInstance.fromNetwork(request);
+                ShopTable.Instance.save(draftShop);
+                ShopNetworkManager.sendShopData(draftShop, player.getServer().getPlayerList().getPlayers());
+                success = true;
+            }
+
+            FriendlyByteBuf reply = new FriendlyByteBuf(Unpooled.buffer());
+            reply.writeBoolean(success);
+            return reply;
+        });
+
+        AsyncBridge.registerHandler(AsyncClientTasks.SEND_CURRENCY_CHANGES, (request, ctx) -> {
+            boolean success = false;
+            if (request.isReadable() && ctx.getPlayer() instanceof ServerPlayer player && ShopUtils.isPlayerAdmin(player)) {
+                List<CurrencyDraft> drafts = CurrencyDraft.readList(request);
+                success = true;
+                for (CurrencyDraft draft : drafts) {
+                    if (draft.kind() == CurrencyDraft.Kind.ITEM) {
+                        success &= SDMEconomyCurrencyRegistry.registerAndSaveCurrency(draft.toExternalCurrency());
+                    } else {
+                        success &= SDMEconomyCurrencyRegistry.registerAndSaveStoredCurrency(draft.toStoredCurrency());
+                    }
+                }
+            }
+
+            FriendlyByteBuf reply = new FriendlyByteBuf(Unpooled.buffer());
+            reply.writeBoolean(success);
+            return reply;
         });
     }
 

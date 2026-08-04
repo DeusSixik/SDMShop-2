@@ -89,6 +89,10 @@ public class ExternalItemCurrency implements IExternalCurrency {
         return displayName;
     }
 
+    public ItemStack getItemType() {
+        return itemType.copyWithCount(1);
+    }
+
     @Override
     public String format(BigDecimal decimal) {
         return decimal.toString();

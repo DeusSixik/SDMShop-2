@@ -10,6 +10,7 @@ import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
 import dev.sixik.sdmshop2.libs.shop.client.WidgetGroupAccessor;
+import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopScreenElement;
 import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.CollapsedGroupWidget;
 import dev.sixik.sdmshop2.libs.shop.client.ui.textures.ColorRectAndBorderTexture;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
@@ -60,7 +61,7 @@ public class ComponentCollapsedGroupWidget extends CollapsedGroupWidget {
                 return true;
             }
 
-            if (button == 1) {
+            if (button == 1 && isEditContextMenuEnabled()) {
                 openContextMenu((int) mouseX, (int) mouseY);
                 Widget.playButtonClickSound();
                 return true;
@@ -125,6 +126,7 @@ public class ComponentCollapsedGroupWidget extends CollapsedGroupWidget {
 
     protected void openContextMenu(int mouseX, int mouseY) {
         if (this.gui == null) return;
+        if (!isEditContextMenuEnabled()) return;
 
         WidgetGroup menuRoot = findContextMenuRoot();
         if (menuRoot == null) return;
@@ -165,6 +167,15 @@ public class ComponentCollapsedGroupWidget extends CollapsedGroupWidget {
                 new TextTexture(() -> I18n.get("client.shop.component.editor.components.delete")),
                 button -> {
                     if (component.getRoot() != null) {
+                        if (ShopScreenElement.Instance != null && ShopScreenElement.Instance.getEditSession() != null) {
+                            ShopScreenElement.Instance.getEditSession().recordHistory(
+                                    "component.delete",
+                                    root == null ? "unknown" : root.getClass().getSimpleName(),
+                                    root instanceof dev.sixik.sdmshop2.libs.shop.base.ObjectIdGetter idGetter ? idGetter.getUUID() : null,
+                                    component.getType().getId(),
+                                    "Deleted component " + component.getType().getId()
+                            );
+                        }
                         component.getRoot().removeComponent(component);
                     }
 
@@ -182,6 +193,12 @@ public class ComponentCollapsedGroupWidget extends CollapsedGroupWidget {
 
         menuRoot.addWidget(contextMenu);
         contextMenu.setFocus(true);
+    }
+
+    protected boolean isEditContextMenuEnabled() {
+        return ShopScreenElement.Instance != null
+                && ShopScreenElement.Instance.getEditSession() != null
+                && !ShopScreenElement.Instance.getEditSession().closed();
     }
 
     protected WidgetGroup findContextMenuRoot() {

@@ -160,6 +160,6 @@ public class ShopUtils {
     }
 
     public static boolean isPlayerAdmin(Player player) {
-        return player.hasPermissions(Commands.LEVEL_ADMINS);
+        return player.hasPermissions(Commands.LEVEL_GAMEMASTERS);
     }
 }

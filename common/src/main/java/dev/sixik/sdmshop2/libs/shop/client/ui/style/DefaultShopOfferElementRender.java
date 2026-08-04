@@ -18,6 +18,7 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.textures.PixelBevelTexture;
 import dev.sixik.sdmshop2.libs.shop.client.ui.ShopIcons;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
+import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopOfferElement;
 import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
 import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.PromoEffectComponent;
@@ -82,6 +83,7 @@ public class DefaultShopOfferElementRender implements WidgetRender {
     protected ShopBadgeHBoxWidget badgesBox;
     @Nullable
     protected ButtonWidget favoriteButton;
+    protected ButtonWidget editorActionButton;
     protected final Map<CostComponent, PriceWidget> priceWidgets = new HashMap<>();
     protected final Map<CostComponent, Double> actualPrices = new HashMap<>();
     protected final List<String> priceGroups = new ArrayList<>();
@@ -110,22 +112,25 @@ public class DefaultShopOfferElementRender implements WidgetRender {
 
         final ShopEntity entity = ctx.getShopEntity();
         if (!(entity instanceof ShopOffer shopEntity)) {
+            addEditorActionButton(ctx);
             return;
         }
 
-        favoriteButton = new ButtonWidget();
-        updateFavoriteButton(ShopClientCache.isFavorite(shopEntity.getUUID()));
-        favoriteButton.setClientSideWidget();
-        favoriteButton.setHoverTexture(new ColorBorderTexture(1, 0xFFFFFFFF));
-        favoriteButton.setClickedTexture(new ColorBorderTexture(1, 0xFFFFD77A));
-        favoriteButton.setOnClick(ignored -> updateFavoriteButton(ShopClientCache.toggleFavorite(shopEntity.getUUID())));
-        favoriteButton.setSize(8, 8);
-        ctx.addWidget(favoriteButton);
-        ctx.listen(ShopUIEvents.FAVORITES_CHANGED, event -> {
-            if (shopEntity.getUUID().equals(event.offerId())) {
-                updateFavoriteButton(event.favorite());
-            }
-        });
+        if (ctx.getEditSession() == null) {
+            favoriteButton = new ButtonWidget();
+            updateFavoriteButton(ShopClientCache.isFavorite(shopEntity.getUUID()));
+            favoriteButton.setClientSideWidget();
+            favoriteButton.setHoverTexture(new ColorBorderTexture(1, 0xFFFFFFFF));
+            favoriteButton.setClickedTexture(new ColorBorderTexture(1, 0xFFFFD77A));
+            favoriteButton.setOnClick(ignored -> updateFavoriteButton(ShopClientCache.toggleFavorite(shopEntity.getUUID())));
+            favoriteButton.setSize(8, 8);
+            ctx.addWidget(favoriteButton);
+            ctx.listen(ShopUIEvents.FAVORITES_CHANGED, event -> {
+                if (shopEntity.getUUID().equals(event.offerId())) {
+                    updateFavoriteButton(event.favorite());
+                }
+            });
+        }
         ctx.listen(ShopUIEvents.REFRESH_UI, event -> {
             if (event.affectsCurrencies() || event.affectsOffer(shopEntity.getUUID())) {
                 requestActualPrices(shopEntity);
@@ -146,6 +151,15 @@ public class DefaultShopOfferElementRender implements WidgetRender {
     @Override
     public void alightWidgets(WidgetContextRender ctx) {
         final Widget owner = ctx.getOwner();
+
+        if (editorActionButton != null) {
+            editorActionButton.setSelfPosition(CONTENT_PADDING, CONTENT_PADDING);
+            editorActionButton.setSize(
+                    Math.max(1, owner.getSizeWidth() - CONTENT_PADDING * 2),
+                    Math.max(1, owner.getSizeHeight() - CONTENT_PADDING * 2)
+            );
+            return;
+        }
 
         int contentPadding = CONTENT_PADDING;
         int currentY = CONTENT_PADDING;
@@ -276,11 +290,27 @@ public class DefaultShopOfferElementRender implements WidgetRender {
         limitBar = null;
         badgesBox = null;
         favoriteButton = null;
+        editorActionButton = null;
         priceWidgets.clear();
         actualPrices.clear();
         priceGroups.clear();
         priceRequestVersion++;
         oneOfferElement = false;
+    }
+
+    protected void addEditorActionButton(WidgetContextRender ctx) {
+        if (!(ctx instanceof ShopOfferElement offerElement) || offerElement.getEmptyAction() == null) {
+            return;
+        }
+
+        editorActionButton = new ButtonWidget();
+        editorActionButton.setText(offerElement.getEmptyActionTitle());
+        editorActionButton.setButtonTexture(PixelBevelTexture.panelLow());
+        editorActionButton.setHoverTexture(new PixelBevelTexture(0xFF111624, PixelBevelTexture.ACCENT_LOW_COLOR, PixelBevelTexture.ACCENT_HIGH_COLOR, 0.7f));
+        editorActionButton.setClickedTexture(PixelBevelTexture.accent().pressed());
+        editorActionButton.setOnClick(ignored -> offerElement.getEmptyAction().run());
+        editorActionButton.setClientSideWidget();
+        ctx.addWidget(editorActionButton);
     }
 
     protected void updateFavoriteButton(boolean favorite) {
@@ -424,18 +454,20 @@ public class DefaultShopOfferElementRender implements WidgetRender {
                 container.addWidget(widget);
             }
 
-            final ButtonWidget buyButton = new ButtonWidget();
-            buyButton.setText(Component.translatable("shop.ui.offer_element.button.buy"));
-            buyButton.setSizeHeight(test_size);
-            buyButton.setButtonTexture(new PixelBevelTexture(PixelBevelTexture.PANEL_COLOR, PixelBevelTexture.ACCENT_LOW_COLOR, PixelBevelTexture.ACCENT_HIGH_COLOR, 0.7f));
-            buyButton.setHoverTexture(new PixelBevelTexture(0xFF111624, PixelBevelTexture.ACCENT_LOW_COLOR, PixelBevelTexture.ACCENT_HIGH_COLOR, 0.7f));
-            buyButton.setClickedTexture(PixelBevelTexture.accent().pressed());
-            buyButton.setOnPressCallback((b) -> {
-                if(b.button == InputConstants.MOUSE_BUTTON_LEFT)
-                    ShopUIEvents.invokeBuyShopEntity(ctx.getShopEntity(), entry.getKey());
-            });
+            if (ctx.getEditSession() == null) {
+                final ButtonWidget buyButton = new ButtonWidget();
+                buyButton.setText(Component.translatable("shop.ui.offer_element.button.buy"));
+                buyButton.setSizeHeight(test_size);
+                buyButton.setButtonTexture(new PixelBevelTexture(PixelBevelTexture.PANEL_COLOR, PixelBevelTexture.ACCENT_LOW_COLOR, PixelBevelTexture.ACCENT_HIGH_COLOR, 0.7f));
+                buyButton.setHoverTexture(new PixelBevelTexture(0xFF111624, PixelBevelTexture.ACCENT_LOW_COLOR, PixelBevelTexture.ACCENT_HIGH_COLOR, 0.7f));
+                buyButton.setClickedTexture(PixelBevelTexture.accent().pressed());
+                buyButton.setOnPressCallback((b) -> {
+                    if(b.button == InputConstants.MOUSE_BUTTON_LEFT)
+                        ShopUIEvents.invokeBuyShopEntity(ctx.getShopEntity(), entry.getKey());
+                });
 //            buyButton.setTextColor(PixelBevelTexture.PAGE_COLOR);
-            container.addWidget(buyButton);
+                container.addWidget(buyButton);
+            }
             container.setDynamicSized(false);
             moneyTypeRows.add(container);
             moneyTypesContainer.addWidget(container);

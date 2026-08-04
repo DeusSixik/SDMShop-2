@@ -4,7 +4,9 @@ import dev.architectury.platform.Platform;
 import dev.sixik.sdmshop2.libs.platform.SDMPlatform;
 import dev.sixik.sdmshop2.libs.shop.base.ObjectIdGetter;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
+import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
+import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
 import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
 import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
@@ -163,6 +165,26 @@ public final class ShopClientCache {
                 describeEntity(entity),
                 UUID.randomUUID().toString()
         ));
+    }
+
+    @Nullable
+    public static PersistentEditSession getEditSession() {
+        return get().get(ClientCacheKeys.EDIT_SESSION, ClientCacheCodecs.EDIT_SESSION, null);
+    }
+
+    public static void saveEditSession(@Nullable ShopEditSession session, @Nullable ShopInstance draftShop) {
+        PersistentEditSession snapshot = PersistentEditSession.fromSession(session, draftShop);
+        if (snapshot == null) {
+            return;
+        }
+
+        get().set(ClientCacheKeys.EDIT_SESSION, ClientCacheCodecs.EDIT_SESSION, snapshot);
+        get().saveAsync();
+    }
+
+    public static void clearEditSession() {
+        get().remove(ClientCacheKeys.EDIT_SESSION);
+        get().saveAsync();
     }
 
     public static void saveAsync() {

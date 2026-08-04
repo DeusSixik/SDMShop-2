@@ -12,6 +12,7 @@ public final class ClientCacheCodecs {
     public static final FieldCodec<List<UUID>> FAVORITES = FieldCodecs.list(FieldCodecs.UUID_CODEC);
     public static final FieldCodec<List<ResourceLocation>> COMPONENT_FAVORITES = FieldCodecs.list(FieldCodecs.RESOURCE_LOCATION);
     public static final FieldCodec<List<EditorHistoryEntry>> EDITOR_HISTORY = FieldCodecs.list(EditorHistoryEntry.CODEC);
+    public static final FieldCodec<PersistentEditSession> EDIT_SESSION = PersistentEditSession.CODEC;
 
     private ClientCacheCodecs() {
     }

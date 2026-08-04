@@ -65,6 +65,7 @@ public class SDMShopCommands {
                                     ResourceLocation shopId = ResourceLocationArgument.getId(ctx, "shop_id");
                                     if(shopId.getNamespace().equals("minecraft"))
                                         shopId = new ResourceLocation("sdm", shopId.getPath());
+                                    final ResourceLocation finalShopId = shopId;
 
                                     final ShopInstance shop = ShopTable.Instance.getShop(shopId);
                                     if(shop == null) {
@@ -72,10 +73,12 @@ public class SDMShopCommands {
                                         return 0;
                                     }
 
-                                    for (ServerPlayer target : targets) {
-                                        ShopNetworkManager.sendShopData(shop, target);
-                                    }
-                                    return 1;
+                                    ShopNetworkManager.sendShopDataAndOpen(shop, targets);
+                                    ctx.getSource().sendSuccess(
+                                            () -> Component.literal("Shop opened: " + finalShopId + " for " + targets.size() + " player(s)").withStyle(ChatFormatting.GREEN),
+                                            true
+                                    );
+                                    return targets.size();
                                 })
                         )
                 )

@@ -9,6 +9,7 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIDisposable;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIEventScope;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
+import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ModalWidget;
 import lombok.Getter;
 import net.minecraft.client.Minecraft;
@@ -21,6 +22,9 @@ public class ShopEntityEditorElement extends ModalWidget implements WidgetContex
     @Nullable
     @Getter
     private final ShopEntity shopEntity;
+    @Nullable
+    @Getter
+    private final ShopEditSession editSession;
 
     protected final WidgetRender render;
     protected final UIEventScope eventScope = new UIEventScope();
@@ -36,20 +40,37 @@ public class ShopEntityEditorElement extends ModalWidget implements WidgetContex
         return ModalWidget.open(owner, new ShopEntityEditorElement(owner, shopEntity, onEdit));
     }
 
+    public static ShopEntityEditorElement open(Widget owner, @Nullable ShopEditSession editSession, @Nullable ShopEntity shopEntity) {
+        return open(owner, editSession, shopEntity, null);
+    }
+
+    public static ShopEntityEditorElement open(Widget owner, @Nullable ShopEditSession editSession, @Nullable ShopEntity shopEntity, @Nullable Runnable onEdit) {
+        return ModalWidget.open(owner, new ShopEntityEditorElement(owner, editSession, shopEntity, onEdit));
+    }
+
     protected ShopEntityEditorElement(Widget owner, @Nullable ShopEntity shopEntity) {
         this(owner, shopEntity, (Runnable) null);
     }
 
     protected ShopEntityEditorElement(Widget owner, @Nullable ShopEntity shopEntity, @Nullable Runnable onEdit) {
-        this(owner, shopEntity, StyleApi.getDefaultStyle(StyleApi.Category.Editor).get(), onEdit);
+        this(owner, null, shopEntity, StyleApi.getDefaultStyle(StyleApi.Category.Editor).get(), onEdit);
+    }
+
+    protected ShopEntityEditorElement(Widget owner, @Nullable ShopEditSession editSession, @Nullable ShopEntity shopEntity, @Nullable Runnable onEdit) {
+        this(owner, editSession, shopEntity, StyleApi.getDefaultStyle(StyleApi.Category.Editor).get(), onEdit);
     }
 
     protected ShopEntityEditorElement(Widget owner, @Nullable ShopEntity shopEntity, WidgetRender render) {
-        this(owner, shopEntity, render, null);
+        this(owner, null, shopEntity, render, null);
     }
 
     protected ShopEntityEditorElement(Widget owner, @Nullable ShopEntity shopEntity, WidgetRender render, @Nullable Runnable onEdit) {
+        this(owner, null, shopEntity, render, onEdit);
+    }
+
+    protected ShopEntityEditorElement(Widget owner, @Nullable ShopEditSession editSession, @Nullable ShopEntity shopEntity, WidgetRender render, @Nullable Runnable onEdit) {
         this.shopEntity = shopEntity;
+        this.editSession = editSession;
         this.onEdit = onEdit;
 
         this.render = Objects.requireNonNull(render, "render");

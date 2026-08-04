@@ -180,6 +180,7 @@ public final class ShopTable {
             return;
         }
 
+        attachAutoSave(instance);
         shopsRepository.save(instance.getId(), instance);
     }
 

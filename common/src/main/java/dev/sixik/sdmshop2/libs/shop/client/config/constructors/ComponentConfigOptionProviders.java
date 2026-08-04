@@ -4,7 +4,9 @@ import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
+import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
+import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopScreenElement;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.sdmshop2.utils.ShopUtils;
@@ -76,7 +78,9 @@ public final class ComponentConfigOptionProviders {
 
     private static List<Option> moneyOptions(ShopComponent component, ComponentConfigAccess.CachedField field) {
         List<Option> options = new ArrayList<>();
-        Map<ResourceLocation, ICurrency> currencies = SDMEconomyServiceClient.getAllCurrencies();
+        Map<ResourceLocation, ICurrency> currencies = ShopScreenElement.Instance != null && ShopScreenElement.Instance.isEditorMode()
+                ? ShopScreenElement.Instance.getEditorCurrencies()
+                : SDMEconomyServiceClient.getAllCurrencies();
         currencies.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey(Comparator.comparing(ResourceLocation::toString)))
                 .forEach(entry -> {
@@ -99,10 +103,17 @@ public final class ComponentConfigOptionProviders {
     }
 
     private static List<CatalogComponent> getCatalogs() {
-        if (SDMShopClient.Shop == null || SDMShopClient.Shop.getCategories() == null) {
+        if (ShopScreenElement.Instance != null && ShopScreenElement.Instance.isEditorMode()) {
+            return ShopScreenElement.Instance.getOrderedCategories();
+        }
+
+        ShopInstance shop = ShopScreenElement.Instance == null
+                ? SDMShopClient.Shop
+                : ShopScreenElement.Instance.getActiveShop();
+        if (shop == null || shop.getCategories() == null) {
             return List.of();
         }
-        return SDMShopClient.Shop.getCategories().getCatalogsComponents();
+        return shop.getCategories().getCatalogsComponents();
     }
 
     private static Component catalogLabel(CatalogComponent catalog) {
@@ -135,6 +146,7 @@ public final class ComponentConfigOptionProviders {
                 if (selected != null) {
                     catalog.setId(selected.getId());
                     catalog.setUuid(selected.getUuid());
+                    catalog.setOrder(selected.getOrder());
                     return true;
                 }
             }

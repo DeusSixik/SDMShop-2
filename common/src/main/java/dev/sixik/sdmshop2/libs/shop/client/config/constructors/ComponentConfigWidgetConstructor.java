@@ -9,6 +9,7 @@ import com.lowdragmc.lowdraglib.gui.widget.layout.Layout;
 import com.lowdragmc.lowdraglib.utils.Size;
 import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
+import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopScreenElement;
 import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
 import dev.sixik.sdmshop2.libs.shop.client.config.ComponentCollapsedGroupWidget;
 import dev.sixik.sdmshop2.libs.shop.client.config.ComponentConfigurationWidget;
@@ -681,13 +682,34 @@ public class ComponentConfigWidgetConstructor extends WidgetGroup {
     }
 
     public static void invokeUpdate(ShopComponent targetComponent) {
-        SDMShopClient.UPDATE_COMPONENT_EVENT.invoker().onUpdateComponentEvent(targetComponent.getRoot(), targetComponent);
+        invokeUpdate(targetComponent, true);
+    }
+
+    public static void invokeUpdate(ShopComponent targetComponent, boolean recordHistory) {
+        ShopEntity root = targetComponent.getRoot();
+        if (root == null) {
+            targetComponent.markDirty();
+            return;
+        }
+
+        targetComponent.invokeUpdate();
+        if (recordHistory && ShopScreenElement.Instance != null && ShopScreenElement.Instance.getEditSession() != null) {
+            ShopScreenElement.Instance.getEditSession().recordHistory(
+                    "component.update",
+                    root.getClass().getSimpleName(),
+                    root instanceof dev.sixik.sdmshop2.libs.shop.base.ObjectIdGetter idGetter ? idGetter.getUUID() : null,
+                    targetComponent.getType().getId(),
+                    "Updated component " + targetComponent.getType().getId()
+            );
+        }
+        SDMShopClient.UPDATE_COMPONENT_EVENT.invoker().onUpdateComponentEvent(root, targetComponent);
     }
 
     private class CollectionEditor extends WidgetGroup {
 
         private final Class<?> collectionType;
         private final Class<?> innerType;
+        private ButtonWidget editButton;
         private boolean collectionLayout;
 
         private CollectionEditor(Class<?> collectionType, Class<?> innerType) {
@@ -701,42 +723,11 @@ public class ComponentConfigWidgetConstructor extends WidgetGroup {
         }
 
         private void rebuild() {
-            int currentWidth = Math.max(1, getSizeWidth());
-            CollectionState state = readCollection();
-            List<Object> currentList = state.values();
-            Object existingRef = state.source();
-
             clearAllWidgets();
-            for (int i = 0; i < currentList.size(); i++) {
-                final int index = i;
-                Widget editorWidget = createValueEditor(innerType, currentList.get(i), cachedField, newValue -> {
-                    currentList.set(index, newValue);
-                    saveCollection(currentList, existingRef);
-                });
-                if (editorWidget == null) continue;
-
-                WidgetGroup row = new WidgetGroup(0, 0, currentWidth, style.editorHeight());
-                row.setLayout(Layout.NONE);
-                row.setDynamicSized(false);
-                row.addWidget(editorWidget);
-
-                ButtonWidget removeButton = createActionButton(Component.literal("×"), ignored -> {
-                    currentList.remove(index);
-                    saveCollection(currentList, existingRef);
-                    rebuild();
-                });
-                removeButton.setHoverTooltips("client.shop.component.editor.arrays.button.remove_element");
-                row.addWidget(removeButton);
-                addWidget(row);
-            }
-
-            ButtonWidget addButton = createActionButton(Component.translatable("client.shop.component.editor.arrays.button.add_element"), ignored -> {
-                currentList.add(getDefaultValue(innerType));
-                saveCollection(currentList, existingRef);
-                rebuild();
-            });
-            addWidget(addButton);
-            layoutRows(currentWidth);
+            editButton = createActionButton(collectionButtonLabel(), ignored -> openCollectionModal());
+            editButton.setHoverTooltips(Component.translatable(cachedField.translationKey()));
+            addWidget(editButton);
+            layoutRows(Math.max(1, getSizeWidth()));
         }
 
         @Override
@@ -752,32 +743,149 @@ public class ComponentConfigWidgetConstructor extends WidgetGroup {
             collectionLayout = true;
             try {
                 int safeWidth = Math.max(1, width);
-                int y = 0;
-                int removeWidth = Math.min(style.collectionButtonWidth(), Math.max(1, safeWidth));
-                int editorWidth = Math.max(1, safeWidth - removeWidth - style.collectionGap());
-
-                for (Widget child : widgets) {
-                    child.setSelfPosition(0, y);
-                    child.setSize(new Size(safeWidth, style.editorHeight()));
-
-                    if (child instanceof WidgetGroup row && row.widgets.size() >= 2) {
-                        Widget rowEditor = row.widgets.get(0);
-                        Widget removeButton = row.widgets.get(1);
-                        rowEditor.setSelfPosition(0, 0);
-                        rowEditor.setSize(new Size(editorWidth, style.editorHeight()));
-                        removeButton.setSelfPosition(safeWidth - removeWidth, 0);
-                        removeButton.setSize(new Size(removeWidth, style.editorHeight()));
-                    }
-
-                    y += style.editorHeight() + style.collectionRowSpacing();
+                if (editButton != null) {
+                    editButton.setSelfPosition(0, 0);
+                    editButton.setSize(new Size(safeWidth, style.editorHeight()));
                 }
-
-                int targetHeight = widgets.isEmpty() ? style.editorHeight() : Math.max(style.editorHeight(), y - style.collectionRowSpacing());
-                if (getSizeWidth() != safeWidth || getSizeHeight() != targetHeight) {
-                    super.setSize(new Size(safeWidth, targetHeight));
+                if (getSizeWidth() != safeWidth || getSizeHeight() != style.editorHeight()) {
+                    super.setSize(new Size(safeWidth, style.editorHeight()));
                 }
             } finally {
                 collectionLayout = false;
+            }
+        }
+
+        private Component collectionButtonLabel() {
+            CollectionState state = readCollection();
+            return Component.translatable("client.shop.component.editor.arrays.button.edit", state.values().size());
+        }
+
+        private void openCollectionModal() {
+            CollectionState state = readCollection();
+            List<Object> modalValues = new ArrayList<>(state.values());
+            Object existingRef = state.source();
+
+            ModalWidget modal = new ModalWidget(style.optionsDialogWidth(), Math.max(160, style.optionsDialogHeight()))
+                    .setTitle(Component.translatable(cachedField.translationKey()))
+                    .setCloseOnEsc(true)
+                    .setCloseOnOutsideClick(false);
+            ModalWidget opened = ModalWidget.openNested(ComponentConfigWidgetConstructor.this, modal);
+            if (opened == null) return;
+
+            int contentWidth = Math.max(1, opened.getContentWidth());
+            int contentHeight = Math.max(1, opened.getContentHeight());
+            int gap = Math.max(2, style.collectionGap());
+            int footerHeight = style.editorHeight();
+            int listHeight = Math.max(1, contentHeight - footerHeight - gap);
+            int scrollBarWidth = 4;
+            int listWidth = Math.max(1, contentWidth - scrollBarWidth - 2);
+
+            DraggableScrollableWidgetGroup scroll = new DraggableScrollableWidgetGroup(0, 0, contentWidth, listHeight);
+            scroll.setScrollWheelDirection(DraggableScrollableWidgetGroup.ScrollWheelDirection.VERTICAL);
+            scroll.setLayout(Layout.NONE);
+            scroll.setYScrollBarWidth(scrollBarWidth);
+            scroll.setYBarStyle(null, ColorPattern.WHITE.rectTexture().setRadius(2));
+            scroll.setClientSideWidget();
+
+            WidgetGroup list = new WidgetGroup(0, 0, listWidth, 1);
+            list.setLayout(Layout.NONE);
+            list.setDynamicSized(false);
+            scroll.addWidget(list);
+
+            ButtonWidget addButton = createActionButton(
+                    Component.translatable("client.shop.component.editor.arrays.button.add_element"),
+                    ignored -> {
+                        modalValues.add(getDefaultValue(innerType));
+                        saveCollection(modalValues, existingRef);
+                        rebuildCollectionModalRows(list, listWidth, modalValues, existingRef);
+                        refreshButtonLabel();
+                    }
+            );
+            addButton.setSelfPosition(0, listHeight + gap);
+            addButton.setSize(contentWidth, footerHeight);
+
+            opened.addWidget(scroll);
+            opened.addWidget(addButton);
+            rebuildCollectionModalRows(list, listWidth, modalValues, existingRef);
+        }
+
+        private void rebuildCollectionModalRows(
+                WidgetGroup list,
+                int listWidth,
+                List<Object> values,
+                @Nullable Object existingRef
+        ) {
+            int previousScrollY = list.getParent() instanceof DraggableScrollableWidgetGroup scroll
+                    ? scroll.getScrollYOffset()
+                    : 0;
+
+            list.clearAllWidgets();
+
+            int y = 0;
+            int spacing = Math.max(0, style.collectionRowSpacing());
+            int removeWidth = Math.min(style.collectionButtonWidth(), Math.max(1, listWidth));
+            int editorWidth = Math.max(1, listWidth - removeWidth - style.collectionGap());
+
+            if (values.isEmpty()) {
+                TextLabel empty = new TextLabel(Component.translatable("client.shop.component.editor.arrays.empty"))
+                        .setAutoSize(false)
+                        .setPadding(4, 0)
+                        .setOverflowMode(TextLabel.OverflowMode.ELLIPSIS)
+                        .alignMiddle();
+                empty.setSelfPosition(0, 0);
+                empty.setSize(listWidth, style.editorHeight());
+                list.addWidget(empty);
+                y = style.editorHeight();
+            } else {
+                for (int i = 0; i < values.size(); i++) {
+                    final int index = i;
+                    Widget editorWidget = createValueEditor(innerType, values.get(i), cachedField, newValue -> {
+                        values.set(index, newValue);
+                        saveCollection(values, existingRef);
+                        refreshButtonLabel();
+                    });
+                    if (editorWidget == null) continue;
+
+                    WidgetGroup row = new WidgetGroup(0, y, listWidth, style.editorHeight());
+                    row.setLayout(Layout.NONE);
+                    row.setDynamicSized(false);
+
+                    editorWidget.setSelfPosition(0, 0);
+                    editorWidget.setSize(new Size(editorWidth, style.editorHeight()));
+                    row.addWidget(editorWidget);
+
+                    ButtonWidget removeButton = createActionButton(Component.literal("X"), ignored -> {
+                        values.remove(index);
+                        saveCollection(values, existingRef);
+                        rebuildCollectionModalRows(list, listWidth, values, existingRef);
+                        refreshButtonLabel();
+                    });
+                    removeButton.setHoverTooltips("client.shop.component.editor.arrays.button.remove_element");
+                    removeButton.setSelfPosition(listWidth - removeWidth, 0);
+                    removeButton.setSize(removeWidth, style.editorHeight());
+                    row.addWidget(removeButton);
+
+                    list.addWidget(row);
+                    y += style.editorHeight() + spacing;
+                }
+
+                if (y > 0) {
+                    y -= spacing;
+                }
+            }
+
+            int listHeight = Math.max(1, y);
+            list.setSize(listWidth, listHeight);
+
+            if (list.getParent() instanceof DraggableScrollableWidgetGroup scroll) {
+                int maxScrollY = Math.max(0, listHeight - scroll.getSizeHeight());
+                scroll.setScrollYOffset(Math.min(Math.max(0, previousScrollY), maxScrollY));
+            }
+        }
+
+        private void refreshButtonLabel() {
+            if (editButton != null) {
+                editButton.setText(collectionButtonLabel());
             }
         }
 

@@ -6,6 +6,7 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.textures.PixelBevelTexture;
 import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ContextMenuWidget;
 import lombok.Getter;
 import net.minecraft.network.chat.Component;
 import org.jspecify.annotations.Nullable;
@@ -16,9 +17,15 @@ public class ShopTabElement extends ButtonWidget implements ShopUiElement {
 
     @Getter
     protected final @Nullable CatalogComponent component;
+    protected final @Nullable ShopTabsPanelElement panel;
     protected boolean selected;
 
     public ShopTabElement(@Nullable CatalogComponent component) {
+        this(null, component);
+    }
+
+    public ShopTabElement(@Nullable ShopTabsPanelElement panel, @Nullable CatalogComponent component) {
+        this.panel = panel;
         this.component = component;
 
         setText(component == null ? ALL_TITLE : Component.translatable(component.getId()));
@@ -30,6 +37,42 @@ public class ShopTabElement extends ButtonWidget implements ShopUiElement {
                 return;
             ShopUIEvents.invokeSelectCategory(component);
         });
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 1 && canOpenCategoryContextMenu() && isMouseOverElement(mouseX, mouseY)) {
+            openCategoryContextMenu((int) mouseX, (int) mouseY);
+            playButtonClickSound();
+            return true;
+        }
+
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    protected boolean canOpenCategoryContextMenu() {
+        return component != null
+                && panel != null
+                && panel.isEditorMode()
+                && panel.getEditSession() != null
+                && !panel.getEditSession().closed();
+    }
+
+    protected void openCategoryContextMenu(int mouseX, int mouseY) {
+        if (panel == null || component == null) {
+            return;
+        }
+
+        ContextMenuWidget menu = new ContextMenuWidget(mouseX, mouseY, 138);
+        menu.setScale(0.75f);
+        menu.addItem(Component.literal("Rename"), () -> panel.openRenameCategoryModal(component))
+                .addSeparator()
+                .addItem(Component.literal("Move Up"), panel.canMoveCategory(component, -1), () -> panel.moveCategory(component, -1))
+                .addItem(Component.literal("Move Down"), panel.canMoveCategory(component, 1), () -> panel.moveCategory(component, 1))
+                .addItem(Component.literal("Move To..."), panel.getCategoryCount() > 1, () -> panel.openMoveCategoryModal(component))
+                .addSeparator()
+                .addItem(Component.literal("Delete"), () -> panel.openDeleteCategoryModal(component));
+        ContextMenuWidget.open(this, menu);
     }
 
     public ShopTabElement setSelected(boolean selected) {

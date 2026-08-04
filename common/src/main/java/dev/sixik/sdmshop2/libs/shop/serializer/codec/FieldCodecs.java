@@ -607,7 +607,7 @@ public final class FieldCodecs {
         String itemIdString = json.get(key).getAsString();
         ResourceLocation itemId = ResourceLocation.tryParse(itemIdString);
         Item item = BuiltInRegistries.ITEM.get(itemId);
-        if (item == null || item == Items.AIR) {
+        if (item == null) {
             throw new IllegalArgumentException("Item not found: " + itemIdString);
         }
 

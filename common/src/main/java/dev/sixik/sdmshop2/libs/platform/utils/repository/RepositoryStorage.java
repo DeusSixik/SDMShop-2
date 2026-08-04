@@ -240,6 +240,8 @@ public final class RepositoryStorage<K, V> {
             if (!storage.containsKey(key)) {
                 return;
             }
+
+            storage.put(key, value);
         }
 
         try {

@@ -29,6 +29,10 @@ public class CatalogComponent extends ShopComponent {
     @Setter
     private UUID uuid;
 
+    @Getter
+    @Setter
+    private int order;
+
     public CatalogComponent() {
         this(NULL);
     }
@@ -38,8 +42,13 @@ public class CatalogComponent extends ShopComponent {
     }
 
     public CatalogComponent(String id, UUID uuid) {
+        this(id, uuid, 0);
+    }
+
+    public CatalogComponent(String id, UUID uuid, int order) {
         this.id = id;
         this.uuid = uuid;
+        this.order = order;
     }
 
     @Override
@@ -52,7 +61,8 @@ public class CatalogComponent extends ShopComponent {
         public static final ResourceLocation ID = ResourceLocation.tryBuild("sdm", "catalog");
         private static final ComponentSerializer<CatalogComponent> SERIALIZER = ComponentSerializer.<CatalogComponent>create()
                 .addString("catalog_id", CatalogComponent::getId, CatalogComponent::setId)
-                .add("uuid", FieldCodecs.UUID_CODEC, CatalogComponent::getUuid, CatalogComponent::setUuid);
+                .add("uuid", FieldCodecs.UUID_CODEC, CatalogComponent::getUuid, CatalogComponent::setUuid)
+                .addDefaulted("order", FieldCodecs.INT, CatalogComponent::getOrder, CatalogComponent::setOrder, 0);
 
         private Type() {
             super(CatalogComponent::new, SERIALIZER);
