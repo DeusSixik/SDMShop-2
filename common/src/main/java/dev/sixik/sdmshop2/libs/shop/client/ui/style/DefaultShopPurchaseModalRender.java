@@ -20,6 +20,7 @@ import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentCategory;
 import dev.sixik.sdmshop2.libs.shop.components.utils.ShopComponentsUtils;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.InputTextBox;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.PriceWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.table.ScrollableInteractionTable;
 import it.unimi.dsi.fastutil.objects.ObjectList;
@@ -33,6 +34,7 @@ public class DefaultShopPurchaseModalRender implements WidgetRender {
     protected static final int BUTTON_HEIGHT = 20;
     protected static final int PREVIEW_SIZE = 86;
     protected static final int COST_ICON_SIZE = 14;
+    protected static final int COST_ROW_HEIGHT = 20;
 
     @Nullable
     protected TextLabel limitLabel;
@@ -257,23 +259,77 @@ public class DefaultShopPurchaseModalRender implements WidgetRender {
 
         int y = 4;
         for (CostComponent cost : modal.getCosts()) {
-            if (y + ROW_HEIGHT > costsContainer.getSizeHeight()) {
+            if (y + COST_ROW_HEIGHT > costsContainer.getSizeHeight()) {
                 break;
             }
 
-            Widget icon = createCostIcon(cost);
-            if (icon != null) {
-                icon.setSelfPosition(5, y + 2);
-                icon.setSize(COST_ICON_SIZE, COST_ICON_SIZE);
-                costsContainer.addWidget(icon);
-            }
+            WidgetGroup row = createCostRow(modal, cost, width - 8, COST_ROW_HEIGHT);
+            row.setSelfPosition(4, y);
+            costsContainer.addWidget(row);
 
-            TextLabel label = label(24, y, width - 28, ROW_HEIGHT, modal.getCostLine(cost), modal.getCostLineColor(cost));
-            label.setMaxLines(1).setOverflowMode(TextLabel.OverflowMode.ELLIPSIS).alignMiddle();
-            costsContainer.addWidget(label);
-
-            y += ROW_HEIGHT + 2;
+            y += COST_ROW_HEIGHT + 3;
         }
+    }
+
+    protected WidgetGroup createCostRow(ShopPurchaseModalElement modal, CostComponent cost, int width, int height) {
+        WidgetGroup row = new WidgetGroup(0, 0, Math.max(1, width), Math.max(1, height));
+        row.setBackground(new ColorRectAndBorderTexture(0xFF202638, 0xFF3D4458, 1).setRadius(3));
+
+        int color = modal.getCostLineColor(cost);
+
+        Widget icon = createCostIcon(cost);
+        if (icon != null) {
+            icon.setSelfPosition(5, 3);
+            icon.setSize(COST_ICON_SIZE, COST_ICON_SIZE);
+            row.addWidget(icon);
+        }
+
+        PriceWidget unitPrice = createUnitPriceWidget(modal, cost, color);
+        unitPrice.setSelfPosition(24, 4);
+        row.addWidget(unitPrice);
+
+        int afterPriceX = Math.min(width - 1, 24 + unitPrice.getSizeWidth() + 5);
+        double total = modal.getUnitAmount(cost) * Math.max(0, modal.getQuantity());
+        String totalText = "x " + modal.getQuantity() + " = " + modal.formatCost(cost, total);
+        String balanceText = modal.getBalanceText(cost);
+        int balanceWidth = balanceText.isEmpty() ? 0 : Math.min(96, Math.max(48, width / 3));
+        int totalWidth = Math.max(1, width - afterPriceX - balanceWidth - 5);
+
+        TextLabel totalLabel = label(afterPriceX, 0, totalWidth, height, Component.literal(totalText), color);
+        totalLabel.setMaxLines(1).setOverflowMode(TextLabel.OverflowMode.ELLIPSIS).alignMiddle();
+        row.addWidget(totalLabel);
+
+        if (!balanceText.isEmpty()) {
+            TextLabel balanceLabel = label(
+                    width - balanceWidth - 4,
+                    0,
+                    balanceWidth,
+                    height,
+                    Component.literal(balanceText),
+                    0xFFAEB4C6
+            );
+            balanceLabel.setMaxLines(1)
+                    .setOverflowMode(TextLabel.OverflowMode.ELLIPSIS)
+                    .setAlignment(TextLabel.HorizontalAlignment.RIGHT, TextLabel.VerticalAlignment.CENTER);
+            row.addWidget(balanceLabel);
+        }
+
+        return row;
+    }
+
+    protected PriceWidget createUnitPriceWidget(ShopPurchaseModalElement modal, CostComponent cost, int color) {
+        double base = cost.getBaseAmount();
+        double unit = modal.getUnitAmount(cost);
+        boolean changed = Math.abs(base - unit) > 0.0001D;
+
+        return new PriceWidget()
+                .setPriceTexts(changed ? modal.formatCost(cost, base) : null, modal.formatCost(cost, unit))
+                .setOldPriceScale(0.72f)
+                .setNewPriceScale(0.92f)
+                .setGap(3)
+                .setColors(0xFF8A8A8A, color, 0xFFB0B0B0)
+                .setStrikeYRatio(0.40f)
+                .autoSize();
     }
 
     protected void refreshTotal(ShopPurchaseModalElement modal) {
@@ -448,4 +504,3 @@ public class DefaultShopPurchaseModalRender implements WidgetRender {
         return button;
     }
 }
-

@@ -2,6 +2,7 @@ package dev.sixik.sdmshop2.libs.shop.components.promo.effects;
 
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.PromoEffectComponent;
+import dev.sixik.sdmshop2.libs.shop.components.api.PromoPriceContext;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentNumberRange;
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
@@ -35,6 +36,12 @@ public class DiscountComponent extends PromoEffectComponent {
     }
 
     @Override
+    public double applyPrice(PromoPriceContext context) {
+        return context.currentPrice() * (1 - discount);
+    }
+
+    @Override
+    @Deprecated
     public double applyPrice(double input, Set<String> activePromo, Set<String> activeGroups) {
         return input * (1 - discount);
     }

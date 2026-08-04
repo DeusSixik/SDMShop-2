@@ -3,12 +3,15 @@ package dev.sixik.sdmshop2.libs.shop.client.ui.widgets;
 import com.lowdragmc.lowdraglib.gui.texture.ColorRectTexture;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ItemStackTexture;
+import com.lowdragmc.lowdraglib.gui.texture.TextTexture;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import com.lowdragmc.lowdraglib.utils.Position;
 import com.lowdragmc.lowdraglib.utils.Size;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
@@ -165,7 +168,9 @@ public class ShopBadgeWidget extends WidgetGroup {
     }
 
     public ShopBadgeWidget setLeadingTexture(IGuiTexture texture, int width, int height) {
-        Widget widget = new Widget(0, 0, Math.max(0, width), Math.max(0, height));
+        Widget widget = texture instanceof TextTexture textTexture
+                ? new ScaledTextTextureWidget(textTexture, Math.max(0, width), Math.max(0, height))
+                : new Widget(0, 0, Math.max(0, width), Math.max(0, height));
         widget.setBackground(texture);
         return setLeadingWidget(widget);
     }
@@ -359,5 +364,52 @@ public class ShopBadgeWidget extends WidgetGroup {
             return Math.max(0, Math.round(Minecraft.getInstance().font.lineHeight * scale));
         }
         return Math.max(0, Math.round(contentBaseHeight * scale));
+    }
+
+    private static class ScaledTextTextureWidget extends Widget {
+
+        private final TextTexture textTexture;
+
+        private ScaledTextTextureWidget(TextTexture textTexture, int width, int height) {
+            super(0, 0, width, height);
+            this.textTexture = textTexture;
+        }
+
+        @Override
+        public void drawInBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+            if (textTexture == null || getSizeWidth() <= 0 || getSizeHeight() <= 0) {
+                return;
+            }
+
+            Font font = Minecraft.getInstance().font;
+            String text = textTexture.text == null ? "" : textTexture.text;
+            int textWidth = Math.max(1, font.width(text));
+            int textHeight = Math.max(1, font.lineHeight);
+            float fitScale = Math.min(
+                    (float) getSizeWidth() / textWidth,
+                    (float) getSizeHeight() / textHeight
+            );
+
+            if (!Float.isFinite(fitScale) || fitScale <= 0.0F) {
+                return;
+            }
+
+            float virtualWidth = Math.max(textWidth, getSizeWidth() / fitScale);
+            float virtualHeight = Math.max(textHeight, getSizeHeight() / fitScale);
+
+            graphics.pose().pushPose();
+            graphics.pose().translate(getPositionX(), getPositionY(), 0);
+            graphics.pose().scale(fitScale, fitScale, 1.0F);
+            textTexture.draw(
+                    graphics,
+                    mouseX,
+                    mouseY,
+                    0,
+                    0,
+                    Math.max(1, Math.round(virtualWidth)),
+                    Math.max(1, Math.round(virtualHeight))
+            );
+            graphics.pose().popPose();
+        }
     }
 }

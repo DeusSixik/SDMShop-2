@@ -15,12 +15,18 @@ public abstract class PromoEffectComponent extends ShopComponent {
 
     private static final ComponentSerializer<PromoEffectComponent> ADDITIONAL_SERIALIZER = ComponentSerializer.<PromoEffectComponent>create()
             .addDefaultedString("target_promo_id", PromoEffectComponent::getTargetPromoId, PromoEffectComponent::setTargetPromoId, "")
+            .addDefaultedInt("priority", PromoEffectComponent::getPriority, PromoEffectComponent::setPriority, 0)
             .add("apply_groups", FieldCodecs.list(FieldCodecs.STRING), PromoEffectComponent::getApplyGroupsList, PromoEffectComponent::setApplyGroupsList);
 
     @Getter
     @Setter
     @ComponentConfig(translationKey = "shop.component.promo.effects.target_promo_id")
-    private String targetPromoId;
+    private String targetPromoId = "";
+
+    @Getter
+    @Setter
+    @ComponentConfig(translationKey = "shop.component.promo.effects.priority")
+    private int priority;
 
     @Getter
     @ComponentConfig(translationKey = "shop.component.promo.apply_groups")
@@ -35,6 +41,11 @@ public abstract class PromoEffectComponent extends ShopComponent {
         return matchPromo && matchGroup;
     }
 
+    public double applyPrice(PromoPriceContext context) {
+        return applyPrice(context.currentPrice(), context.activePromos(), applyGroups);
+    }
+
+    @Deprecated
     public double applyPrice(double input, Set<String> activePromo, Set<String> activeGroups) {
         return input;
     }

@@ -8,8 +8,11 @@ import com.lowdragmc.lowdraglib.utils.Size;
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
+import dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency;
+import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
 import dev.sixik.sdmshop2.libs.shop.client.cache.ShopClientCache;
 import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopBadgeHBoxWidget;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopBadgeWidget;
 import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopEmptyWidget;
 import dev.sixik.sdmshop2.libs.shop.client.ui.textures.PixelBevelTexture;
 import dev.sixik.sdmshop2.libs.shop.client.ui.ShopIcons;
@@ -17,12 +20,16 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
 import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
+import dev.sixik.sdmshop2.libs.shop.components.api.PromoEffectComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentCategory;
 import dev.sixik.sdmshop2.libs.shop.components.limiter.LimiterComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.NameComponent;
+import dev.sixik.sdmshop2.libs.shop.components.promo.effects.DiscountComponent;
+import dev.sixik.sdmshop2.libs.shop.components.promo.effects.PriceModifierPromoEffectComponent;
 import dev.sixik.sdmshop2.libs.shop.components.utils.ShopComponentsUtils;
+import dev.sixik.sdmshop2.libs.shop.network.ShopNetworkManager;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.PriceWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ProgressBarWidget;
@@ -34,11 +41,14 @@ import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import org.jetbrains.annotations.Nullable;
+import dev.sixik.sdmshop2.utils.ShopUtils;
 
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -72,10 +82,14 @@ public class DefaultShopOfferElementRender implements WidgetRender {
     protected ShopBadgeHBoxWidget badgesBox;
     @Nullable
     protected ButtonWidget favoriteButton;
+    protected final Map<CostComponent, PriceWidget> priceWidgets = new HashMap<>();
+    protected final Map<CostComponent, Double> actualPrices = new HashMap<>();
+    protected final List<String> priceGroups = new ArrayList<>();
 
     protected boolean oneOfferElement = false;
     protected int lastOfferElementWidth = -1;
     protected int lastOfferElementHeight = -1;
+    protected long priceRequestVersion;
 
     public DefaultShopOfferElementRender() {
     }
@@ -112,11 +126,17 @@ public class DefaultShopOfferElementRender implements WidgetRender {
                 updateFavoriteButton(event.favorite());
             }
         });
+        ctx.listen(ShopUIEvents.REFRESH_UI, event -> {
+            if (event.affectsCurrencies() || event.affectsOffer(shopEntity.getUUID())) {
+                requestActualPrices(shopEntity);
+            }
+        });
 
         final Map<ShopComponentCategory, ObjectList<ShopComponent>> offerComponentsMap =
                 ShopComponentsUtils.getComponentsByCategory(shopEntity);
 
         addNameLabel(ctx, shopEntity, offerComponentsMap);
+        addOfferBadges(ctx, offerComponentsMap);
         addOfferElementsTable(ctx, offerComponentsMap);
         addMoneyTypes(ctx, offerComponentsMap);
         addLimitBar(ctx, shopEntity);
@@ -137,6 +157,7 @@ public class DefaultShopOfferElementRender implements WidgetRender {
             int badgesBoxWidth = Math.max(1, owner.getSizeWidth() - contentPadding);
             badgesBox.setMaxLength(badgesBoxWidth);
             badgesBox.setSize(badgesBoxWidth, 14);
+            badgesBox.setScale(0.55f);
             currentY = Math.max(currentY, badgesBox.getSelfPositionY() + badgesBox.getHeightWithScale() + OFFER_ELEMENTS_TABLE_TOP_GAP);
         }
 
@@ -255,6 +276,10 @@ public class DefaultShopOfferElementRender implements WidgetRender {
         limitBar = null;
         badgesBox = null;
         favoriteButton = null;
+        priceWidgets.clear();
+        actualPrices.clear();
+        priceGroups.clear();
+        priceRequestVersion++;
         oneOfferElement = false;
     }
 
@@ -368,6 +393,7 @@ public class DefaultShopOfferElementRender implements WidgetRender {
         }
 
         final Map<String, List<CostComponent>> costComponents = ShopComponentsUtils.getCostComponentsByGroups(offerComponentsMap);
+        priceGroups.addAll(costComponents.keySet());
 
         moneyTypesContainer = new VerticalContainer();
         moneyTypesContainer.setDynamicSized(false);
@@ -393,14 +419,8 @@ public class DefaultShopOfferElementRender implements WidgetRender {
                     icon.setBackground(texture);
                     container.addWidget(icon);
                 }
-                final PriceWidget widget = new PriceWidget()
-                        .setPriceTexts(null, DECIMAL_FORMAT.format(component.getBaseAmount()))
-                        .setOldPriceScale(0.75f)
-                        .setNewPriceScale(1.0f)
-                        .setGap(3)
-                        .setColors(0xFF888888, 0xFFFFFFFF, 0xFFAAAAAA)
-                        .autoSize()
-                        .setStrikeYRatio(0.40f);
+                final PriceWidget widget = createPriceWidget(component);
+                priceWidgets.put(component, widget);
                 container.addWidget(widget);
             }
 
@@ -420,6 +440,192 @@ public class DefaultShopOfferElementRender implements WidgetRender {
             moneyTypeRows.add(container);
             moneyTypesContainer.addWidget(container);
         }
+
+        if (!priceWidgets.isEmpty()) {
+            requestActualPrices((ShopOffer) ctx.getShopEntity());
+        }
+    }
+
+    protected PriceWidget createPriceWidget(CostComponent component) {
+        final PriceWidget widget = new PriceWidget()
+                .setOldPriceScale(0.75f)
+                .setNewPriceScale(1.0f)
+                .setGap(3)
+                .setColors(0xFF888888, 0xFFFFFFFF, 0xFFAAAAAA)
+                .autoSize()
+                .setStrikeYRatio(0.40f);
+        updatePriceWidget(component, widget, null);
+        return widget;
+    }
+
+    protected void requestActualPrices(ShopOffer offer) {
+        if (offer == null || priceGroups.isEmpty() || priceWidgets.isEmpty()) {
+            return;
+        }
+
+        final long requestVersion = ++priceRequestVersion;
+        actualPrices.clear();
+        for (Map.Entry<CostComponent, PriceWidget> entry : priceWidgets.entrySet()) {
+            updatePriceWidget(entry.getKey(), entry.getValue(), null);
+        }
+
+        for (String groupId : priceGroups) {
+            ShopNetworkManager.getOfferPrice(offer, groupId).whenComplete((prices, throwable) -> Minecraft.getInstance().execute(() -> {
+                if (requestVersion != priceRequestVersion || throwable != null || prices == null || prices.isEmpty()) {
+                    return;
+                }
+
+                for (Map.Entry<CostComponent, Double> entry : prices.entrySet()) {
+                    CostComponent cost = entry.getKey();
+                    Double price = entry.getValue();
+                    if (cost == null || price == null || !Double.isFinite(price)) {
+                        continue;
+                    }
+
+                    actualPrices.put(cost, price);
+                    PriceWidget widget = priceWidgets.get(cost);
+                    if (widget != null) {
+                        updatePriceWidget(cost, widget, price);
+                    }
+                }
+            }));
+        }
+    }
+
+    protected void updatePriceWidget(CostComponent cost, PriceWidget widget, @Nullable Double actualPrice) {
+        double basePrice = sanitizePrice(cost.getBaseAmount());
+        double finalPrice = sanitizePrice(actualPrice == null ? basePrice : actualPrice);
+        boolean changed = Math.abs(finalPrice - basePrice) > 0.0001D;
+
+        widget.setPriceTexts(
+                changed ? DECIMAL_FORMAT.format(basePrice) : null,
+                DECIMAL_FORMAT.format(finalPrice)
+        );
+    }
+
+    protected double sanitizePrice(double value) {
+        return Double.isFinite(value) && value > 0.0D ? value : 0.0D;
+    }
+
+    protected void addOfferBadges(
+            WidgetContextRender ctx,
+            Map<ShopComponentCategory, ObjectList<ShopComponent>> offerComponentsMap
+    ) {
+        badgesBox = new ShopBadgeHBoxWidget();
+        badgesBox.setSpacing(2)
+                .setPadding(0)
+                .alignMainStart()
+                .alignCenter()
+                .fixedTooltipScale();
+
+        addPromoBadges(offerComponentsMap);
+
+        if (!badgesBox.isEmpty()) {
+            ctx.addWidget(badgesBox);
+        } else {
+            badgesBox = null;
+        }
+    }
+
+    protected void addPromoBadges(Map<ShopComponentCategory, ObjectList<ShopComponent>> offerComponentsMap) {
+        final ObjectList<ShopComponent> promoEffectComponents = offerComponentsMap.get(ShopComponentCategory.PROMO_EFFECT);
+        if (promoEffectComponents == null || promoEffectComponents.isEmpty()) {
+            return;
+        }
+
+        for (ShopComponent component : promoEffectComponents) {
+            if (!(component instanceof PromoEffectComponent promoEffect)) {
+                continue;
+            }
+
+            addPromoBadge(promoEffect);
+        }
+    }
+
+    protected void addPromoBadge(PromoEffectComponent promoEffect) {
+        if (promoEffect instanceof DiscountComponent discount) {
+            String text = formatPercentBadgeText(-discount.getDiscount() * 100.0D);
+            if (text != null) {
+                badgesBox.addBadge(createPriceEffectBadge(null, text, true, Component.literal("Discount: " + text)));
+            }
+            return;
+        }
+
+        if (!(promoEffect instanceof PriceModifierPromoEffectComponent modifier)) {
+            return;
+        }
+
+        double percentChange = getModifierPercentChange(modifier);
+        String text = formatPercentBadgeText(percentChange);
+        if (text == null) {
+            return;
+        }
+        boolean discount = percentChange < 0.0D;
+        String tooltipPrefix = discount ? "Discount: " : "Price increase: ";
+
+        if (modifier.getTargetMoneyIds().isEmpty()) {
+            badgesBox.addBadge(createPriceEffectBadge(null, text, discount, Component.literal(tooltipPrefix + text)));
+            return;
+        }
+
+        for (ResourceLocation moneyId : modifier.getTargetMoneyIds()) {
+            ICurrency currency = SDMEconomyServiceClient.getCurrency(moneyId);
+            Component tooltip = currency == null
+                    ? Component.literal(tooltipPrefix + text + "  |  " + moneyId)
+                    : currency.getDisplayName().copy().append(Component.literal(": " + text));
+            badgesBox.addBadge(createPriceEffectBadge(moneyId, text, discount, tooltip));
+        }
+    }
+
+    protected ShopBadgeWidget createPriceEffectBadge(
+            @Nullable ResourceLocation moneyId,
+            String text,
+            boolean discount,
+            Component tooltip
+    ) {
+        ShopBadgeWidget badge = new ShopBadgeWidget(Component.literal(text))
+                .setFillColor(discount ? 0xEE1F8F4A : 0xEEF05A28)
+                .setTextColor(0xFFFFFFFF)
+                .setRadius(3)
+                .setTextPadding(3)
+                .setContentGap(2)
+                .autoSizeToContent();
+
+        if (moneyId != null) {
+            ICurrency currency = SDMEconomyServiceClient.getCurrency(moneyId);
+            if (currency != null) {
+                TransformTexture texture = ShopUtils.getCurrencyTexture(currency);
+                if (texture != null) {
+                    badge.setLeadingTexture(texture, 8, 8);
+                }
+            }
+        }
+
+        badge.setHoverTooltips(tooltip);
+        return badge;
+    }
+
+    protected @Nullable String formatPercentBadgeText(double percentChange) {
+        if (!Double.isFinite(percentChange) || Math.abs(percentChange) <= 0.0001D) {
+            return null;
+        }
+
+        return (percentChange > 0.0D ? "+" : "") + DECIMAL_FORMAT.format(percentChange) + "%";
+    }
+
+    protected double getModifierPercentChange(PriceModifierPromoEffectComponent modifier) {
+        PriceModifierPromoEffectComponent.Operation operation = modifier.getOperation();
+        double value = modifier.getValue();
+
+        if (operation == null) {
+            return 0.0D;
+        }
+
+        return switch (operation) {
+            case ADD_PERCENT -> value;
+            case MULTIPLY -> value > 0.0D ? (value - 1.0D) * 100.0D : 0.0D;
+            default -> 0.0D;
+        };
     }
 
     protected void addLimitBar(WidgetContextRender ctx, ShopOffer shopEntity) {

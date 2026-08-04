@@ -5,6 +5,7 @@ import dev.sixik.sdmshop2.libs.shop.components.api.ConditionComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.PromoComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.PromoEffectComponent;
+import dev.sixik.sdmshop2.libs.shop.components.api.PromoPriceContext;
 import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.limiter.LimiterComponent;
 import dev.sixik.sdmshop2.libs.shop.events.ShopServerEvents;
@@ -17,6 +18,7 @@ import net.minecraft.world.entity.player.Player;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
@@ -73,7 +75,7 @@ public class ShopTransactionProcessor {
         }
 
         // Фаза 3: выбираем cost-компоненты нужной группы и применяем активные скидки.
-        final Object2DoubleMap<CostComponent> finalCosts = calculateFinalCosts(offer, server, chosenGroupId);
+        final Object2DoubleMap<CostComponent> finalCosts = calculateFinalCosts(offer, server, player, chosenGroupId);
         if (finalCosts.isEmpty() && !offer.getComponents(CostComponent.class).isEmpty()) {
             return false;
         }
@@ -155,6 +157,15 @@ public class ShopTransactionProcessor {
             final MinecraftServer server,
             final String chosenGroupId
     ) {
+        return calculateFinalCosts(offer, server, null, chosenGroupId);
+    }
+
+    public static Object2DoubleMap<CostComponent> calculateFinalCosts(
+            final ShopOffer offer,
+            final MinecraftServer server,
+            final Player player,
+            final String chosenGroupId
+    ) {
         final Object2DoubleMap<CostComponent> finalCosts = new Object2DoubleLinkedOpenHashMap<>();
         if (offer == null) {
             return finalCosts;
@@ -178,26 +189,36 @@ public class ShopTransactionProcessor {
 
         // Сначала собираем активные promo_id, затем по ним выбираем применимые эффекты.
         for (PromoComponent promo : offer.getComponents(PromoComponent.class)) {
-            if (promo.isActive(server)) {
+            boolean active = player == null ? promo.isActive(server) : promo.isActive(player);
+            if (active) {
                 activePromos.add(normalizeGroupId(promo.getPromoId()));
             }
         }
 
         final List<PromoEffectComponent> activeEffects = new ObjectArrayList<>();
-        if (!activePromos.isEmpty()) {
-            for (PromoEffectComponent effect : offer.getComponents(PromoEffectComponent.class)) {
-                if (effect.canApply(activePromos, selectedGroupId)) {
-                    activeEffects.add(effect);
-                }
+        for (PromoEffectComponent effect : offer.getComponents(PromoEffectComponent.class)) {
+            if (effect.canApply(activePromos, selectedGroupId)) {
+                activeEffects.add(effect);
             }
         }
+        activeEffects.sort(Comparator.comparingInt(PromoEffectComponent::getPriority));
 
         for (CostComponent cost : groupCosts) {
-            double currentPrice = sanitizePrice(cost.getBaseAmount());
+            double basePrice = sanitizePrice(cost.getBaseAmount());
+            double currentPrice = basePrice;
 
             // Эффекты применяются последовательно в порядке компонентов товара.
             for (PromoEffectComponent effect : activeEffects) {
-                currentPrice = sanitizePrice(effect.applyPrice(currentPrice, activePromos, effect.getApplyGroups()));
+                currentPrice = sanitizePrice(effect.applyPrice(new PromoPriceContext(
+                        offer,
+                        cost,
+                        server,
+                        player,
+                        selectedGroupId,
+                        activePromos,
+                        basePrice,
+                        currentPrice
+                )));
             }
 
             finalCosts.put(cost, currentPrice);

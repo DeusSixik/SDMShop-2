@@ -44,6 +44,7 @@ public class AsyncServerTasks {
             if (shopInstance == null) return null;
 
             final MinecraftServer server = ShopTable.Instance.getServer();
+            final Player player = ctx.getPlayer();
 
             FriendlyByteBuf reply = new FriendlyByteBuf(Unpooled.buffer());
 
@@ -60,7 +61,7 @@ public class AsyncServerTasks {
                 Map<UUID, Map<CostComponent, Double>> outMap = new HashMap<>();
                 for (int i = 0; i < offers.length; i++) {
                     if (offers[i] != null) {
-                        outMap.put(in_data[i], ShopTransactionProcessor.calculateFinalCosts(offers[i], server, chosenGroupId));
+                        outMap.put(in_data[i], ShopTransactionProcessor.calculateFinalCosts(offers[i], server, player, chosenGroupId));
                     }
                 }
 
@@ -85,7 +86,7 @@ public class AsyncServerTasks {
                 }
 
                 Map<CostComponent, Double> prices = ShopTransactionProcessor
-                        .calculateFinalCosts(offer, server, chosenGroupId);
+                        .calculateFinalCosts(offer, server, player, chosenGroupId);
                 getPricesForOfferWriteOfferData(reply, offerId, offer, prices);
             }
             return reply;
