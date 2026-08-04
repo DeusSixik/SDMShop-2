@@ -36,7 +36,10 @@ public abstract class PromoEffectComponent extends ShopComponent {
      * Проверяет, применим ли данный эффект при текущих активных акциях и выбранной группе оплаты.
      */
     public boolean canApply(Set<String> activePromos, String chosenGroupId) {
-        boolean matchPromo = targetPromoId == null || targetPromoId.isEmpty() || activePromos.contains(targetPromoId);
+        boolean hasActivePromo = activePromos != null && !activePromos.isEmpty();
+        boolean matchPromo = targetPromoId == null || targetPromoId.isEmpty()
+                ? hasActivePromo
+                : hasActivePromo && activePromos.contains(targetPromoId);
         boolean matchGroup = applyGroups.isEmpty() || applyGroups.contains(chosenGroupId);
         return matchPromo && matchGroup;
     }

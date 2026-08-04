@@ -18,6 +18,7 @@ import dev.sixik.sdmshop2.libs.shop.commands.SDMShopCommands;
 import dev.sixik.sdmshop2.libs.shop.config.ShopConfig;
 import dev.sixik.sdmshop2.libs.shop.config.ShopDataStorageConfig;
 import dev.sixik.sdmshop2.libs.shop.network.SDMShopNetwork;
+import dev.sixik.sdmshop2.libs.shop.promo.PromoStateStore;
 import dev.sixik.sdmshop2.libs.shop.register.ShopRegister;
 import dev.sixik.sdmshop2.libs.shop.scripting.events.ShopScriptEvents;
 import dev.sixik.sdmshop2.tests.economy.EconomyTest;
@@ -37,6 +38,7 @@ public final class SDMShop2 {
     private static final ShopTable.Manager SHOP_TABLE_MANAGER = new ShopTable.Manager();
     private static final ShopLimiterTableServer.Manager SHOP_LIMITER_TABLE_MANAGER = new ShopLimiterTableServer.Manager();
     private static final ShopScriptEvents.Manager SHOP_SCRIPTS_CONTAINER_MANAGER = new ShopScriptEvents.Manager();
+    private static final PromoStateStore.Manager SHOP_PROMO_STATE_MANAGER = new PromoStateStore.Manager();
 
     private static RepositoryManager instance;
 
@@ -62,6 +64,7 @@ public final class SDMShop2 {
 
         EconomyTest.init();
 
+        SDMPlatform.addOperation(SHOP_PROMO_STATE_MANAGER);
         SDMPlatform.addOperation(SHOP_TABLE_MANAGER);
         SDMPlatform.addOperation(SHOP_LIMITER_TABLE_MANAGER);
         SDMPlatform.addOperation(SHOP_SCRIPTS_CONTAINER_MANAGER);
