@@ -3,6 +3,8 @@ package dev.sixik.sdmshop2.libs.sdmeconomy;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mojang.authlib.GameProfile;
+import dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodec;
+import dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs;
 import dev.sixik.sdmshop2.utils.NbtExtern;
 import lombok.Getter;
 import lombok.Setter;
@@ -17,6 +19,39 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class BankAccount {
+
+    private static final FieldCodec<Map<ResourceLocation, BigDecimal>> BALANCES_CODEC =
+            FieldCodec.<Map<ResourceLocation, BigDecimal>>builder()
+                    .schema("sdmeconomy:bank_balances")
+                    .json(
+                            (json, key, value) -> json.add(key, writeBalances(value)),
+                            (json, key, defaultValue) -> json.has(key) ? readBalances(json.get(key), defaultValue) : defaultValue
+                    )
+                    .jsonElement(BankAccount::writeBalances, BankAccount::readBalances)
+                    .network(
+                            (buf, value) -> {
+                                Map<ResourceLocation, BigDecimal> safeBalances = value == null ? Map.of() : value;
+                                buf.writeVarInt(safeBalances.size());
+                                for (Map.Entry<ResourceLocation, BigDecimal> entry : safeBalances.entrySet()) {
+                                    FieldCodecs.RESOURCE_LOCATION.toNetwork(buf, entry.getKey());
+                                    FieldCodecs.BIG_DECIMAL.toNetwork(buf, entry.getValue());
+                                }
+                            },
+                            buf -> {
+                                int size = buf.readVarInt();
+                                Map<ResourceLocation, BigDecimal> out = new ConcurrentHashMap<>();
+                                for (int i = 0; i < size; i++) {
+                                    ResourceLocation id = FieldCodecs.RESOURCE_LOCATION.fromNetwork(buf);
+                                    BigDecimal value = FieldCodecs.BIG_DECIMAL.fromNetwork(buf);
+                                    if (id != null && value != null) {
+                                        out.put(id, value);
+                                    }
+                                }
+                                return out;
+                            }
+                    )
+                    .copy(value -> value == null ? null : new ConcurrentHashMap<>(value))
+                    .build();
 
     /**
      * Владелец Аккаунта. Это всегда ID {@link GameProfile}
@@ -147,12 +182,7 @@ public class BankAccount {
         final JsonObject json = new JsonObject();
 
         json.addProperty("owner", this.gameProfileOwnerId.toString());
-        final JsonObject balancesJson = new JsonObject();
-        balances.forEach((id, val) -> {
-            balancesJson.addProperty(id.toString(), val.toString());
-        });
-
-        json.add("balances", balancesJson);
+        BALANCES_CODEC.toJson(json, "balances", balances);
 
         return json;
     }
@@ -161,21 +191,47 @@ public class BankAccount {
         UUID ownerId = UUID.fromString(json.get("owner").getAsString());
         BankAccount account = new BankAccount(ownerId);
 
-        if (json.has("balances")) {
-            JsonObject balancesJson = json.getAsJsonObject("balances");
+        account.balances.putAll(BALANCES_CODEC.fromJson(json, "balances", Map.of()));
+        return account;
+    }
 
-            for (Map.Entry<String, JsonElement> entry : balancesJson.entrySet()) {
-                ResourceLocation id = ResourceLocation.tryParse(entry.getKey());
-                if (id == null) continue;
+    private static JsonObject writeBalances(Map<ResourceLocation, BigDecimal> balances) {
+        JsonObject object = new JsonObject();
+        if (balances == null) {
+            return object;
+        }
 
-                try {
-                    BigDecimal val = new BigDecimal(entry.getValue().getAsString());
-                    account.balances.put(id, val);
-                } catch (NumberFormatException e) {
-                    SDMEconomyService.LOGGER.error("Failed to parse balance for currency {} on account {}", id, ownerId);
-                }
+        for (Map.Entry<ResourceLocation, BigDecimal> entry : balances.entrySet()) {
+            if (entry.getKey() == null) {
+                continue;
+            }
+
+            object.add(entry.getKey().toString(), FieldCodecs.BIG_DECIMAL.toJsonElement(entry.getValue()));
+        }
+
+        return object;
+    }
+
+    private static Map<ResourceLocation, BigDecimal> readBalances(JsonElement element, Map<ResourceLocation, BigDecimal> defaultValue) {
+        if (element == null || !element.isJsonObject()) {
+            return defaultValue;
+        }
+
+        Map<ResourceLocation, BigDecimal> out = new ConcurrentHashMap<>();
+        for (Map.Entry<String, JsonElement> entry : element.getAsJsonObject().entrySet()) {
+            ResourceLocation id = ResourceLocation.tryParse(entry.getKey());
+            if (id == null) {
+                continue;
+            }
+
+            try {
+                BigDecimal value = FieldCodecs.BIG_DECIMAL.fromJsonElement(entry.getValue(), BigDecimal.ZERO);
+                out.put(id, value);
+            } catch (RuntimeException exception) {
+                SDMEconomyService.LOGGER.error("Failed to parse balance for currency {}", id, exception);
             }
         }
-        return account;
+
+        return out;
     }
 }

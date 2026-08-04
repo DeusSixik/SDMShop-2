@@ -1,20 +1,16 @@
 package dev.sixik.sdmshop2.libs.sdmeconomy.custom_currency;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonSyntaxException;
+import dev.sixik.sdmshop2.libs.sdmeconomy.CodecCurrencyType;
 import dev.sixik.sdmshop2.libs.sdmeconomy.ICurrencyType;
 import dev.sixik.sdmshop2.libs.sdmeconomy.IExternalCurrency;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.IconType;
+import dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs;
 import dev.sixik.sdmshop2.utils.ShopItemHelper;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.TagParser;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
@@ -24,7 +20,10 @@ import java.util.Objects;
 
 public class ExternalItemCurrency implements IExternalCurrency {
 
-    public static final ICurrencyType<ExternalItemCurrency> TYPE = new ExternalItemCurrencyType();
+    public static final ICurrencyType<ExternalItemCurrency> TYPE = CodecCurrencyType
+            .builder(ExternalItemCurrency.class, ResourceLocation.tryBuild("minecraft", "item"))
+            .field("item", FieldCodecs.ITEM_STACK_ID_NBT, currency -> currency.itemType, ItemStack.EMPTY)
+            .build((id, values) -> fromSerializedItem(id, values.get(0)));
 
     private final ResourceLocation id;
     private final Component displayName;
@@ -116,60 +115,11 @@ public class ExternalItemCurrency implements IExternalCurrency {
         }
     }
 
-    private static class ExternalItemCurrencyType implements ICurrencyType<ExternalItemCurrency> {
-
-        @Override
-        public Class<ExternalItemCurrency> getOwnerClass() {
-            return ExternalItemCurrency.class;
+    private static ExternalItemCurrency fromSerializedItem(ResourceLocation id, ItemStack itemStack) {
+        if (itemStack == null || itemStack.isEmpty() || itemStack.getItem() == Items.AIR) {
+            throw new IllegalArgumentException("Item not found or empty in currency " + id);
         }
 
-        @Override
-        public ExternalItemCurrency deserialize(ResourceLocation id, JsonObject json) {
-
-            if(!json.has("item"))
-                throw new NullPointerException("Param with id 'item' not exists!");
-
-            String itemIdStr = json.get("item").getAsString();
-            ResourceLocation itemId = ResourceLocation.tryParse(itemIdStr);
-
-            Item item = BuiltInRegistries.ITEM.get(itemId);
-
-            if (item == null || item == Items.AIR) {
-                throw new IllegalArgumentException("Item not found: " + itemIdStr);
-            }
-
-            CompoundTag nbt = null;
-            if (json.has("nbt")) {
-                String nbtString = json.get("nbt").getAsString();
-                try {
-                    nbt = TagParser.parseTag(nbtString);
-                } catch (Exception e) {
-                    throw new JsonSyntaxException("Invalid NBT in currency " + id + ": " + e.getMessage());
-                }
-            }
-
-
-            ItemStack itemStack = item.getDefaultInstance();
-
-            if(nbt != null)
-                itemStack.setTag(nbt);
-
-            return new ExternalItemCurrency(id, itemStack);
-        }
-
-        @Override
-        public JsonObject serialize(ExternalItemCurrency currency) {
-            final ItemStack item = currency.itemType;
-
-            JsonObject json = new JsonObject();
-            serializeType(json, "minecraft:item");
-            json.addProperty("item", BuiltInRegistries.ITEM.getKey(item.getItem()).toString());
-
-            if(item.getTag() != null) {
-                json.addProperty("nbt", item.getTag().toString());
-            }
-
-            return json;
-        }
+        return new ExternalItemCurrency(id, itemStack);
     }
 }

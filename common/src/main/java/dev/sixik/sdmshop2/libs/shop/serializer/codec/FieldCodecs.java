@@ -17,6 +17,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -107,6 +108,22 @@ public final class FieldCodecs {
                     (element, defaultValue) -> element.getAsDouble()
             )
             .network(FriendlyByteBuf::writeDouble, FriendlyByteBuf::readDouble)
+            .build();
+
+    public static final FieldCodec<BigDecimal> BIG_DECIMAL = FieldCodec.<BigDecimal>builder()
+            .schema("big_decimal")
+            .json(
+                    (json, key, value) -> json.addProperty(key, value == null ? BigDecimal.ZERO.toPlainString() : value.toPlainString()),
+                    (json, key, defaultValue) -> json.has(key) ? new BigDecimal(json.get(key).getAsString()) : defaultValue
+            )
+            .jsonElement(
+                    value -> new JsonPrimitive(value == null ? BigDecimal.ZERO.toPlainString() : value.toPlainString()),
+                    (element, defaultValue) -> element == null || element.isJsonNull() ? defaultValue : new BigDecimal(element.getAsString())
+            )
+            .network(
+                    (buf, value) -> buf.writeUtf(value == null ? BigDecimal.ZERO.toPlainString() : value.toPlainString()),
+                    buf -> new BigDecimal(buf.readUtf())
+            )
             .build();
 
     /**
