@@ -144,6 +144,10 @@ public class ShopLimiterOfferData {
         update.onUpdate();
     }
 
+    public void reset() {
+        reset(0, 0L);
+    }
+
     public int get() {
         return count.get();
     }

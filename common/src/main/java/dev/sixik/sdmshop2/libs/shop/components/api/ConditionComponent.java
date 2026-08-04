@@ -25,6 +25,16 @@ public abstract class ConditionComponent extends ShopComponent {
         return true;
     }
 
+    /**
+     * Вызывается после успешной покупки предложения.
+     *
+     * <p>Условия, зависящие от истории покупок, например кулдауны, могут использовать этот хук
+     * для обновления собственного состояния отслеживания без необходимости добавления отдельного
+     * компонента-ограничителя к тому же предложению.</p>
+     */
+    public void recordPurchase(Player player, int amount) {
+    }
+
     @Override
     public ShopComponentCategory getCategory() {
         return ShopComponentCategory.CONDITION;

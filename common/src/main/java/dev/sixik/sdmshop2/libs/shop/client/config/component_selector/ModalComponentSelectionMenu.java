@@ -13,8 +13,8 @@ import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
 import dev.sixik.sdmshop2.libs.shop.SDMShopConstants;
 import dev.sixik.sdmshop2.libs.shop.client.cache.ShopClientCache;
-import dev.sixik.sdmshop2.libs.shop.client.ui.textures.ColorRectAndBorderTexture;
 import dev.sixik.sdmshop2.libs.shop.client.ui.ShopIcons;
+import dev.sixik.sdmshop2.libs.shop.client.ui.textures.ColorRectAndBorderTexture;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentRegistry;
@@ -32,13 +32,7 @@ import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Consumer;
 
 public final class ModalComponentSelectionMenu {

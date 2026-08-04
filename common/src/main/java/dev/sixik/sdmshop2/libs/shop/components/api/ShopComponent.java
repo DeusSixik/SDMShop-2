@@ -3,7 +3,6 @@ package dev.sixik.sdmshop2.libs.shop.components.api;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
-import dev.sixik.sdmshop2.libs.shop.components.api.exceptions.ValidationException;
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;

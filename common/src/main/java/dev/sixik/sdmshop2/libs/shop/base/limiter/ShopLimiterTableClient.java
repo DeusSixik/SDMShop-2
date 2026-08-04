@@ -57,6 +57,26 @@ public final class ShopLimiterTableClient implements ShopLimiterTable {
     }
 
     @Override
+    public boolean resetOfferData(UUID entityId) {
+        return entitiesData.remove(entityId) != null;
+    }
+
+    @Override
+    public boolean resetPlayerData(UUID playerId, UUID entityId) {
+        UUID localPlayerId = localPlayerId();
+        if (playerId != null && localPlayerId != null && !playerId.equals(localPlayerId)) {
+            return false;
+        }
+
+        return localPlayerData != null && localPlayerData.remove(entityId);
+    }
+
+    @Override
+    public int resetAllPlayerData(UUID entityId) {
+        return localPlayerData != null && localPlayerData.remove(entityId) ? 1 : 0;
+    }
+
+    @Override
     public void toNetwork(UUID player, FriendlyByteBuf buf) {
         throw new UnsupportedOperationException();
     }

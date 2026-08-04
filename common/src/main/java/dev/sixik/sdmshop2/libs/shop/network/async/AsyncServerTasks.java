@@ -1,8 +1,8 @@
 package dev.sixik.sdmshop2.libs.shop.network.async;
 
+import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.platform.utils.network.async.AsyncBridge;
 import dev.sixik.sdmshop2.libs.platform.utils.network.async.BlobTransfer;
-import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.sdmeconomy.CurrencyDraft;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyCurrencyRegistry;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
@@ -21,7 +21,10 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 public class AsyncServerTasks {
 
@@ -180,6 +183,9 @@ public class AsyncServerTasks {
             final ShopInstance shopInstance = ShopTable.Instance.getShop(shopId);
             final ShopOffer offer = shopInstance == null ? null : shopInstance.getEntries().getEntry(offerId);
             final boolean success = offer != null && ShopTransactionProcessor.executePlayerPurchase(offer, player, chosenGroupId, amount);
+            if (!success && offer != null) {
+                ShopNetworkManager.sendLimiterData(player);
+            }
 
             FriendlyByteBuf reply = new FriendlyByteBuf(Unpooled.buffer());
             reply.writeBoolean(success);

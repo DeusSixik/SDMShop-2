@@ -45,23 +45,76 @@ public class CooldownConditionComponent extends ConditionComponent {
 
     @Override
     public boolean isChecked(Player player) {
+        return getAvailableAtMs(player) <= System.currentTimeMillis();
+    }
+
+    public long getAvailableAtMs(Player player) {
+        if (player == null) {
+            return Long.MAX_VALUE;
+        }
+
+        if (cooldownMs <= 0) {
+            return 0L;
+        }
+
         Optional<ShopLimiterTable> tableOpt = ShopUtils.getLimiterTable(player.isLocalPlayer());
 
         if (tableOpt.isEmpty()) {
-            return false;
+            return Long.MAX_VALUE;
         }
 
         UUID offerId = ((ShopOffer) getRoots()).getUUID();
         ShopLimiterTable table = tableOpt.get();
         long lastTime;
 
-        if (limiterType == LimiterComponent.LimiterType.Player) {
+        if (getResolvedLimiterType() == LimiterComponent.LimiterType.Player) {
             lastTime = table.getPlayerData(player).getData(offerId).getLastPurchaseTime().get();
         } else {
             lastTime = table.getOfferData(offerId).getLastPurchaseTime().get();
         }
 
-        return lastTime == 0 || (System.currentTimeMillis() - lastTime) >= cooldownMs;
+        if (lastTime <= 0) {
+            return 0L;
+        }
+
+        if (lastTime > Long.MAX_VALUE - cooldownMs) {
+            return Long.MAX_VALUE;
+        }
+
+        return lastTime + cooldownMs;
+    }
+
+    public long getRemainingCooldownMs(Player player) {
+        long availableAtMs = getAvailableAtMs(player);
+        if (availableAtMs == Long.MAX_VALUE) {
+            return Long.MAX_VALUE;
+        }
+
+        return Math.max(0L, availableAtMs - System.currentTimeMillis());
+    }
+
+    @Override
+    public void recordPurchase(Player player, int amount) {
+        if (player == null || amount <= 0) {
+            return;
+        }
+
+        Optional<ShopLimiterTable> tableOpt = ShopUtils.getLimiterTable(false);
+        if (tableOpt.isEmpty()) {
+            return;
+        }
+
+        UUID offerId = ((ShopOffer) getRoots()).getUUID();
+        ShopLimiterTable table = tableOpt.get();
+        if (getResolvedLimiterType() == LimiterComponent.LimiterType.Player) {
+            table.getPlayerData(player).getData(offerId).markPurchased();
+        } else {
+            table.getOfferData(offerId).markPurchased();
+        }
+    }
+
+    private LimiterComponent.LimiterType getResolvedLimiterType() {
+        return limiterType == null ? LimiterComponent.LimiterType.Player : limiterType;
     }
 
     @Override

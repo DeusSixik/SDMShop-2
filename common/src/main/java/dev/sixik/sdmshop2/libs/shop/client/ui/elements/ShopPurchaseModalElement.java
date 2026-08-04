@@ -6,21 +6,15 @@ import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUiElement;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUIUtils;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.StyleApi;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIDisposable;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIEventScope;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.*;
 import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
 import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopPurchaseModalRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.toast.ShopToasts;
 import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
-import dev.sixik.sdmshop2.libs.shop.components.limiter.LimiterComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.sdmshop2.libs.shop.components.money.MoneyCostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.utils.ShopComponentsUtils;
+import dev.sixik.sdmshop2.libs.shop.limiter.ShopLimiters;
 import dev.sixik.sdmshop2.libs.shop.network.ShopNetworkManager;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ModalWidget;
 import net.minecraft.client.Minecraft;
@@ -430,10 +424,10 @@ public class ShopPurchaseModalElement extends ModalWidget implements
         int balanceMax = Integer.MAX_VALUE;
 
         if (player != null) {
-            for (LimiterComponent limiter : offer.getComponents(LimiterComponent.class)) {
-                int available = Math.max(0, limiter.getLimit(player));
-
-                limitMax = Math.min(limitMax, available);
+            ShopLimiters.LimitSnapshot limitSnapshot = ShopLimiters.getSnapshot(offer, player);
+            if (limitSnapshot.isLimited()) {
+                int available = Math.max(0, limitSnapshot.getAvailable());
+                limitMax = available;
                 max = Math.min(max, available);
             }
 

@@ -117,6 +117,32 @@ public final class ShopLimiterTableServer implements ShopLimiterTable {
         return playersRepository.getOrCreate(playerId, this::createPlayerData);
     }
 
+    @Override
+    public boolean resetOfferData(UUID entityId) {
+        boolean changed = offersRepository.getValue(entityId) != null;
+        if (changed) {
+            offersRepository.delete(entityId);
+        }
+        return changed;
+    }
+
+    @Override
+    public boolean resetPlayerData(UUID playerId, UUID entityId) {
+        ShopLimiterPlayerData data = playersRepository.getValue(playerId);
+        return data != null && data.remove(entityId);
+    }
+
+    @Override
+    public int resetAllPlayerData(UUID entityId) {
+        int changed = 0;
+        for (ShopLimiterPlayerData data : playersRepository.getAllValues()) {
+            if (data.remove(entityId)) {
+                changed++;
+            }
+        }
+        return changed;
+    }
+
     public DailyOfferStats getDailyOfferStats() {
         return getDailyOfferStats(LocalDate.now().toString());
     }

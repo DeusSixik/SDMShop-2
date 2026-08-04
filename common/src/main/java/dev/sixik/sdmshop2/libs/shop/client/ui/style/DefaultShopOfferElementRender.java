@@ -6,30 +6,26 @@ import com.lowdragmc.lowdraglib.gui.texture.TransformTexture;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.utils.Size;
 import com.mojang.blaze3d.platform.InputConstants;
-import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
-import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
+import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
+import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.cache.ShopClientCache;
-import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopBadgeHBoxWidget;
-import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopBadgeWidget;
-import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopEmptyWidget;
-import dev.sixik.sdmshop2.libs.shop.client.ui.textures.PixelBevelTexture;
 import dev.sixik.sdmshop2.libs.shop.client.ui.ShopIcons;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopOfferElement;
 import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
-import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
-import dev.sixik.sdmshop2.libs.shop.components.api.PromoEffectComponent;
-import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
-import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
-import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentCategory;
-import dev.sixik.sdmshop2.libs.shop.components.limiter.LimiterComponent;
+import dev.sixik.sdmshop2.libs.shop.client.ui.textures.PixelBevelTexture;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopBadgeHBoxWidget;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopBadgeWidget;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopEmptyWidget;
+import dev.sixik.sdmshop2.libs.shop.components.api.*;
 import dev.sixik.sdmshop2.libs.shop.components.misc.NameComponent;
 import dev.sixik.sdmshop2.libs.shop.components.promo.effects.DiscountComponent;
 import dev.sixik.sdmshop2.libs.shop.components.promo.effects.PriceModifierPromoEffectComponent;
 import dev.sixik.sdmshop2.libs.shop.components.utils.ShopComponentsUtils;
+import dev.sixik.sdmshop2.libs.shop.limiter.ShopLimiters;
 import dev.sixik.sdmshop2.libs.shop.network.ShopNetworkManager;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.PriceWidget;
@@ -38,6 +34,7 @@ import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.HorizontalContainer;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.VerticalContainer;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.table.ScrollableInteractionTable;
+import dev.sixik.sdmshop2.utils.ShopUtils;
 import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.language.I18n;
@@ -45,14 +42,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import org.jetbrains.annotations.Nullable;
-import dev.sixik.sdmshop2.utils.ShopUtils;
 
 import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 public class DefaultShopOfferElementRender implements WidgetRender {
 
@@ -691,13 +683,13 @@ public class DefaultShopOfferElementRender implements WidgetRender {
     }
 
     protected void addLimitBar(WidgetContextRender ctx, ShopOffer shopEntity) {
-        final @Nullable LimiterComponent limiterComponent = shopEntity.getComponent(LimiterComponent.class).orElse(null);
-        if (limiterComponent == null) {
+        final ShopLimiters.LimitSnapshot limit = ShopLimiters.getSnapshot(shopEntity, Minecraft.getInstance().player);
+        if (!limit.isLimited()) {
             return;
         }
 
-        final int offerLimitCount = limiterComponent.getCount();
-        final int playerLimit = Math.max(0, limiterComponent.getLimit(Minecraft.getInstance().player));
+        final int offerLimitCount = limit.getCapacity();
+        final int playerLimit = Math.max(0, limit.getAvailable());
 
         limitBar = new ProgressBarWidget()
                 .setLeftText(Component.translatable("shop.ui.offer.limit"))

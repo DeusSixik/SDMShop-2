@@ -12,7 +12,9 @@ import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import lombok.Getter;
 import net.minecraft.network.FriendlyByteBuf;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 /**
  * Базовая сущность в архитектуре Entity-Component System (ECS) магазина.

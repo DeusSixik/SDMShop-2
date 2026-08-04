@@ -2,35 +2,35 @@ package dev.sixik.sdmshop2.libs.shop.client.ui.elements;
 
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.utils.Size;
-import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
-import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUiElement;
-import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.base.ShopDraggableScrollableWidgetGroup;
-import dev.sixik.sdmshop2.libs.shop.client.cache.ShopClientCache;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUIUtils;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.StyleApi;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIDisposable;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIEventScope;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
-import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
-import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopOffersPanelRender;
-import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
-import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.DODEventBus;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventPtr;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventSubscription;
+import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
+import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
+import dev.sixik.sdmshop2.libs.shop.client.cache.ShopClientCache;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.*;
+import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
+import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopOffersPanelRender;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.base.ShopDraggableScrollableWidgetGroup;
+import dev.sixik.sdmshop2.libs.shop.components.api.ConditionComponent;
+import dev.sixik.sdmshop2.libs.shop.components.conditions.CooldownConditionComponent;
+import dev.sixik.sdmshop2.libs.shop.components.limiter.LimiterComponent;
+import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
+import dev.sixik.sdmshop2.libs.shop.components.misc.RenderHideComponent;
+import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
+import dev.sixik.sdmshop2.libs.shop.network.ShopNetworkManager;
 import lombok.Getter;
+import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 
 public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup implements
         ShopUiElement, WidgetContextRender, UIDisposable {
+
+    private static final long CONDITION_REFRESH_THROTTLE_MS = 250L;
 
     @Getter
     protected final @NotNull ShopScreenElement shopScreen;
@@ -43,6 +43,10 @@ public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup i
     protected Set<ResourceLocation> selectedCurrencyFilters = Set.of();
     @Getter
     protected @Nullable CatalogComponent selectedCategory;
+    protected final Map<UUID, Map<ConditionComponent, Boolean>> serverConditionCache = new HashMap<>();
+    protected final Set<UUID> pendingConditionRequests = new HashSet<>();
+    protected long nextConditionRefreshAtMs = Long.MAX_VALUE;
+    protected long lastConditionAutoRefreshMs;
 
     public ShopOffersPanelElement(@NotNull ShopScreenElement shopScreen) {
         this(shopScreen, StyleApi.getDefaultStyle(StyleApi.Category.OffersPanel).get());
@@ -183,6 +187,129 @@ public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup i
         }
     }
 
+    public void requestServerConditions(Collection<ShopOffer> offers) {
+        if (offers == null || offers.isEmpty() || isEditorMode()) {
+            return;
+        }
+
+        List<ShopOffer> requestOffers = offers.stream()
+                .filter(Objects::nonNull)
+                .filter(offer -> offer.getComponents(ConditionComponent.class).stream().anyMatch(condition -> !condition.verifiedOnClient()))
+                .filter(offer -> !serverConditionCache.containsKey(offer.getUUID()))
+                .filter(offer -> pendingConditionRequests.add(offer.getUUID()))
+                .toList();
+        if (requestOffers.isEmpty()) {
+            return;
+        }
+
+        ShopNetworkManager.fetchServerConditions(requestOffers).whenComplete((conditions, throwable) -> Minecraft.getInstance().execute(() -> {
+            requestOffers.forEach(offer -> pendingConditionRequests.remove(offer.getUUID()));
+            if (throwable != null || conditions == null) {
+                return;
+            }
+
+            serverConditionCache.putAll(conditions);
+            refresh(initialized);
+        }));
+    }
+
+    public void scheduleConditionRefresh(Collection<ShopOffer> offers) {
+        if (offers == null || offers.isEmpty() || isEditorMode()) {
+            nextConditionRefreshAtMs = Long.MAX_VALUE;
+            return;
+        }
+
+        if (Minecraft.getInstance().player == null) {
+            nextConditionRefreshAtMs = Long.MAX_VALUE;
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        long nextRefreshAtMs = Long.MAX_VALUE;
+        for (ShopOffer offer : offers) {
+            if (offer == null || !offer.hasComponent(RenderHideComponent.class)) {
+                continue;
+            }
+
+            nextRefreshAtMs = Math.min(nextRefreshAtMs, findNextCooldownRefreshAtMs(offer, now));
+            nextRefreshAtMs = Math.min(nextRefreshAtMs, findNextLimiterRefreshAtMs(offer, now));
+        }
+
+        nextConditionRefreshAtMs = nextRefreshAtMs;
+    }
+
+    public boolean shouldRenderOffer(ShopOffer offer) {
+        if (offer == null || isEditorMode() || !offer.hasComponent(RenderHideComponent.class)) {
+            return true;
+        }
+
+        return isOfferAvailable(offer);
+    }
+
+    public boolean isOfferAvailable(ShopOffer offer) {
+        if (offer == null) {
+            return false;
+        }
+
+        for (ConditionComponent condition : offer.getComponents(ConditionComponent.class)) {
+            if (condition.verifiedOnClient()) {
+                if (!isClientConditionChecked(condition)) {
+                    return false;
+                }
+                continue;
+            }
+
+            Map<ConditionComponent, Boolean> serverConditions = serverConditionCache.get(offer.getUUID());
+            if (serverConditions != null && Boolean.FALSE.equals(serverConditions.get(condition))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private boolean isClientConditionChecked(ConditionComponent condition) {
+        if (Minecraft.getInstance().player == null) {
+            return false;
+        }
+
+        try {
+            return condition.isChecked(Minecraft.getInstance().player);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private long findNextCooldownRefreshAtMs(ShopOffer offer, long now) {
+        long nextRefreshAtMs = Long.MAX_VALUE;
+        for (CooldownConditionComponent condition : offer.getComponents(CooldownConditionComponent.class)) {
+            try {
+                long availableAtMs = condition.getAvailableAtMs(Minecraft.getInstance().player);
+                if (availableAtMs > now) {
+                    nextRefreshAtMs = Math.min(nextRefreshAtMs, availableAtMs);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        return nextRefreshAtMs;
+    }
+
+    private long findNextLimiterRefreshAtMs(ShopOffer offer, long now) {
+        long nextRefreshAtMs = Long.MAX_VALUE;
+        for (LimiterComponent limiter : offer.getComponents(LimiterComponent.class)) {
+            try {
+                long availableAtMs = limiter.getAvailableAtMs(Minecraft.getInstance().player);
+                if (availableAtMs > now) {
+                    nextRefreshAtMs = Math.min(nextRefreshAtMs, availableAtMs);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        return nextRefreshAtMs;
+    }
+
     protected boolean shouldRefreshFor(ShopUIEvents.RefreshUI event) {
         if (!event.affectsOffers()) {
             return false;
@@ -231,6 +358,25 @@ public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup i
         }
 
         return this;
+    }
+
+    @Override
+    public void updateScreen() {
+        super.updateScreen();
+
+        long nextRefreshAtMs = nextConditionRefreshAtMs;
+        if (nextRefreshAtMs == Long.MAX_VALUE) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        if (now < nextRefreshAtMs || now - lastConditionAutoRefreshMs < CONDITION_REFRESH_THROTTLE_MS) {
+            return;
+        }
+
+        lastConditionAutoRefreshMs = now;
+        nextConditionRefreshAtMs = Long.MAX_VALUE;
+        refresh(initialized);
     }
 
     protected void restoreScrollY(int previousScrollY) {

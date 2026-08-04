@@ -11,7 +11,7 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.gui.GuiGraphics;
 
-import java.awt.Color;
+import java.awt.*;
 
 @LDLRegister(name = "pixel_bevel_texture", group = "texture")
 public class PixelBevelTexture extends TransformTexture {

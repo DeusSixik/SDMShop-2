@@ -19,7 +19,8 @@ import net.minecraft.resources.ResourceLocation;
 
 import java.util.UUID;
 
-import static dev.sixik.sdmshop2.libs.shop.client.SDMShopClient.*;
+import static dev.sixik.sdmshop2.libs.shop.client.SDMShopClient.ACCEPT_NEW_COMPONENT_DATA_EVENT;
+import static dev.sixik.sdmshop2.libs.shop.client.SDMShopClient.ACCEPT_SHOP_EVENT;
 
 public class AsyncClientTasks {
 

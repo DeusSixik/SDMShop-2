@@ -10,7 +10,6 @@ import dev.sixik.sdmshop2.libs.shop.scripting.events.ShopScriptEvents;
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
 import lombok.Getter;
-import lombok.Setter;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Items;
@@ -21,20 +20,31 @@ public class ScriptRewardComponent extends RewardComponent {
     public static final IComponentType<ScriptRewardComponent> TYPE = new Type();
 
     @Getter
-    @Setter
-    @ComponentConfig(translationKey = "shop.component.reward.script.scrip_id")
+    @ComponentConfig(translationKey = "shop.component.reward.script.script_id")
     private String scripId = "";
 
     public ScriptRewardComponent() {
     }
 
     public ScriptRewardComponent(String scripId) {
-        this.scripId = scripId;
+        setScriptId(scripId);
     }
 
     @Override
     public void reward(ServerPlayer player, int amount) {
-        ShopScriptEvents.SCRIP_REWARD_EVENT.invoker().invoke(player, amount, this, scripId);
+        ShopScriptEvents.SCRIP_REWARD_EVENT.invoker().invoke(player, amount, this, getScriptId());
+    }
+
+    public String getScriptId() {
+        return scripId;
+    }
+
+    public void setScriptId(String scriptId) {
+        this.scripId = normalizeScriptId(scriptId);
+    }
+
+    public void setScripId(String scriptId) {
+        setScriptId(scriptId);
     }
 
     @Override
@@ -51,7 +61,7 @@ public class ScriptRewardComponent extends RewardComponent {
 
         private static final ResourceLocation ID = ResourceLocation.tryBuild("sdm", "reward_script");
         private static final ComponentSerializer<ScriptRewardComponent> SERIALIZER = ComponentSerializer.<ScriptRewardComponent>create()
-                .addString("script_id", ScriptRewardComponent::getScripId, ScriptRewardComponent::setScripId);
+                .addString("script_id", ScriptRewardComponent::getScriptId, ScriptRewardComponent::setScriptId);
 
         private Type() {
             super(ScriptRewardComponent::new, SERIALIZER);
@@ -66,5 +76,9 @@ public class ScriptRewardComponent extends RewardComponent {
         public CurrencyIcon getIcon() {
             return new CurrencyIcon(IconType.ITEM, Items.REPEATING_COMMAND_BLOCK);
         }
+    }
+
+    private static String normalizeScriptId(String scriptId) {
+        return scriptId == null ? "" : scriptId.trim();
     }
 }

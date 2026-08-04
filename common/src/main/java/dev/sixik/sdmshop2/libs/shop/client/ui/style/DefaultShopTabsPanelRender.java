@@ -9,16 +9,16 @@ import com.lowdragmc.lowdraglib.gui.widget.layout.Layout;
 import com.lowdragmc.lowdraglib.utils.Size;
 import dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
-import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopEmptyWidget;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUiElement;
-import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopTabElement;
-import dev.sixik.sdmshop2.libs.shop.client.ui.textures.PixelBevelTexture;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
+import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopTabElement;
 import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopTabsPanelElement;
+import dev.sixik.sdmshop2.libs.shop.client.ui.textures.PixelBevelTexture;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopEmptyWidget;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.PriceWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.PriceWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ContextMenuWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.HorizontalContainer;
@@ -29,12 +29,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
 public class DefaultShopTabsPanelRender implements WidgetRender {
 

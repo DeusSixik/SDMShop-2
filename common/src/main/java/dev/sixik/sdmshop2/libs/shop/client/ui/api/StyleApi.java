@@ -1,12 +1,7 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.api;
 
 import dev.sixik.sdmshop2.SDMShop2;
-import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultEditMenuRender;
-import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopOfferElementRender;
-import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopOffersPanelRender;
-import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopPurchaseModalRender;
-import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopTabsPanelRender;
-import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopToolPanelElementRender;
+import dev.sixik.sdmshop2.libs.shop.client.ui.style.*;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.resources.ResourceLocation;
 

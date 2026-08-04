@@ -1,5 +1,7 @@
 package dev.sixik.sdmshop2.libs.shop.components.promo.conditions;
 
+import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
+import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.PromoComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.PromoScope;
@@ -8,8 +10,6 @@ import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentNumberRan
 import dev.sixik.sdmshop2.libs.shop.promo.PromoStateStore;
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
-import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
-import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.resources.ResourceLocation;

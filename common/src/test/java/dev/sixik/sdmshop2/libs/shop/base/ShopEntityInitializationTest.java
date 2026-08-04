@@ -1,15 +1,11 @@
 package dev.sixik.sdmshop2.libs.shop.base;
 
+import dev.sixik.sdmshop2.libs.shop.base.callbacks.ShopEntityCallbacks;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
-import dev.sixik.sdmshop2.libs.shop.base.callbacks.ShopEntityCallbacks;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class ShopEntityInitializationTest {
 

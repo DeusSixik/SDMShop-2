@@ -1,21 +1,21 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.textures;
 
-import com.lowdragmc.lowdraglib.gui.texture.TransformTexture;
-import dev.sixik.sdmshop2.libs.shop.client.SDMShaders;
-import net.minecraft.client.gui.GuiGraphics;
 import com.lowdragmc.lowdraglib.gui.editor.annotation.Configurable;
 import com.lowdragmc.lowdraglib.gui.editor.annotation.LDLRegister;
 import com.lowdragmc.lowdraglib.gui.editor.annotation.NumberColor;
 import com.lowdragmc.lowdraglib.gui.editor.annotation.NumberRange;
+import com.lowdragmc.lowdraglib.gui.texture.TransformTexture;
 import com.lowdragmc.lowdraglib.gui.util.DrawerHelper;
 import com.lowdragmc.lowdraglib.utils.Rect;
+import dev.sixik.sdmshop2.libs.shop.client.SDMShaders;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.minecraft.client.gui.GuiGraphics;
 import org.joml.Vector4f;
 
-import java.awt.Color;
+import java.awt.*;
 
 @LDLRegister(name = "color_rect_and_border_texture", group = "texture")
 @Accessors(chain = true)

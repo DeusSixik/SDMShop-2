@@ -1,13 +1,17 @@
 package dev.sixik.sdmshop2.libs.shop.commands;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.suggestion.Suggestions;
+import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import dev.architectury.platform.Platform;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
+import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.base.ShopTable;
 import dev.sixik.sdmshop2.libs.shop.commands.builder.CommandBuilder;
+import dev.sixik.sdmshop2.libs.shop.limiter.ShopLimiters;
 import dev.sixik.sdmshop2.libs.shop.network.ShopNetworkManager;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.ShopRenderLibExtension;
-import dev.sixik.sdmshop2.tests.economy.EconomyTest;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
@@ -20,6 +24,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.Collection;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 public class SDMShopCommands {
 
@@ -91,6 +97,39 @@ public class SDMShopCommands {
                 })
                 .register(dispatcher);
 
+        CommandBuilder.create("sdm_shop limiter reset")
+                .requires(2)
+                .then(Commands.literal("world")
+                        .then(Commands.argument("shop_id", ResourceLocationArgument.id())
+                                .suggests((context, builder) -> SharedSuggestionProvider.suggestResource(ShopTable.Instance.getShopsId(), builder))
+                                .then(Commands.argument("offer_id", StringArgumentType.word())
+                                        .suggests(SDMShopCommands::suggestOfferIds)
+                                        .executes(ctx -> resetWorldLimit(ctx))
+                                )
+                        )
+                )
+                .then(Commands.literal("player")
+                        .then(Commands.argument("target", EntityArgument.player())
+                                .then(Commands.argument("shop_id", ResourceLocationArgument.id())
+                                        .suggests((context, builder) -> SharedSuggestionProvider.suggestResource(ShopTable.Instance.getShopsId(), builder))
+                                        .then(Commands.argument("offer_id", StringArgumentType.word())
+                                                .suggests(SDMShopCommands::suggestOfferIds)
+                                                .executes(ctx -> resetPlayerLimit(ctx))
+                                        )
+                                )
+                        )
+                )
+                .then(Commands.literal("offer")
+                        .then(Commands.argument("shop_id", ResourceLocationArgument.id())
+                                .suggests((context, builder) -> SharedSuggestionProvider.suggestResource(ShopTable.Instance.getShopsId(), builder))
+                                .then(Commands.argument("offer_id", StringArgumentType.word())
+                                        .suggests(SDMShopCommands::suggestOfferIds)
+                                        .executes(ctx -> resetOfferLimit(ctx))
+                                )
+                        )
+                )
+                .register(dispatcher);
+
         CommandBuilder.create("sdm_shop reload shops")
                 .requires(2)
                 .executesVoid(ctx -> {
@@ -108,5 +147,108 @@ public class SDMShopCommands {
         if(Platform.isDevelopmentEnvironment()) {
             SDMShopCommandsDebug.init(dispatcher);
         }
+    }
+
+    private static int resetWorldLimit(CommandContext<CommandSourceStack> ctx) {
+        ShopOffer offer = getCommandOffer(ctx);
+        if (offer == null) {
+            return 0;
+        }
+
+        boolean changed = ShopLimiters.resetWorld(offer);
+        sendResetResult(ctx, changed, "World limit reset", "No stored world limit data found");
+        return changed ? 1 : 0;
+    }
+
+    private static int resetPlayerLimit(CommandContext<CommandSourceStack> ctx) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        ShopOffer offer = getCommandOffer(ctx);
+        if (offer == null) {
+            return 0;
+        }
+
+        ServerPlayer target = EntityArgument.getPlayer(ctx, "target");
+        boolean changed = ShopLimiters.resetPlayer(offer, target);
+        sendResetResult(
+                ctx,
+                changed,
+                "Player limit reset for " + target.getScoreboardName(),
+                "No stored player limit data found for " + target.getScoreboardName()
+        );
+        return changed ? 1 : 0;
+    }
+
+    private static int resetOfferLimit(CommandContext<CommandSourceStack> ctx) {
+        ShopOffer offer = getCommandOffer(ctx);
+        if (offer == null) {
+            return 0;
+        }
+
+        boolean changed = ShopLimiters.resetOffer(offer);
+        sendResetResult(ctx, changed, "All offer limits reset", "No stored offer limit data found");
+        return changed ? 1 : 0;
+    }
+
+    private static ShopOffer getCommandOffer(CommandContext<CommandSourceStack> ctx) {
+        ShopInstance shop = getCommandShop(ctx);
+        if (shop == null) {
+            return null;
+        }
+
+        UUID offerId = parseOfferId(ctx);
+        if (offerId == null) {
+            return null;
+        }
+
+        ShopOffer offer = shop.getEntries().getEntry(offerId);
+        if (offer == null) {
+            ctx.getSource().sendFailure(Component.literal("Offer with id '" + offerId + "' not found in shop '" + shop.getId() + "'").withStyle(ChatFormatting.RED));
+        }
+        return offer;
+    }
+
+    private static ShopInstance getCommandShop(CommandContext<CommandSourceStack> ctx) {
+        ResourceLocation shopId = normalizeShopId(ResourceLocationArgument.getId(ctx, "shop_id"));
+        ShopInstance shop = ShopTable.Instance.getShop(shopId);
+        if (shop == null) {
+            ctx.getSource().sendFailure(Component.literal("Shop with id '" + shopId + "' not found").withStyle(ChatFormatting.RED));
+        }
+        return shop;
+    }
+
+    private static UUID parseOfferId(CommandContext<CommandSourceStack> ctx) {
+        String rawOfferId = StringArgumentType.getString(ctx, "offer_id");
+        try {
+            return UUID.fromString(rawOfferId);
+        } catch (IllegalArgumentException e) {
+            ctx.getSource().sendFailure(Component.literal("Invalid offer UUID: " + rawOfferId).withStyle(ChatFormatting.RED));
+            return null;
+        }
+    }
+
+    private static ResourceLocation normalizeShopId(ResourceLocation shopId) {
+        return shopId.getNamespace().equals("minecraft") ? new ResourceLocation("sdm", shopId.getPath()) : shopId;
+    }
+
+    private static void sendResetResult(CommandContext<CommandSourceStack> ctx, boolean changed, String success, String noData) {
+        if (changed) {
+            ctx.getSource().sendSuccess(() -> Component.literal(success).withStyle(ChatFormatting.GREEN), true);
+        } else {
+            ctx.getSource().sendFailure(Component.literal(noData).withStyle(ChatFormatting.YELLOW));
+        }
+    }
+
+    private static CompletableFuture<Suggestions> suggestOfferIds(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        try {
+            ShopInstance shop = ShopTable.Instance.getShop(normalizeShopId(ResourceLocationArgument.getId(context, "shop_id")));
+            if (shop != null) {
+                return SharedSuggestionProvider.suggest(
+                        shop.getEntries().getEntryMap().keySet().stream().map(UUID::toString),
+                        builder
+                );
+            }
+        } catch (Exception ignored) {
+        }
+
+        return builder.buildFuture();
     }
 }

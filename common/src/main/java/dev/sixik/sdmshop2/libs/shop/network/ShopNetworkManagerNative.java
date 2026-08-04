@@ -1,16 +1,20 @@
 package dev.sixik.sdmshop2.libs.shop.network;
 
 import dev.sixik.sdmshop2.SDMShop2;
+import dev.sixik.sdmshop2.libs.platform.utils.network.async.AsyncBridge;
 import dev.sixik.sdmshop2.libs.sdmeconomy.CurrencyDraft;
 import dev.sixik.sdmshop2.libs.shop.base.ObjectIdGetter;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
-import dev.sixik.sdmshop2.libs.shop.components.api.*;
-import dev.sixik.sdmshop2.libs.platform.utils.network.async.AsyncBridge;
+import dev.sixik.sdmshop2.libs.shop.components.api.ConditionComponent;
+import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
+import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
+import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentRegistry;
 import dev.sixik.sdmshop2.libs.shop.network.async.AsyncClientTasks;
 import dev.sixik.sdmshop2.libs.shop.network.async.AsyncServerTasks;
+import dev.sixik.sdmshop2.libs.shop.network.packets.SendLimiterDataS2C;
 import dev.sixik.sdmshop2.utils.NetworkExtern;
 import dev.sixik.sdmshop2.utils.ShopUtils;
 import net.fabricmc.api.EnvType;
@@ -67,6 +71,7 @@ class ShopNetworkManagerNative {
             shop.serializeNetwork(buf);
             return buf;
         });
+        sendLimiterData(players);
     }
 
     public static void sendShopData(ShopInstance shop, ServerPlayer... players) {
@@ -86,6 +91,7 @@ class ShopNetworkManagerNative {
             }
             return buf;
         });
+        sendLimiterData(players);
     }
 
     public static void sendLimiterData(ServerPlayer... players) {
@@ -95,10 +101,7 @@ class ShopNetworkManagerNative {
     public static void sendLimiterData(Iterable<ServerPlayer> players) {
         ShopUtils.getLimiterTable(false).ifPresent(limiterTable -> {
             for (ServerPlayer player : players) {
-                AsyncBridge.askPlayer(player, AsyncServerTasks.SEND_SHOP_LIMITER_DATA, buf -> {
-                    limiterTable.toNetwork(player.getGameProfile().getId(), buf);
-                    return buf;
-                });
+                new SendLimiterDataS2C(player).sendTo(player);
             }
         });
     }

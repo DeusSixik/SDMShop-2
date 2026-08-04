@@ -1,17 +1,12 @@
 package dev.sixik.sdmshop2.libs.shop.processors;
 
+import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyPlatform;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
-import dev.sixik.sdmshop2.libs.shop.components.api.ConditionComponent;
-import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
-import dev.sixik.sdmshop2.libs.shop.components.api.PromoComponent;
-import dev.sixik.sdmshop2.libs.shop.components.api.PromoEffectComponent;
-import dev.sixik.sdmshop2.libs.shop.components.api.PromoPriceContext;
-import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
-import dev.sixik.sdmshop2.libs.shop.components.limiter.LimiterComponent;
+import dev.sixik.sdmshop2.libs.shop.components.api.*;
 import dev.sixik.sdmshop2.libs.shop.events.ShopServerEvents;
+import dev.sixik.sdmshop2.libs.shop.limiter.ShopLimiters;
 import dev.sixik.sdmshop2.libs.shop.network.ShopNetworkManager;
 import dev.sixik.sdmshop2.libs.shop.scripting.events.ShopScriptEvents;
-import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyPlatform;
 import it.unimi.dsi.fastutil.objects.*;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -55,41 +50,49 @@ public class ShopTransactionProcessor {
             final int amount
     ) {
         if (offer == null || player == null || amount <= 0) {
+            failPurchase(offer, player, chosenGroupId, amount, ShopScriptEvents.PurchaseFailureReason.INVALID_INPUT);
             return false;
         }
 
         final MinecraftServer server = player.getServer();
 
+        if (!ShopScriptEvents.SCRIPT_BEFORE_PURCHASE_EVENT.invoker().invoke(offer, player, normalizeGroupId(chosenGroupId), amount)) {
+            failPurchase(offer, player, chosenGroupId, amount, ShopScriptEvents.PurchaseFailureReason.SCRIPT_CANCELLED);
+            return false;
+        }
+
         // Фаза 1: обычные условия доступа к товару.
         for (ConditionComponent condition : offer.getComponents(ConditionComponent.class)) {
             if (!condition.isChecked(player)) {
+                failPurchase(offer, player, chosenGroupId, amount, ShopScriptEvents.PurchaseFailureReason.CONDITION_FAILED);
                 return false;
             }
         }
 
         // Фаза 2: лимиты проверяются до оплаты, чтобы не списывать средства зря.
-        final List<LimiterComponent> limiters = offer.getComponents(LimiterComponent.class);
-        for (LimiterComponent limiter : limiters) {
-            if (!limiter.isChecked(player, amount)) {
-                return false;
-            }
+        if (!ShopLimiters.canPurchase(offer, player, amount)) {
+            failPurchase(offer, player, chosenGroupId, amount, ShopScriptEvents.PurchaseFailureReason.LIMIT_FAILED);
+            return false;
         }
 
         // Фаза 3: выбираем cost-компоненты нужной группы и применяем активные скидки.
         final Object2DoubleMap<CostComponent> finalCosts = calculateFinalCosts(offer, server, player, chosenGroupId);
         if (finalCosts.isEmpty() && !offer.getComponents(CostComponent.class).isEmpty()) {
+            failPurchase(offer, player, chosenGroupId, amount, ShopScriptEvents.PurchaseFailureReason.NO_COST_GROUP);
             return false;
         }
 
         // Цена в finalCosts указана за 1 единицу товара, поэтому умножаем её на amount.
         final List<CostCharge> totalCosts = multiplyCosts(finalCosts, amount);
         if (totalCosts.isEmpty() && !finalCosts.isEmpty()) {
+            failPurchase(offer, player, chosenGroupId, amount, ShopScriptEvents.PurchaseFailureReason.INVALID_COST);
             return false;
         }
 
         // Фаза 4: предварительная проверка всех источников оплаты.
         for (CostCharge charge : totalCosts) {
             if (!charge.cost().canPay(player, charge.amount())) {
+                failPurchase(offer, player, chosenGroupId, amount, ShopScriptEvents.PurchaseFailureReason.CANNOT_PAY);
                 return false;
             }
         }
@@ -102,6 +105,7 @@ public class ShopTransactionProcessor {
 
             if (!cost.tryPay(player, totalCost)) {
                 rollbackCosts(player, paidCosts);
+                failPurchase(offer, player, chosenGroupId, amount, ShopScriptEvents.PurchaseFailureReason.PAYMENT_FAILED);
                 return false;
             }
 
@@ -116,24 +120,41 @@ public class ShopTransactionProcessor {
         } catch (Exception e) {
             LOGGER.error("Failed to give rewards for offer {}", offer.getUUID(), e);
             rollbackCosts(player, paidCosts);
+            failPurchase(offer, player, chosenGroupId, amount, ShopScriptEvents.PurchaseFailureReason.REWARD_FAILED);
             return false;
         }
 
         // Фаза 7: лимиты обновляются только после успешной оплаты и выдачи наград.
-        for (LimiterComponent limiter : limiters) {
-            limiter.addLimit(player, amount);
+        for (ConditionComponent condition : offer.getComponents(ConditionComponent.class)) {
+            condition.recordPurchase(player, amount);
+        }
+        ShopLimiters.recordPurchase(offer, player, amount);
+
+        syncLimitersNetwork(offer, player);
+        SDMEconomyPlatform.syncPlayerAccount(player);
+        ShopScriptEvents.SCRIPT_AFTER_PURCHASE_EVENT.invoker().invoke(offer, player, normalizeGroupId(chosenGroupId), amount);
+        return true;
+    }
+
+    private static void failPurchase(
+            ShopOffer offer,
+            ServerPlayer player,
+            String chosenGroupId,
+            int amount,
+            ShopScriptEvents.PurchaseFailureReason reason
+    ) {
+        if (offer == null || player == null) {
+            return;
         }
 
-        syncLimitersNetwork(limiters, player);
-        SDMEconomyPlatform.syncPlayerAccount(player);
-        return true;
+        ShopScriptEvents.SCRIPT_PURCHASE_FAILED_EVENT.invoker().invoke(offer, player, normalizeGroupId(chosenGroupId), amount, reason);
     }
 
     /**
      * Синхронизирует клиенту новые данные лимитеров после успешной покупки.
      */
-    private static void syncLimitersNetwork(List<LimiterComponent> limiters, ServerPlayer player) {
-        if (!limiters.isEmpty()) {
+    private static void syncLimitersNetwork(ShopOffer offer, ServerPlayer player) {
+        if (ShopLimiters.hasLimiters(offer) || !offer.getComponents(ConditionComponent.class).isEmpty()) {
             ShopNetworkManager.sendLimiterData(player);
         }
     }

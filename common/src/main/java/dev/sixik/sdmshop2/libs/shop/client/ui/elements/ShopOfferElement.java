@@ -1,17 +1,11 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.elements;
 
-import com.lowdragmc.lowdraglib.utils.Size;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
+import com.lowdragmc.lowdraglib.utils.Size;
 import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUiElement;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUIUtils;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.StyleApi;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIDisposable;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIEventScope;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.*;
 import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ContextMenuWidget;
 import net.minecraft.client.Minecraft;

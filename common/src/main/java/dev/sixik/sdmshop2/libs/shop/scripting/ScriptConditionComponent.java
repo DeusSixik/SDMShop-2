@@ -10,7 +10,6 @@ import dev.sixik.sdmshop2.libs.shop.scripting.events.ShopScriptEvents;
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
 import lombok.Getter;
-import lombok.Setter;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Items;
@@ -21,20 +20,31 @@ public class ScriptConditionComponent extends ConditionComponent {
     public static final IComponentType<ScriptConditionComponent> TYPE = new Type();
 
     @Getter
-    @Setter
-    @ComponentConfig(translationKey = "shop.component.condition.script.scrip_id")
+    @ComponentConfig(translationKey = "shop.component.condition.script.script_id")
     private String scripId = "";
 
     public ScriptConditionComponent() {
     }
 
     public ScriptConditionComponent(String scripId) {
-        this.scripId = scripId;
+        setScriptId(scripId);
     }
 
     @Override
     public boolean isChecked(Player player) {
-        return ShopScriptEvents.SCRIP_CONDITION_EVENT.invoker().invoke(player, this, scripId);
+        return ShopScriptEvents.SCRIP_CONDITION_EVENT.invoker().invoke(player, this, getScriptId());
+    }
+
+    public String getScriptId() {
+        return scripId;
+    }
+
+    public void setScriptId(String scriptId) {
+        this.scripId = normalizeScriptId(scriptId);
+    }
+
+    public void setScripId(String scriptId) {
+        setScriptId(scriptId);
     }
 
     @Override
@@ -56,7 +66,7 @@ public class ScriptConditionComponent extends ConditionComponent {
 
         private static final ResourceLocation ID = ResourceLocation.tryBuild("sdm", "condition_script");
         private static final ComponentSerializer<ScriptConditionComponent> SERIALIZER = ComponentSerializer.<ScriptConditionComponent>create()
-                .addString("script_id", ScriptConditionComponent::getScripId, ScriptConditionComponent::setScripId);
+                .addString("script_id", ScriptConditionComponent::getScriptId, ScriptConditionComponent::setScriptId);
 
         private Type() {
             super(ScriptConditionComponent::new, SERIALIZER);
@@ -71,5 +81,9 @@ public class ScriptConditionComponent extends ConditionComponent {
         public CurrencyIcon getIcon() {
             return new CurrencyIcon(IconType.ITEM, Items.REPEATING_COMMAND_BLOCK);
         }
+    }
+
+    private static String normalizeScriptId(String scriptId) {
+        return scriptId == null ? "" : scriptId.trim();
     }
 }

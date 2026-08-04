@@ -4,14 +4,16 @@ import com.lowdragmc.lowdraglib.gui.texture.ColorRectTexture;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import com.lowdragmc.lowdraglib.utils.Size;
+import dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency;
+import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUiElement;
-import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.base.ShopDraggableScrollableWidgetGroup;
-import dev.sixik.sdmshop2.libs.shop.client.ui.textures.PixelBevelTexture;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopOfferElement;
 import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopOffersPanelElement;
+import dev.sixik.sdmshop2.libs.shop.client.ui.textures.PixelBevelTexture;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.base.ShopDraggableScrollableWidgetGroup;
 import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentCategory;
@@ -20,20 +22,13 @@ import dev.sixik.sdmshop2.libs.shop.components.misc.NameComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.ShopOffersContainerComponent;
 import dev.sixik.sdmshop2.libs.shop.components.money.MoneyCostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.utils.ShopComponentsUtils;
-import dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency;
-import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
 import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class DefaultShopOffersPanelRender implements WidgetRender {
@@ -74,8 +69,13 @@ public class DefaultShopOffersPanelRender implements WidgetRender {
         final String searchText = normalizeSearch(panel.getSearchText());
         final Set<ResourceLocation> selectedCurrencies = panel.getSelectedCurrencyFilters();
         final CatalogComponent selectedCategory = panel.getSelectedCategory();
-        List<ShopOffer> offers = entriesContainer.getEntryMap().values().stream()
+        List<ShopOffer> sourceOffers = new ArrayList<>(entriesContainer.getEntryMap().values());
+        panel.requestServerConditions(sourceOffers);
+        panel.scheduleConditionRefresh(sourceOffers);
+
+        List<ShopOffer> offers = sourceOffers.stream()
                 .map(OfferView::from)
+                .filter(view -> panel.shouldRenderOffer(view.offer()))
                 .filter(view -> selectedCategory == null || isInCategory(view.offer(), selectedCategory))
                 .filter(view -> selectedCurrencies.isEmpty() || view.hasAnyCurrency(selectedCurrencies))
                 .filter(view -> searchText.isEmpty() || view.searchTitle().contains(searchText))

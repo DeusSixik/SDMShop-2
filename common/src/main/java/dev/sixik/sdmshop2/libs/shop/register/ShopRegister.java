@@ -2,10 +2,10 @@ package dev.sixik.sdmshop2.libs.shop.register;
 
 import dev.sixik.sdmshop2.libs.shop.components.CommandRewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.ItemRewardComponent;
+import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentRegistry;
 import dev.sixik.sdmshop2.libs.shop.components.conditions.CooldownConditionComponent;
 import dev.sixik.sdmshop2.libs.shop.components.limiter.LimiterComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.*;
-import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentRegistry;
 import dev.sixik.sdmshop2.libs.shop.components.money.MoneyCostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.money.MoneyRewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.promo.conditions.PromoCooldownComponent;

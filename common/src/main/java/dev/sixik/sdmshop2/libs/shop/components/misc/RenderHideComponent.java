@@ -1,9 +1,7 @@
 package dev.sixik.sdmshop2.libs.shop.components.misc;
 
-import dev.sixik.sdmshop2.libs.shop.components.api.ConditionComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
-import dev.sixik.sdmshop2.libs.shop.components.exceptions.NoSuchComponents;
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
 import net.minecraft.resources.ResourceLocation;
@@ -15,12 +13,6 @@ public final class RenderHideComponent extends ShopComponent {
     @Override
     public IComponentType<?> getType() {
         return TYPE;
-    }
-
-    @Override
-    public void init() {
-        if(!getRoot().hasComponent(ConditionComponent.class))
-            throw new NoSuchComponents(getClass(), ConditionComponent.class);
     }
 
     private static class Type extends SerializedComponentType<RenderHideComponent> {
@@ -35,11 +27,6 @@ public final class RenderHideComponent extends ShopComponent {
         @Override
         public ResourceLocation getId() {
             return ID;
-        }
-
-        @Override
-        public boolean showInEditor() {
-            return false;
         }
     }
 }

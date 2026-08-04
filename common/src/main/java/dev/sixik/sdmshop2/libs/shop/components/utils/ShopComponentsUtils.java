@@ -2,7 +2,6 @@ package dev.sixik.sdmshop2.libs.shop.components.utils;
 
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
-import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentCategory;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;

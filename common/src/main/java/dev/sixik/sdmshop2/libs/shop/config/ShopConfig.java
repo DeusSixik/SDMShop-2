@@ -12,7 +12,7 @@ public class ShopConfig {
             Shop opened by the client "Open Shop" keybind.
             Leave empty to disable the keybind server-side.
             """)
-    public String openShopKeybindShopId = "";
+    public String openShopKeybindShopId = "sdm:default";
 
     @Serializable(comment = """
             Values:\s
