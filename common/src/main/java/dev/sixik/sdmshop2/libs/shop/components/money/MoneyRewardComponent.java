@@ -21,6 +21,7 @@ import dev.sixik.sdmshop2.utils.ShopUtils;
 import lombok.Getter;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import org.jetbrains.annotations.Nullable;
@@ -87,7 +88,11 @@ public class MoneyRewardComponent extends RewardComponent {
             widget.setBackground(texture).setHoverTexture(texture);
         }
 
-        return widget.setHoverTooltips(money.getDisplayName().copy().append(" : ").append(money.format(BigDecimal.valueOf(amount))));
+        return widget.setHoverTooltips(Component.translatable(
+                "shop.component.reward.money.render.tooltip",
+                money.getDisplayName(),
+                money.format(BigDecimal.valueOf(amount))
+        ));
     }
 
     private static class Type extends SerializedComponentType<MoneyRewardComponent> {

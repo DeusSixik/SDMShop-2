@@ -134,17 +134,23 @@ public class ComponentCollapsedGroupWidget extends CollapsedGroupWidget {
                     Minecraft.getInstance().player.sendSystemMessage(Component.translatable("client.shop.component.editor.copied"));
                 })
                 .addSeparator()
-                .addItem(Component.literal("Move Up"), editor != null && editor.canMoveComponent(component, -1), () -> {
+                .addItem(Component.translatable("shop.ui.common.duplicate"), editor != null, () -> {
+                    if (editor != null) {
+                        editor.duplicateComponent(component);
+                    }
+                })
+                .addSeparator()
+                .addItem(Component.translatable("shop.ui.common.move_up"), editor != null && editor.canMoveComponent(component, -1), () -> {
                     if (editor != null) {
                         editor.moveComponent(component, -1);
                     }
                 })
-                .addItem(Component.literal("Move Down"), editor != null && editor.canMoveComponent(component, 1), () -> {
+                .addItem(Component.translatable("shop.ui.common.move_down"), editor != null && editor.canMoveComponent(component, 1), () -> {
                     if (editor != null) {
                         editor.moveComponent(component, 1);
                     }
                 })
-                .addItem(Component.literal("Move To..."), editor != null && editor.getComponentCount() > 1, () -> {
+                .addItem(Component.translatable("shop.ui.common.move_to"), editor != null && editor.getComponentCount() > 1, () -> {
                     if (editor != null) {
                         editor.openMoveComponentModal(component);
                     }

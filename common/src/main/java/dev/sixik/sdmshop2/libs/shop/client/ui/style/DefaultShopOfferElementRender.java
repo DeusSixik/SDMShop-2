@@ -365,9 +365,14 @@ public class DefaultShopOfferElementRender implements WidgetRender {
             return;
         }
 
-        if (rewardComponents.size() == 1) {
+        List<Widget> rewardWidgets = createRewardRenderWidgets(rewardComponents);
+        if (rewardWidgets.isEmpty()) {
+            return;
+        }
+
+        if (rewardWidgets.size() == 1) {
             oneOfferElement = true;
-            addOfferElement(ctx, (RewardComponent) rewardComponents.get(0));
+            addOfferElement(ctx, rewardWidgets.get(0));
             return;
         }
 
@@ -379,16 +384,31 @@ public class DefaultShopOfferElementRender implements WidgetRender {
         offerElementsTable.setBackground(PixelBevelTexture.panel());
         ctx.addWidget(offerElementsTable);
 
-        for (final ShopComponent rewardComponent : rewardComponents) {
-            final @Nullable Widget widget = rewardComponent.createRender();
-            if (widget == null) {
-                continue;
-            }
-
+        for (final Widget widget : rewardWidgets) {
             widget.setSize(DEBUG_SIZE_ELEMENT, DEBUG_SIZE_ELEMENT);
             widget.setHoverTexture(new ColorBorderTexture(1, 0xFFFFFFFF));
             offerElementsTable.addElement(widget);
         }
+    }
+
+    protected List<Widget> createRewardRenderWidgets(ObjectList<ShopComponent> rewardComponents) {
+        List<Widget> widgets = new ArrayList<>();
+        if (rewardComponents == null || rewardComponents.isEmpty()) {
+            return widgets;
+        }
+
+        for (ShopComponent rewardComponent : rewardComponents) {
+            if (!(rewardComponent instanceof RewardComponent reward)) {
+                continue;
+            }
+
+            Widget widget = reward.createRender();
+            if (widget != null) {
+                widgets.add(widget);
+            }
+        }
+
+        return widgets;
     }
 
     protected void addOfferElement(
@@ -399,6 +419,16 @@ public class DefaultShopOfferElementRender implements WidgetRender {
             return;
 
         final Widget widget = component.createRender();
+        if (widget == null)
+            return;
+
+        addOfferElement(ctx, widget);
+    }
+
+    protected void addOfferElement(
+            WidgetContextRender ctx,
+            Widget widget
+    ) {
         if (widget == null)
             return;
 
@@ -578,7 +608,7 @@ public class DefaultShopOfferElementRender implements WidgetRender {
         if (promoEffect instanceof DiscountComponent discount) {
             String text = formatPercentBadgeText(-discount.getDiscount() * 100.0D);
             if (text != null) {
-                badgesBox.addBadge(createPriceEffectBadge(null, text, true, Component.literal("Discount: " + text)));
+                badgesBox.addBadge(createPriceEffectBadge(null, text, true, Component.translatable("shop.ui.offer.tooltip.discount", text)));
             }
             return;
         }
@@ -593,18 +623,18 @@ public class DefaultShopOfferElementRender implements WidgetRender {
             return;
         }
         boolean discount = percentChange < 0.0D;
-        String tooltipPrefix = discount ? "Discount: " : "Price increase: ";
+        String tooltipKey = discount ? "shop.ui.offer.tooltip.discount" : "shop.ui.offer.tooltip.price_increase";
 
         if (modifier.getTargetMoneyIds().isEmpty()) {
-            badgesBox.addBadge(createPriceEffectBadge(null, text, discount, Component.literal(tooltipPrefix + text)));
+            badgesBox.addBadge(createPriceEffectBadge(null, text, discount, Component.translatable(tooltipKey, text)));
             return;
         }
 
         for (ResourceLocation moneyId : modifier.getTargetMoneyIds()) {
             ICurrency currency = SDMEconomyServiceClient.getCurrency(moneyId);
             Component tooltip = currency == null
-                    ? Component.literal(tooltipPrefix + text + "  |  " + moneyId)
-                    : currency.getDisplayName().copy().append(Component.literal(": " + text));
+                    ? Component.translatable(tooltipKey + ".money", text, moneyId)
+                    : Component.translatable("shop.ui.offer.tooltip.currency_value", currency.getDisplayName(), text);
             badgesBox.addBadge(createPriceEffectBadge(moneyId, text, discount, tooltip));
         }
     }
@@ -670,7 +700,7 @@ public class DefaultShopOfferElementRender implements WidgetRender {
         final int playerLimit = Math.max(0, limiterComponent.getLimit(Minecraft.getInstance().player));
 
         limitBar = new ProgressBarWidget()
-                .setLeftText(Component.literal("Limit"))
+                .setLeftText(Component.translatable("shop.ui.offer.limit"))
                 .setRightText(Component.literal(playerLimit + " / " + offerLimitCount))
                 .setProgress(Mth.clamp((float) playerLimit / offerLimitCount, 0.0f, 1.0f))
                 .setSegmentCount(offerLimitCount)

@@ -84,7 +84,7 @@ public class ShopBadgeHBoxWidget extends WidgetGroup {
     public ShopBadgeHBoxWidget(Position selfPosition, Size size) {
         super(selfPosition, size);
         this.maxLength = Math.max(0, size.width);
-        overflowBadge = new ShopBadgeWidget(Component.literal("(+0)"))
+        overflowBadge = new ShopBadgeWidget(Component.translatable("shop.ui.badge.overflow", 0))
                 .setFillColor(0xFF3D3D4E)
                 .setTextColor(0xFFFFFFFF)
                 .autoSizeToContent();
@@ -96,7 +96,7 @@ public class ShopBadgeHBoxWidget extends WidgetGroup {
     public ShopBadgeHBoxWidget(int x, int y, int width, int height) {
         super(x, y, width, height);
         this.maxLength = Math.max(0, width);
-        overflowBadge = new ShopBadgeWidget(Component.literal("(+0)"))
+        overflowBadge = new ShopBadgeWidget(Component.translatable("shop.ui.badge.overflow", 0))
                 .setFillColor(0xFF3D3D4E)
                 .setTextColor(0xFFFFFFFF)
                 .autoSizeToContent();
@@ -351,7 +351,7 @@ public class ShopBadgeHBoxWidget extends WidgetGroup {
             hiddenBadgeCount = Math.max(0, badges.size() - visibleBadgeCount);
 
             if (hiddenBadgeCount > 0) {
-                overflowBadge.setText(Component.literal("(+" + hiddenBadgeCount + ")"));
+                overflowBadge.setText(Component.translatable("shop.ui.badge.overflow", hiddenBadgeCount));
             }
 
             int rowWidth = getRowWidth(visibleBadgeCount, hiddenBadgeCount);
@@ -497,7 +497,7 @@ public class ShopBadgeHBoxWidget extends WidgetGroup {
 
         for (int visible = count - 1; visible >= 0; visible--) {
             int hidden = count - visible;
-            overflowBadge.setText(Component.literal("(+" + hidden + ")"));
+            overflowBadge.setText(Component.translatable("shop.ui.badge.overflow", hidden));
             if (fits(visible, hidden, limit)) {
                 return visible;
             }

@@ -14,6 +14,7 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIEventScope;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
+import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopOffersPanelRender;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.DODEventBus;
@@ -166,6 +167,19 @@ public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup i
         ShopOffer offer = shopScreen.createDraftOffer(selectedCategory);
         if (offer != null) {
             ShopUIUtils.createEditMenu(this, getEditSession(), offer, this::rebuildOffers);
+        }
+    }
+
+    public void duplicateDraftOffer(ShopOffer offer) {
+        if (offer == null) {
+            return;
+        }
+
+        ShopOffer duplicate = render instanceof DefaultShopOffersPanelRender offersRender
+                ? offersRender.duplicateOffer(this, offer)
+                : shopScreen.duplicateDraftOffer(offer.getUUID());
+        if (duplicate != null) {
+            rebuildOffers();
         }
     }
 

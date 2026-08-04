@@ -7,6 +7,8 @@ import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import com.lowdragmc.lowdraglib.gui.widget.layout.Layout;
 import com.lowdragmc.lowdraglib.utils.Size;
+import com.google.gson.JsonObject;
+import dev.sixik.sdmshop2.libs.shop.base.ObjectIdGetter;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.config.component_selector.ModalComponentSelectionMenu;
@@ -17,6 +19,7 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopOfferElement;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
+import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentRegistry;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ModalWidget;
 import net.minecraft.network.chat.Component;
@@ -249,7 +252,7 @@ public class DefaultEditMenuRender implements WidgetRender {
 
         final ButtonWidget addComponent = createActionButton(
                 renderedActionWidth,
-                Component.literal("+ Component"),
+                Component.translatable("shop.ui.editor.button.add_component"),
                 ignored -> openComponentSelector(ctx)
         );
         addComponent.setActive(renderedActionEntity != null);
@@ -257,7 +260,7 @@ public class DefaultEditMenuRender implements WidgetRender {
 
         final ButtonWidget refreshPreview = createActionButton(
                 renderedActionWidth,
-                Component.literal("Refresh"),
+                Component.translatable("shop.ui.common.refresh"),
                 ignored -> {
                     rebuildContent(ctx, renderedContentWidth);
                     refreshPreview(ctx);
@@ -315,6 +318,33 @@ public class DefaultEditMenuRender implements WidgetRender {
         rebuildContent(ctx, renderedContentWidth);
         rebuildActions(ctx, renderedActionWidth);
         refreshPreview(ctx);
+    }
+
+    public boolean duplicateComponent(WidgetContextRender ctx, ShopComponent component) {
+        ShopEntity entity = ctx == null ? renderedEntity : ctx.getShopEntity();
+        if (entity == null || component == null || entity.indexOfComponent(component) < 0) {
+            return false;
+        }
+
+        JsonObject json = ShopComponentRegistry.toJson(component).deepCopy();
+        ShopComponent copy = ShopComponentRegistry.fromJson(json);
+        int targetIndex = entity.indexOfComponent(component) + 1;
+        entity.addComponent(copy);
+        entity.moveComponentToIndex(copy, targetIndex);
+
+        if (ctx != null && ctx.getEditSession() != null && !ctx.getEditSession().closed()) {
+            ctx.getEditSession().recordHistory(
+                    "component.duplicate",
+                    entity.getClass().getSimpleName(),
+                    entity instanceof ObjectIdGetter idGetter ? idGetter.getUUID() : null,
+                    component.getType().getId(),
+                    "Duplicated component " + component.getType().getId()
+            );
+        }
+
+        ComponentConfigWidgetConstructor.invokeUpdate(copy, false);
+        refreshContent(ctx);
+        return true;
     }
 
     protected void refreshPreview(WidgetContextRender ctx) {

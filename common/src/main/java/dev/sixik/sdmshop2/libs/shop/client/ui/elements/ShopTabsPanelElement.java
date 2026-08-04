@@ -134,7 +134,7 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
 
     public void moveCategory(CatalogComponent category, int offset) {
         if (shopScreen.moveDraftCategory(category, offset)) {
-            ShopToasts.success(Component.literal("Category moved"));
+            ShopToasts.success(Component.translatable("shop.ui.toast.category_moved"));
         }
     }
 
@@ -144,7 +144,7 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
         }
 
         ModalWidget modal = new ModalWidget(280, 116)
-                .setTitle(Component.literal("Rename Category"))
+                .setTitle(Component.translatable("shop.ui.category.rename.title"))
                 .setCloseOnEsc(true)
                 .setCloseOnOutsideClick(false);
         ModalWidget opened = ModalWidget.openNested(this, modal);
@@ -153,7 +153,7 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
         }
 
         TextLabel label = new TextLabel(0, 4, opened.getContentWidth(), 20,
-                Component.literal("Name or lang key:"));
+                Component.translatable("shop.ui.category.rename.name_label"));
         label.setAutoSize(false)
                 .setAlignment(TextLabel.HorizontalAlignment.LEFT, TextLabel.VerticalAlignment.CENTER)
                 .setColor(0xFFAEB4C6);
@@ -161,24 +161,24 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
 
         InputTextBox input = new InputTextBox(0, 28, opened.getContentWidth(), 20);
         input.setCurrentStringSilently(category.getId());
-        input.setPlaceholder(Component.literal("Test or my.key.text"));
+        input.setPlaceholder(Component.translatable("shop.ui.category.rename.placeholder"));
         input.setMaxLength(128);
         input.setClientSideWidget();
         opened.addWidget(input);
 
         int buttonY = Math.max(56, opened.getContentHeight() - 24);
         int buttonWidth = Math.max(1, opened.getContentWidth() / 2 - 4);
-        ButtonWidget cancel = createModalButton(0, buttonY, buttonWidth, 20, Component.literal("Cancel"), ignored -> opened.close());
-        ButtonWidget rename = createModalButton(buttonWidth + 8, buttonY, buttonWidth, 20, Component.literal("Rename"), ignored -> {
+        ButtonWidget cancel = createModalButton(0, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.cancel"), ignored -> opened.close());
+        ButtonWidget rename = createModalButton(buttonWidth + 8, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.rename"), ignored -> {
             String value = input.getCurrentString() == null ? "" : input.getCurrentString().trim();
             if (value.isEmpty()) {
-                ShopToasts.warning(Component.literal("Category name is empty"));
+                ShopToasts.warning(Component.translatable("shop.ui.toast.category_name_empty"));
                 return;
             }
 
             if (shopScreen.renameDraftCategory(category, value)) {
                 opened.close();
-                ShopToasts.success(Component.literal("Category renamed"));
+                ShopToasts.success(Component.translatable("shop.ui.toast.category_renamed"));
             }
         });
 
@@ -199,7 +199,7 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
         }
 
         ModalWidget modal = new ModalWidget(260, 116)
-                .setTitle(Component.literal("Move Category"))
+                .setTitle(Component.translatable("shop.ui.category.move.title"))
                 .setCloseOnEsc(true)
                 .setCloseOnOutsideClick(false);
         ModalWidget opened = ModalWidget.openNested(this, modal);
@@ -208,7 +208,7 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
         }
 
         TextLabel label = new TextLabel(0, 4, opened.getContentWidth(), 20,
-                Component.literal("Target position: 1 - " + categories.size()));
+                Component.translatable("shop.ui.common.target_position", categories.size()));
         label.setAutoSize(false)
                 .setAlignment(TextLabel.HorizontalAlignment.LEFT, TextLabel.VerticalAlignment.CENTER)
                 .setColor(0xFFAEB4C6);
@@ -217,25 +217,25 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
         InputTextBox input = new InputTextBox(0, 28, opened.getContentWidth(), 20);
         input.setNumbersOnly(1, categories.size());
         input.setCurrentStringSilently(currentIndex + 1);
-        input.setPlaceholder(Component.literal("Position"));
+        input.setPlaceholder(Component.translatable("shop.ui.common.position"));
         input.setClientSideWidget();
         opened.addWidget(input);
 
         int buttonY = Math.max(56, opened.getContentHeight() - 24);
         int buttonWidth = Math.max(1, opened.getContentWidth() / 2 - 4);
-        ButtonWidget cancel = createModalButton(0, buttonY, buttonWidth, 20, Component.literal("Cancel"), ignored -> opened.close());
-        ButtonWidget move = createModalButton(buttonWidth + 8, buttonY, buttonWidth, 20, Component.literal("Move"), ignored -> {
+        ButtonWidget cancel = createModalButton(0, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.cancel"), ignored -> opened.close());
+        ButtonWidget move = createModalButton(buttonWidth + 8, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.move"), ignored -> {
             int position;
             try {
                 position = Integer.parseInt(input.getCurrentString().trim());
             } catch (Exception e) {
-                ShopToasts.warning(Component.literal("Invalid position"));
+                ShopToasts.warning(Component.translatable("shop.ui.toast.invalid_position"));
                 return;
             }
 
             if (shopScreen.moveDraftCategoryTo(category, position - 1)) {
                 opened.close();
-                ShopToasts.success(Component.literal("Category moved"));
+                ShopToasts.success(Component.translatable("shop.ui.toast.category_moved"));
             }
         });
 
@@ -256,7 +256,7 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
                 : 112;
 
         ModalWidget modal = new ModalWidget(310, height)
-                .setTitle(Component.literal("Delete Category"))
+                .setTitle(Component.translatable("shop.ui.category.delete.title"))
                 .setCloseOnEsc(true)
                 .setCloseOnOutsideClick(false);
         ModalWidget opened = ModalWidget.openNested(this, modal);
@@ -265,9 +265,9 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
         }
 
         TextLabel warning = new TextLabel(0, 4, opened.getContentWidth(), offerCount > 0 ? 42 : 28,
-                Component.literal(offerCount > 0
-                        ? "This category contains " + offerCount + " offer(s). Move them or delete together?"
-                        : "Delete empty category?"));
+                offerCount > 0
+                        ? Component.translatable("shop.ui.category.delete.warning_with_offers", offerCount)
+                        : Component.translatable("shop.ui.category.delete.warning_empty"));
         warning.setAutoSize(false)
                 .setWrapText(true)
                 .setColor(0xFFFFC95A)
@@ -282,10 +282,10 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
                 }
 
                 ButtonWidget moveButton = createModalButton(0, y, opened.getContentWidth(), 20,
-                        Component.literal("Move to " + target.getId()), ignored -> {
+                        Component.translatable("shop.ui.category.delete.move_to", target.getId()), ignored -> {
                             if (shopScreen.deleteDraftCategory(category, target)) {
                                 opened.close();
-                                ShopToasts.success(Component.literal("Category deleted; offers moved"));
+                                ShopToasts.success(Component.translatable("shop.ui.toast.category_deleted_offers_moved"));
                             }
                         });
                 opened.addWidget(moveButton);
@@ -295,12 +295,12 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
 
         int buttonY = Math.max(offerCount > 0 ? 72 : 48, opened.getContentHeight() - 24);
         int buttonWidth = Math.max(1, opened.getContentWidth() / 2 - 4);
-        ButtonWidget cancel = createModalButton(0, buttonY, buttonWidth, 20, Component.literal("Cancel"), ignored -> opened.close());
+        ButtonWidget cancel = createModalButton(0, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.cancel"), ignored -> opened.close());
         ButtonWidget delete = createModalButton(buttonWidth + 8, buttonY, buttonWidth, 20,
-                Component.literal(offerCount > 0 ? "Delete All" : "Delete"), ignored -> {
+                Component.translatable(offerCount > 0 ? "shop.ui.common.delete_all" : "shop.ui.common.delete"), ignored -> {
                     if (shopScreen.deleteDraftCategory(category, null)) {
                         opened.close();
-                        ShopToasts.success(Component.literal("Category deleted"));
+                        ShopToasts.success(Component.translatable("shop.ui.toast.category_deleted"));
                     }
                 });
 
@@ -314,7 +314,7 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
         }
 
         ModalWidget modal = new ModalWidget(260, 118)
-                .setTitle(Component.literal("Add Currency"))
+                .setTitle(Component.translatable("shop.ui.currency.add.title"))
                 .setCloseOnEsc(true)
                 .setCloseOnOutsideClick(false);
         ModalWidget opened = ModalWidget.openNested(this, modal);
@@ -323,7 +323,7 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
         }
 
         TextLabel label = new TextLabel(0, 4, opened.getContentWidth(), 22,
-                Component.literal("Choose currency type:"));
+                Component.translatable("shop.ui.currency.add.type_label"));
         label.setAutoSize(false)
                 .setColor(0xFFAEB4C6)
                 .setAlignment(TextLabel.HorizontalAlignment.CENTER, TextLabel.VerticalAlignment.CENTER);
@@ -331,11 +331,11 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
 
         int buttonY = Math.max(34, opened.getContentHeight() - 28);
         int buttonWidth = Math.max(1, opened.getContentWidth() / 2 - 4);
-        ButtonWidget text = createModalButton(0, buttonY, buttonWidth, 22, Component.literal("Text"), ignored -> {
+        ButtonWidget text = createModalButton(0, buttonY, buttonWidth, 22, Component.translatable("shop.ui.currency.type.text"), ignored -> {
             opened.close();
             openTextCurrencyModal(null, null);
         });
-        ButtonWidget item = createModalButton(buttonWidth + 8, buttonY, buttonWidth, 22, Component.literal("Item"), ignored -> {
+        ButtonWidget item = createModalButton(buttonWidth + 8, buttonY, buttonWidth, 22, Component.translatable("shop.ui.currency.type.item"), ignored -> {
             opened.close();
             openItemCurrencyModal(null, null);
         });
@@ -359,15 +359,15 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
 
     public boolean deleteCurrency(ResourceLocation id) {
         if (!isEditorMode() || id == null || !shopScreen.canDeleteCurrency(id)) {
-            ShopToasts.warning(Component.literal("This currency cannot be deleted"));
+            ShopToasts.warning(Component.translatable("shop.ui.toast.currency_delete_protected"));
             return false;
         }
 
         boolean deleted = shopScreen.deleteDraftCurrency(id);
         if (deleted) {
-            ShopToasts.success(Component.literal("Currency deleted"));
+            ShopToasts.success(Component.translatable("shop.ui.toast.currency_deleted"));
         } else {
-            ShopToasts.error(Component.literal("Failed to delete currency"));
+            ShopToasts.error(Component.translatable("shop.ui.toast.currency_delete_failed"));
         }
         return deleted;
     }
@@ -375,7 +375,7 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
     private void openTextCurrencyModal(@Nullable ResourceLocation existingId, @Nullable CurrencyDraft draft) {
         boolean editing = existingId != null;
         ModalWidget modal = new ModalWidget(300, editing ? 184 : 208)
-                .setTitle(Component.literal(editing ? "Edit Text Currency" : "Add Text Currency"))
+                .setTitle(Component.translatable(editing ? "shop.ui.currency.text.edit.title" : "shop.ui.currency.text.add.title"))
                 .setCloseOnEsc(true)
                 .setCloseOnOutsideClick(false);
         ModalWidget opened = ModalWidget.openNested(this, modal);
@@ -387,7 +387,7 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
         final InputTextBox idInput;
         if (editing) {
             TextLabel idLabel = new TextLabel(0, y, opened.getContentWidth(), 20,
-                    Component.literal("ID: " + existingId));
+                    Component.translatable("shop.ui.currency.id_value", existingId));
             idLabel.setAutoSize(false)
                     .setColor(0xFFAEB4C6)
                     .setAlignment(TextLabel.HorizontalAlignment.LEFT, TextLabel.VerticalAlignment.CENTER);
@@ -395,20 +395,20 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
             idInput = null;
             y += 24;
         } else {
-            TextLabel idLabel = new TextLabel(0, y, opened.getContentWidth(), 16, Component.literal("ID:"));
+            TextLabel idLabel = new TextLabel(0, y, opened.getContentWidth(), 16, Component.translatable("shop.ui.currency.id_label"));
             idLabel.setAutoSize(false).setColor(0xFFAEB4C6);
             opened.addWidget(idLabel);
             y += 18;
             idInput = new InputTextBox(0, y, opened.getContentWidth(), 20);
             idInput.setResourceLocationOnly();
             idInput.setMaxLength(128);
-            idInput.setPlaceholder(Component.literal("sdm:coins"));
+            idInput.setPlaceholder(Component.translatable("shop.ui.currency.text.id_placeholder"));
             idInput.setClientSideWidget();
             opened.addWidget(idInput);
             y += 24;
         }
 
-        TextLabel nameLabel = new TextLabel(0, y, opened.getContentWidth(), 16, Component.literal("Display name or lang key:"));
+        TextLabel nameLabel = new TextLabel(0, y, opened.getContentWidth(), 16, Component.translatable("shop.ui.currency.display_name_label"));
         nameLabel.setAutoSize(false).setColor(0xFFAEB4C6);
         opened.addWidget(nameLabel);
         y += 18;
@@ -416,12 +416,12 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
         InputTextBox nameInput = new InputTextBox(0, y, opened.getContentWidth(), 20);
         nameInput.setMaxLength(128);
         nameInput.setCurrentStringSilently(draft == null ? "" : draft.displayName());
-        nameInput.setPlaceholder(Component.literal("Coins or shop.component.misc.catalog.uuid"));
+        nameInput.setPlaceholder(Component.translatable("shop.ui.currency.display_name_placeholder"));
         nameInput.setClientSideWidget();
         opened.addWidget(nameInput);
         y += 24;
 
-        TextLabel iconLabel = new TextLabel(0, y, opened.getContentWidth(), 16, Component.literal("Icon text or texture:"));
+        TextLabel iconLabel = new TextLabel(0, y, opened.getContentWidth(), 16, Component.translatable("shop.ui.currency.icon_label"));
         iconLabel.setAutoSize(false).setColor(0xFFAEB4C6);
         opened.addWidget(iconLabel);
         y += 18;
@@ -429,30 +429,30 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
         InputTextBox iconInput = new InputTextBox(0, y, opened.getContentWidth(), 20);
         iconInput.setMaxLength(128);
         iconInput.setCurrentStringSilently(draft == null ? "$" : draft.iconText());
-        iconInput.setPlaceholder(Component.literal("$ or minecraft:textures/..."));
+        iconInput.setPlaceholder(Component.translatable("shop.ui.currency.icon_placeholder"));
         iconInput.setClientSideWidget();
         opened.addWidget(iconInput);
 
         int buttonY = Math.max(y + 30, opened.getContentHeight() - 22);
         int buttonWidth = Math.max(1, opened.getContentWidth() / 2 - 4);
-        ButtonWidget cancel = createModalButton(0, buttonY, buttonWidth, 20, Component.literal("Cancel"), ignored -> opened.close());
+        ButtonWidget cancel = createModalButton(0, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.cancel"), ignored -> opened.close());
         ButtonWidget save = createModalButton(buttonWidth + 8, buttonY, buttonWidth, 20,
-                Component.literal(editing ? "Save" : "Add"), ignored -> {
+                Component.translatable(editing ? "shop.ui.common.save" : "shop.ui.common.add"), ignored -> {
             ResourceLocation id = editing ? existingId : parseCurrencyId(idInput == null ? "" : idInput.getCurrentString());
             if (id == null) {
-                ShopToasts.warning(Component.literal("Invalid currency id"));
+                ShopToasts.warning(Component.translatable("shop.ui.toast.invalid_currency_id"));
                 return;
             }
 
             String name = nameInput.getCurrentString() == null ? "" : nameInput.getCurrentString().trim();
             if (name.isEmpty()) {
-                ShopToasts.warning(Component.literal("Currency name is empty"));
+                ShopToasts.warning(Component.translatable("shop.ui.toast.currency_name_empty"));
                 return;
             }
 
             if (shopScreen.upsertTextCurrency(id, name, iconInput.getCurrentString())) {
                 opened.close();
-                ShopToasts.success(Component.literal(editing ? "Currency updated" : "Currency added"));
+                ShopToasts.success(Component.translatable(editing ? "shop.ui.toast.currency_updated" : "shop.ui.toast.currency_added"));
             }
         });
 
@@ -468,7 +468,7 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
     private void openItemCurrencyModal(@Nullable ResourceLocation existingId, @Nullable CurrencyDraft draft) {
         boolean editing = existingId != null;
         ModalWidget modal = new ModalWidget(300, editing ? 150 : 174)
-                .setTitle(Component.literal(editing ? "Edit Item Currency" : "Add Item Currency"))
+                .setTitle(Component.translatable(editing ? "shop.ui.currency.item.edit.title" : "shop.ui.currency.item.add.title"))
                 .setCloseOnEsc(true)
                 .setCloseOnOutsideClick(false);
         ModalWidget opened = ModalWidget.openNested(this, modal);
@@ -480,7 +480,7 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
         final InputTextBox idInput;
         if (editing) {
             TextLabel idLabel = new TextLabel(0, y, opened.getContentWidth(), 20,
-                    Component.literal("ID: " + existingId));
+                    Component.translatable("shop.ui.currency.id_value", existingId));
             idLabel.setAutoSize(false)
                     .setColor(0xFFAEB4C6)
                     .setAlignment(TextLabel.HorizontalAlignment.LEFT, TextLabel.VerticalAlignment.CENTER);
@@ -488,20 +488,20 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
             idInput = null;
             y += 24;
         } else {
-            TextLabel idLabel = new TextLabel(0, y, opened.getContentWidth(), 16, Component.literal("ID:"));
+            TextLabel idLabel = new TextLabel(0, y, opened.getContentWidth(), 16, Component.translatable("shop.ui.currency.id_label"));
             idLabel.setAutoSize(false).setColor(0xFFAEB4C6);
             opened.addWidget(idLabel);
             y += 18;
             idInput = new InputTextBox(0, y, opened.getContentWidth(), 20);
             idInput.setResourceLocationOnly();
             idInput.setMaxLength(128);
-            idInput.setPlaceholder(Component.literal("sdm:diamond"));
+            idInput.setPlaceholder(Component.translatable("shop.ui.currency.item.id_placeholder"));
             idInput.setClientSideWidget();
             opened.addWidget(idInput);
             y += 24;
         }
 
-        TextLabel itemLabel = new TextLabel(0, y, opened.getContentWidth(), 16, Component.literal("Item:"));
+        TextLabel itemLabel = new TextLabel(0, y, opened.getContentWidth(), 16, Component.translatable("shop.ui.currency.item_label"));
         itemLabel.setAutoSize(false).setColor(0xFFAEB4C6);
         opened.addWidget(itemLabel);
         y += 18;
@@ -513,24 +513,24 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
 
         int buttonY = Math.max(y + 30, opened.getContentHeight() - 22);
         int buttonWidth = Math.max(1, opened.getContentWidth() / 2 - 4);
-        ButtonWidget cancel = createModalButton(0, buttonY, buttonWidth, 20, Component.literal("Cancel"), ignored -> opened.close());
+        ButtonWidget cancel = createModalButton(0, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.cancel"), ignored -> opened.close());
         ButtonWidget save = createModalButton(buttonWidth + 8, buttonY, buttonWidth, 20,
-                Component.literal(editing ? "Save" : "Add"), ignored -> {
+                Component.translatable(editing ? "shop.ui.common.save" : "shop.ui.common.add"), ignored -> {
             ResourceLocation id = editing ? existingId : parseCurrencyId(idInput == null ? "" : idInput.getCurrentString());
             if (id == null) {
-                ShopToasts.warning(Component.literal("Invalid currency id"));
+                ShopToasts.warning(Component.translatable("shop.ui.toast.invalid_currency_id"));
                 return;
             }
 
             ItemStack itemStack = itemSelector.getItemStack();
             if (itemStack == null || itemStack.isEmpty() || itemStack.getItem() == Items.AIR) {
-                ShopToasts.warning(Component.literal("Currency item is empty"));
+                ShopToasts.warning(Component.translatable("shop.ui.toast.currency_item_empty"));
                 return;
             }
 
             if (shopScreen.upsertItemCurrency(id, itemStack)) {
                 opened.close();
-                ShopToasts.success(Component.literal(editing ? "Currency updated" : "Currency added"));
+                ShopToasts.success(Component.translatable(editing ? "shop.ui.toast.currency_updated" : "shop.ui.toast.currency_added"));
             }
         });
 

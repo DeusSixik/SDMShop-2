@@ -343,6 +343,28 @@ public class ShopScreenElement extends ShopWidgetGroup implements UIDisposable {
         return true;
     }
 
+    @Nullable
+    public ShopOffer duplicateDraftOffer(UUID offerId) {
+        if (offerId == null || entriesContainer == null) {
+            return null;
+        }
+
+        ShopOffer source = entriesContainer.getEntry(offerId);
+        if (source == null) {
+            return null;
+        }
+
+        ShopOffer duplicate = ShopOffer.create(UUID.randomUUID(), false);
+        duplicate.deserialize(source.serialize().deepCopy());
+        entriesContainer.addEntry(duplicate);
+
+        recordEditorAction("offer.duplicate", "offer", duplicate.getUUID(), null,
+                "Duplicated offer " + source.getUUID() + " as " + duplicate.getUUID());
+        reloadShopData();
+        ShopUIEvents.invokeRefreshOffers();
+        return duplicate;
+    }
+
     public List<CatalogComponent> getOrderedCategories() {
         if (catalogComponents == null || catalogComponents.isEmpty()) {
             return List.of();

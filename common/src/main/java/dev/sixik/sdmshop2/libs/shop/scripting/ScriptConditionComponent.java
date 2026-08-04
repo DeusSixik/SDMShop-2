@@ -1,5 +1,6 @@
 package dev.sixik.sdmshop2.libs.shop.scripting;
 
+import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.IconType;
 import dev.sixik.sdmshop2.libs.shop.components.api.ConditionComponent;
@@ -13,6 +14,7 @@ import lombok.Setter;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Items;
+import org.jetbrains.annotations.Nullable;
 
 public class ScriptConditionComponent extends ConditionComponent {
 
@@ -43,6 +45,11 @@ public class ScriptConditionComponent extends ConditionComponent {
     @Override
     public boolean verifiedOnClient() {
         return false;
+    }
+
+    @Override
+    public @Nullable Widget createRender() {
+        return null;
     }
 
     private static class Type extends SerializedComponentType<ScriptConditionComponent> {

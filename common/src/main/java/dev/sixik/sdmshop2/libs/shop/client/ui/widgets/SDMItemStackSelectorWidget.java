@@ -159,7 +159,7 @@ public class SDMItemStackSelectorWidget extends WidgetGroup {
 
     private void openItemPicker() {
         ModalWidget modal = new ModalWidget(PICKER_WIDTH, PICKER_HEIGHT)
-                .setTitle(Component.literal("Выбор предмета"));
+                .setTitle(Component.translatable("shop.ui.item_selector.title"));
         ModalWidget opened = ModalWidget.openNested(this, modal);
         if (opened == null) return;
 
@@ -172,7 +172,7 @@ public class SDMItemStackSelectorWidget extends WidgetGroup {
 
         InputTextBox search = new InputTextBox(0, 0, searchWidth, PICKER_SEARCH_HEIGHT);
         styleInput(search);
-        search.setPlaceholder(Component.literal("Поиск по id или названию..."));
+        search.setPlaceholder(Component.translatable("shop.ui.item_selector.search.placeholder"));
         search.setClientSideWidget();
 
         ItemPickerState state = new ItemPickerState();
@@ -259,8 +259,8 @@ public class SDMItemStackSelectorWidget extends WidgetGroup {
 
     private Component sourceButtonText(PickerSource source) {
         return source == PickerSource.REGISTRY
-                ? Component.literal("Инвентарь")
-                : Component.literal("Регистр");
+                ? Component.translatable("shop.ui.item_selector.inventory")
+                : Component.translatable("shop.ui.item_selector.registry");
     }
 
     private void styleInput(InputTextBox input) {

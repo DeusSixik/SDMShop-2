@@ -1,5 +1,6 @@
 package dev.sixik.sdmshop2.libs.shop.scripting;
 
+import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.IconType;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
@@ -13,6 +14,7 @@ import lombok.Setter;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Items;
+import org.jetbrains.annotations.Nullable;
 
 public class ScriptRewardComponent extends RewardComponent {
 
@@ -38,6 +40,11 @@ public class ScriptRewardComponent extends RewardComponent {
     @Override
     public IComponentType<?> getType() {
         return TYPE;
+    }
+
+    @Override
+    public @Nullable Widget createRender() {
+        return null;
     }
 
     private static class Type extends SerializedComponentType<ScriptRewardComponent> {

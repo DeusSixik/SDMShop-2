@@ -12,7 +12,7 @@ import net.minecraft.network.chat.Component;
 import org.jspecify.annotations.Nullable;
 
 public class ShopTabElement extends ButtonWidget implements ShopUiElement {
-    public static final Component DEFAULT_TITLE = Component.literal("No Title");
+    public static final Component DEFAULT_TITLE = Component.translatable("shop.ui.common.no_title");
     public static final Component ALL_TITLE = Component.translatable("shop.ui.tabs.button.all");
 
     @Getter
@@ -65,13 +65,13 @@ public class ShopTabElement extends ButtonWidget implements ShopUiElement {
 
         ContextMenuWidget menu = new ContextMenuWidget(mouseX, mouseY, 138);
         menu.setScale(0.75f);
-        menu.addItem(Component.literal("Rename"), () -> panel.openRenameCategoryModal(component))
+        menu.addItem(Component.translatable("shop.ui.common.rename"), () -> panel.openRenameCategoryModal(component))
                 .addSeparator()
-                .addItem(Component.literal("Move Up"), panel.canMoveCategory(component, -1), () -> panel.moveCategory(component, -1))
-                .addItem(Component.literal("Move Down"), panel.canMoveCategory(component, 1), () -> panel.moveCategory(component, 1))
-                .addItem(Component.literal("Move To..."), panel.getCategoryCount() > 1, () -> panel.openMoveCategoryModal(component))
+                .addItem(Component.translatable("shop.ui.common.move_up"), panel.canMoveCategory(component, -1), () -> panel.moveCategory(component, -1))
+                .addItem(Component.translatable("shop.ui.common.move_down"), panel.canMoveCategory(component, 1), () -> panel.moveCategory(component, 1))
+                .addItem(Component.translatable("shop.ui.common.move_to"), panel.getCategoryCount() > 1, () -> panel.openMoveCategoryModal(component))
                 .addSeparator()
-                .addItem(Component.literal("Delete"), () -> panel.openDeleteCategoryModal(component));
+                .addItem(Component.translatable("shop.ui.common.delete"), () -> panel.openDeleteCategoryModal(component));
         ContextMenuWidget.open(this, menu);
     }
 

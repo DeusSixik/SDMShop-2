@@ -150,7 +150,7 @@ public class ShopPurchaseModalElement extends ModalWidget implements
         if (currentOffer == null) {
             if (closeIfMissing) {
                 close();
-                ShopToasts.warning(Component.literal("Товара больше не существует"));
+                ShopToasts.warning(Component.translatable("shop.ui.toast.offer_missing"));
             }
             return false;
         }
@@ -241,19 +241,19 @@ public class ShopPurchaseModalElement extends ModalWidget implements
                 purchasing = false;
 
                 if (throwable != null) {
-                    actionStatus = Component.literal("Purchase failed: " + throwable.getMessage());
+                    actionStatus = Component.translatable("shop.ui.purchase.status.failed_with_message", throwable.getMessage());
                     ShopToasts.error(actionStatus);
                     refreshRenderState();
                     return;
                 }
 
                 if (Boolean.TRUE.equals(success)) {
-                    ShopToasts.success(Component.literal("Purchase complete"));
+                    ShopToasts.success(Component.translatable("shop.ui.toast.purchase_complete"));
                     close();
                     return;
                 }
 
-                actionStatus = Component.literal("Purchase failed");
+                actionStatus = Component.translatable("shop.ui.purchase.status.failed");
                 ShopToasts.error(actionStatus);
                 refreshRenderState();
             });
@@ -262,22 +262,22 @@ public class ShopPurchaseModalElement extends ModalWidget implements
 
     public Component getStatusText() {
         if (purchasing) {
-            return Component.literal("Sending purchase...");
+            return Component.translatable("shop.ui.purchase.status.sending");
         }
         if (!actionStatus.getString().isEmpty()) {
             return actionStatus;
         }
         if (maxQuantity <= 0) {
-            return Component.literal("Not enough balance or limit");
+            return Component.translatable("shop.ui.purchase.status.not_enough_balance_or_limit");
         }
         if (loadingPrice) {
-            return Component.literal("Loading actual price...");
+            return Component.translatable("shop.ui.purchase.status.loading_actual_price");
         }
         if (priceLoadFailed) {
-            return Component.literal("Using local price; server price unavailable");
+            return Component.translatable("shop.ui.purchase.status.local_price");
         }
         if (quantity > maxQuantity) {
-            return Component.literal("Quantity exceeds available limit");
+            return Component.translatable("shop.ui.purchase.status.quantity_exceeds_limit");
         }
 
         return Component.empty();
@@ -293,7 +293,7 @@ public class ShopPurchaseModalElement extends ModalWidget implements
             return Component.literal(amount);
         }
 
-        return Component.literal(amount + "  |  Balance: " + balance);
+        return Component.translatable("shop.ui.purchase.balance_line", amount, balance);
     }
 
     public int getCostLineColor(CostComponent cost) {
@@ -312,9 +312,9 @@ public class ShopPurchaseModalElement extends ModalWidget implements
         return 0xFFFFFFFF;
     }
 
-    public String getTotalText() {
+    public Component getTotalText() {
         if (costs.isEmpty()) {
-            return "Free";
+            return Component.translatable("shop.ui.purchase.free");
         }
 
         StringBuilder expression = new StringBuilder();
@@ -352,12 +352,11 @@ public class ShopPurchaseModalElement extends ModalWidget implements
                 ? formatCost(totalFormatCost, numericTotal)
                 : DECIMAL_FORMAT.format(numericTotal);
 
-        return expression + " = " + total;
+        return Component.translatable("shop.ui.purchase.total_expression", expression.toString(), total);
     }
 
-    public String getAvailabilityText() {
-        return "Can buy: " + formatAvailable(maxQuantity)
-                + "  |  Limit: " + formatCap(limitQuantity);
+    public Component getAvailabilityText() {
+        return Component.translatable("shop.ui.purchase.availability", formatAvailable(maxQuantity), formatCap(limitQuantity));
     }
 
     public double getUnitAmount(CostComponent cost) {
@@ -399,7 +398,7 @@ public class ShopPurchaseModalElement extends ModalWidget implements
                 loadingPrice = false;
                 priceLoadFailed = throwable != null || ((prices == null || prices.isEmpty()) && !costs.isEmpty());
                 if (throwable != null) {
-                    ShopToasts.warning(Component.literal("Failed to load actual price"));
+                    ShopToasts.warning(Component.translatable("shop.ui.toast.actual_price_load_failed"));
                 }
 
                 if (!priceLoadFailed && prices != null && !prices.isEmpty()) {
@@ -471,8 +470,10 @@ public class ShopPurchaseModalElement extends ModalWidget implements
         return value >= 999 ? "999+" : String.valueOf(value);
     }
 
-    private static String formatCap(int value) {
-        return value == Integer.MAX_VALUE ? "no cap" : formatAvailable(value);
+    private static Component formatCap(int value) {
+        return value == Integer.MAX_VALUE
+                ? Component.translatable("shop.ui.purchase.no_cap")
+                : Component.literal(formatAvailable(value));
     }
 
     private static double sanitize(double value) {

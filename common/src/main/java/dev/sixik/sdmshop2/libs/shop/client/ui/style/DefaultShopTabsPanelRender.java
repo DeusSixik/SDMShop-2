@@ -104,7 +104,7 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
             tabsContent.addWidget(createAddCategoryButton(panel));
         }
 
-        moneyCategoryTitle = new TextLabel(Component.literal("You money")).setAutoSize(false)
+        moneyCategoryTitle = new TextLabel(Component.translatable("shop.ui.tabs.money_title")).setAutoSize(false)
                 .setWrapText(false)
                 .setMaxLines(1)
                 .setLineSpacing(0)
@@ -273,7 +273,7 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
 
     protected ButtonWidget createAddCategoryButton(ShopTabsPanelElement panel) {
         ButtonWidget button = new ButtonWidget();
-        button.setText(Component.literal("+ Category"));
+        button.setText(Component.translatable("shop.ui.tabs.button.add_category"));
         button.setButtonTexture(PixelBevelTexture.panel());
         button.setHoverTexture(new PixelBevelTexture(0xFF111624, PixelBevelTexture.ACCENT_LOW_COLOR, PixelBevelTexture.ACCENT_HIGH_COLOR, 0.7f));
         button.setClickedTexture(PixelBevelTexture.accent().pressed());
@@ -284,7 +284,7 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
 
     protected ButtonWidget createAddCurrencyButton(ShopTabsPanelElement panel) {
         ButtonWidget button = new ButtonWidget();
-        button.setText(Component.literal("+ Currency"));
+        button.setText(Component.translatable("shop.ui.tabs.button.add_currency"));
         button.setTextPadding(4);
         button.setMinTextScale(0.35f);
         button.setButtonTexture(PixelBevelTexture.panel());
@@ -452,7 +452,7 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
             this.panel = panel;
             this.id = id;
             this.currency = currency;
-            setHoverTooltips(currency.getDisplayName().copy().append(Component.literal(" §8(" + id + ")")));
+            setHoverTooltips(Component.translatable("shop.ui.currency.tooltip.id_gray", currency.getDisplayName(), id));
         }
 
         @Override
@@ -468,9 +468,9 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
         protected void openContextMenu(int mouseX, int mouseY) {
             ContextMenuWidget menu = new ContextMenuWidget(mouseX, mouseY, 128);
             menu.setScale(0.75f);
-            menu.addItem(Component.literal("Edit"), () -> panel.openEditCurrencyModal(id, currency))
+            menu.addItem(Component.translatable("shop.ui.common.edit"), () -> panel.openEditCurrencyModal(id, currency))
                     .addSeparator()
-                    .addItem(Component.literal("Delete"), panel.getShopScreen().canDeleteCurrency(id), () -> panel.deleteCurrency(id));
+                    .addItem(Component.translatable("shop.ui.common.delete"), panel.getShopScreen().canDeleteCurrency(id), () -> panel.deleteCurrency(id));
             ContextMenuWidget.open(this, menu);
         }
     }

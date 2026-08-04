@@ -27,6 +27,9 @@ import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class DefaultShopPurchaseModalRender implements WidgetRender {
 
     protected static final int PADDING = 6;
@@ -63,7 +66,7 @@ public class DefaultShopPurchaseModalRender implements WidgetRender {
             return;
         }
 
-        modal.setTitle(Component.literal("Purchase"));
+        modal.setTitle(Component.translatable("shop.ui.purchase.title"));
         modal.setPanelBackground(PixelBevelTexture.panel());
         modal.setCloseOnOutsideClick(true);
     }
@@ -139,14 +142,14 @@ public class DefaultShopPurchaseModalRender implements WidgetRender {
     }
 
     protected void addQuantityControls(ShopPurchaseModalElement modal, int x, int y) {
-        minButton = button(x, y, 34, BUTTON_HEIGHT, Component.literal("Min"), ignored -> modal.setQuantity(1));
-        minusButton = button(x + 38, y, 22, BUTTON_HEIGHT, Component.literal("-"), ignored -> modal.setQuantity(modal.getQuantity() - 1));
+        minButton = button(x, y, 34, BUTTON_HEIGHT, Component.translatable("shop.ui.purchase.button.min"), ignored -> modal.setQuantity(1));
+        minusButton = button(x + 38, y, 22, BUTTON_HEIGHT, Component.translatable("shop.ui.common.minus"), ignored -> modal.setQuantity(modal.getQuantity() - 1));
 
         quantityInput = new InputTextBox(x + 64, y, 42, BUTTON_HEIGHT, null, modal::setQuantityFromInput);
         styleQuantityInput(modal, quantityInput);
 
-        plusButton = button(x + 110, y, 22, BUTTON_HEIGHT, Component.literal("+"), ignored -> modal.setQuantity(modal.getQuantity() + 1));
-        maxButton = button(x + 136, y, 42, BUTTON_HEIGHT, Component.literal("Max"), ignored -> modal.setQuantity(modal.getMaxQuantity()));
+        plusButton = button(x + 110, y, 22, BUTTON_HEIGHT, Component.translatable("shop.ui.common.plus"), ignored -> modal.setQuantity(modal.getQuantity() + 1));
+        maxButton = button(x + 136, y, 42, BUTTON_HEIGHT, Component.translatable("shop.ui.purchase.button.max"), ignored -> modal.setQuantity(modal.getMaxQuantity()));
 
         modal.addWidget(minButton);
         modal.addWidget(minusButton);
@@ -224,7 +227,7 @@ public class DefaultShopPurchaseModalRender implements WidgetRender {
         }
 
         if (limitLabel != null) {
-            limitLabel.setText(Component.literal(modal.getAvailabilityText()));
+            limitLabel.setText(modal.getAvailabilityText());
         }
 
         if (minButton != null) {
@@ -251,7 +254,7 @@ public class DefaultShopPurchaseModalRender implements WidgetRender {
         int width = Math.max(1, costsContainer.getSizeWidth());
 
         if (modal.getCosts().isEmpty()) {
-            TextLabel free = label(4, 4, width - 8, ROW_HEIGHT, Component.literal("Free"), 0xFFFFFFFF);
+            TextLabel free = label(4, 4, width - 8, ROW_HEIGHT, Component.translatable("shop.ui.purchase.free"), 0xFFFFFFFF);
             free.alignMiddle();
             costsContainer.addWidget(free);
             return;
@@ -290,12 +293,12 @@ public class DefaultShopPurchaseModalRender implements WidgetRender {
 
         int afterPriceX = Math.min(width - 1, 24 + unitPrice.getSizeWidth() + 5);
         double total = modal.getUnitAmount(cost) * Math.max(0, modal.getQuantity());
-        String totalText = "x " + modal.getQuantity() + " = " + modal.formatCost(cost, total);
+        Component totalText = Component.translatable("shop.ui.purchase.cost_total_line", modal.getQuantity(), modal.formatCost(cost, total));
         String balanceText = modal.getBalanceText(cost);
         int balanceWidth = balanceText.isEmpty() ? 0 : Math.min(96, Math.max(48, width / 3));
         int totalWidth = Math.max(1, width - afterPriceX - balanceWidth - 5);
 
-        TextLabel totalLabel = label(afterPriceX, 0, totalWidth, height, Component.literal(totalText), color);
+        TextLabel totalLabel = label(afterPriceX, 0, totalWidth, height, totalText, color);
         totalLabel.setMaxLines(1).setOverflowMode(TextLabel.OverflowMode.ELLIPSIS).alignMiddle();
         row.addWidget(totalLabel);
 
@@ -334,7 +337,7 @@ public class DefaultShopPurchaseModalRender implements WidgetRender {
 
     protected void refreshTotal(ShopPurchaseModalElement modal) {
         if (totalLabel != null) {
-            totalLabel.setText(Component.literal("Total: " + modal.getTotalText()));
+            totalLabel.setText(Component.translatable("shop.ui.purchase.total", modal.getTotalText()));
         }
     }
 
@@ -369,23 +372,39 @@ public class DefaultShopPurchaseModalRender implements WidgetRender {
                 .get(ShopComponentCategory.REWARD);
 
         if (rewardComponents == null || rewardComponents.isEmpty()) {
-            TextLabel empty = label(4, 4, width - 8, height - 8, Component.literal("No reward"), 0xFFAEB4C6);
+            TextLabel empty = label(4, 4, width - 8, height - 8, Component.translatable("shop.ui.purchase.no_reward"), 0xFFAEB4C6);
             empty.setAlignment(TextLabel.HorizontalAlignment.CENTER, TextLabel.VerticalAlignment.CENTER);
             preview.addWidget(empty);
             return preview;
         }
 
-        if (rewardComponents.size() == 1) {
-            addSingleRewardPreview(preview, (RewardComponent) rewardComponents.get(0), width, height);
+        List<Widget> rewardWidgets = createRewardRenderWidgets(rewardComponents);
+        if (rewardWidgets.isEmpty()) {
+            TextLabel empty = label(4, 4, width - 8, height - 8, Component.translatable("shop.ui.purchase.no_renderable_reward"), 0xFFAEB4C6);
+            empty.setAlignment(TextLabel.HorizontalAlignment.CENTER, TextLabel.VerticalAlignment.CENTER);
+            preview.addWidget(empty);
             return preview;
         }
 
-        addRewardTablePreview(preview, rewardComponents, width, height);
+        if (rewardWidgets.size() == 1) {
+            addSingleRewardPreview(preview, rewardWidgets.get(0), width, height);
+            return preview;
+        }
+
+        addRewardTablePreview(preview, rewardWidgets, width, height);
         return preview;
     }
 
     protected void addSingleRewardPreview(WidgetGroup preview, RewardComponent reward, int width, int height) {
         Widget widget = reward.createRender();
+        if (widget == null) {
+            return;
+        }
+
+        addSingleRewardPreview(preview, widget, width, height);
+    }
+
+    protected void addSingleRewardPreview(WidgetGroup preview, Widget widget, int width, int height) {
         if (widget == null) {
             return;
         }
@@ -400,9 +419,29 @@ public class DefaultShopPurchaseModalRender implements WidgetRender {
         preview.addWidget(widget);
     }
 
+    protected List<Widget> createRewardRenderWidgets(ObjectList<ShopComponent> rewardComponents) {
+        List<Widget> widgets = new ArrayList<>();
+        if (rewardComponents == null || rewardComponents.isEmpty()) {
+            return widgets;
+        }
+
+        for (ShopComponent component : rewardComponents) {
+            if (!(component instanceof RewardComponent reward)) {
+                continue;
+            }
+
+            Widget widget = reward.createRender();
+            if (widget != null) {
+                widgets.add(widget);
+            }
+        }
+
+        return widgets;
+    }
+
     protected void addRewardTablePreview(
             WidgetGroup preview,
-            ObjectList<ShopComponent> rewardComponents,
+            List<Widget> rewardWidgets,
             int width,
             int height
     ) {
@@ -420,12 +459,7 @@ public class DefaultShopPurchaseModalRender implements WidgetRender {
         table.setColumnsToFitWidth(tableWidth);
         table.setSize(tableWidth, Math.max(1, height - 6));
 
-        for (ShopComponent component : rewardComponents) {
-            Widget widget = ((RewardComponent) component).createRender();
-            if (widget == null) {
-                continue;
-            }
-
+        for (Widget widget : rewardWidgets) {
             widget.setSize(cellSize, cellSize);
             widget.setHoverTexture(new ColorBorderTexture(1, 0xFFFFFFFF));
             table.addElement(widget);
@@ -455,7 +489,7 @@ public class DefaultShopPurchaseModalRender implements WidgetRender {
         input.setMaxLength(6);
         input.setPadding(4, 0);
         input.setTextColor(0xFFFFFFFF);
-        input.setPlaceholder(Component.literal("1"));
+        input.setPlaceholder(Component.translatable("shop.ui.purchase.quantity.placeholder"));
         input.setBackground(new ColorRectAndBorderTexture(0xFF101016, 0xFF5C637A, 1).setRadius(2));
         input.setFocusedOutline(0xFF101016, 0xFFFFFFFF);
     }

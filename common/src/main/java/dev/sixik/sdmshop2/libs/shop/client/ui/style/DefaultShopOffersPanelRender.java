@@ -26,6 +26,7 @@ import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -93,10 +94,18 @@ public class DefaultShopOffersPanelRender implements WidgetRender {
         if (panel.isEditorMode()) {
             ctx.addWidget(ShopOfferElement.editorAction(
                     panel.getEditSession(),
-                    Component.literal("+ Offer"),
+                    Component.translatable("shop.ui.offers.button.add_offer"),
                     panel::createDraftOffer
             ));
         }
+    }
+
+    public @Nullable ShopOffer duplicateOffer(ShopOffersPanelElement panel, ShopOffer offer) {
+        if (panel == null || offer == null) {
+            return null;
+        }
+
+        return panel.getShopScreen().duplicateDraftOffer(offer.getUUID());
     }
 
     protected static String normalizeSearch(String value) {

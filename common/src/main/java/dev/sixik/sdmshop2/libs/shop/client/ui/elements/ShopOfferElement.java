@@ -178,6 +178,9 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement, Widg
                 .addItem(Component.translatable("shop.ui.offer_element.context_menu.copy"), () -> {
                     copyOfferJsonToClipboard();
                 }).addSeparator()
+                .addItem(Component.translatable("shop.ui.common.duplicate"), () -> {
+                    duplicateOffer();
+                }).addSeparator()
                 .addItem(Component.translatable("shop.ui.offer_element.context_menu.delete"), () -> {
                     if (isEditContextMenuEnabled() && ShopScreenElement.Instance != null) {
                         ShopScreenElement.Instance.deleteDraftOffer(shopEntity.getUUID());
@@ -202,6 +205,32 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement, Widg
         }
     }
 
+    protected void duplicateOffer() {
+        if (shopEntity == null || !isEditContextMenuEnabled() || ShopScreenElement.Instance == null) {
+            return;
+        }
+
+        ShopOffersPanelElement panel = findOffersPanel();
+        if (panel != null) {
+            panel.duplicateDraftOffer(shopEntity);
+            return;
+        }
+
+        ShopScreenElement.Instance.duplicateDraftOffer(shopEntity.getUUID());
+    }
+
+    protected @Nullable ShopOffersPanelElement findOffersPanel() {
+        Widget current = this;
+        while (current != null) {
+            if (current instanceof ShopOffersPanelElement panel) {
+                return panel;
+            }
+            current = current.getParent();
+        }
+
+        return null;
+    }
+
     @Override
     @Nullable
     public ShopOffer getShopEntity() {
@@ -219,7 +248,7 @@ public class ShopOfferElement extends WidgetGroup implements ShopUiElement, Widg
     }
 
     public Component getEmptyActionTitle() {
-        return emptyActionTitle == null ? Component.literal("+ Offer") : emptyActionTitle;
+        return emptyActionTitle == null ? Component.translatable("shop.ui.offers.button.add_offer") : emptyActionTitle;
     }
 
     @Override

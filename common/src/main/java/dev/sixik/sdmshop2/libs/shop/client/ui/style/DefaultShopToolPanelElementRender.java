@@ -78,11 +78,11 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
         Widget owner = ctx.getOwner();
 
         searchBox = new InputTextBox().setTextResponder(ShopUIEvents::invokeSearchUpdate);
-        searchBox.setPlaceholder(Component.literal("Search by item or currency..."));
+        searchBox.setPlaceholder(Component.translatable("shop.ui.tool_panel.search.placeholder"));
 
-        advancedButton = new ButtonWidget(Component.literal("★"));
+        advancedButton = new ButtonWidget(Component.translatable("shop.ui.tool_panel.advanced_search.icon"));
         advancedButton.setTextPadding(0);
-        advancedButton.setHoverTooltips(Component.literal("Advanced search filters"));
+        advancedButton.setHoverTooltips(Component.translatable("shop.ui.tool_panel.advanced_search.tooltip"));
         advancedButton.setOnPressCallback(ignored -> openAdvancedFilters(owner));
         updateAdvancedButton();
 
@@ -147,10 +147,10 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
 
     protected ButtonWidget createEditModeButton(WidgetContextRender ctx) {
         boolean editorMode = ctx.getEditSession() != null;
-        ButtonWidget button = new ButtonWidget(Component.literal(editorMode ? "View" : "Edit"));
+        ButtonWidget button = new ButtonWidget(Component.translatable(editorMode ? "shop.ui.tool_panel.button.view" : "shop.ui.tool_panel.button.edit"));
         button.setTextPadding(4);
         button.setMinTextScale(0.45f);
-        button.setHoverTooltips(Component.literal(editorMode ? "Exit edit mode" : "Open shop editor"));
+        button.setHoverTooltips(Component.translatable(editorMode ? "shop.ui.tool_panel.button.view.tooltip" : "shop.ui.tool_panel.button.edit.tooltip"));
         button.setOnPressCallback(ignored -> {
             if (ctx instanceof ShopToolPanelElement toolPanel && toolPanel.getScreen().isEditorMode()) {
                 ShopScreenController.openShop();
@@ -164,10 +164,10 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
     }
 
     protected ButtonWidget createResetSessionButton(ShopToolPanelElement toolPanel) {
-        ButtonWidget button = new ButtonWidget(Component.literal("Reset Session"));
+        ButtonWidget button = new ButtonWidget(Component.translatable("shop.ui.tool_panel.button.reset_session"));
         button.setTextPadding(4);
         button.setMinTextScale(0.35f);
-        button.setHoverTooltips(Component.literal("Discard all unsent editor session changes"));
+        button.setHoverTooltips(Component.translatable("shop.ui.tool_panel.button.reset_session.tooltip"));
         button.setOnPressCallback(ignored -> openResetSessionConfirm(toolPanel));
         button.setClientSideWidget();
         styleButton(button, false);
@@ -179,7 +179,7 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
         int actionCount = session == null ? 0 : session.historySize();
 
         ModalWidget modal = new ModalWidget(260, 118)
-                .setTitle(Component.literal("Reset Edit Session"))
+                .setTitle(Component.translatable("shop.ui.tool_panel.reset_session.title"))
                 .setCloseOnEsc(true)
                 .setCloseOnOutsideClick(false);
         ModalWidget opened = ModalWidget.openNested(toolPanel, modal);
@@ -188,7 +188,7 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
         }
 
         TextLabel warning = new TextLabel(0, 4, opened.getContentWidth(), 34,
-                Component.literal("This will discard all unsent editor changes."));
+                Component.translatable("shop.ui.tool_panel.reset_session.warning"));
         warning.setAutoSize(false)
                 .setWrapText(true)
                 .setColor(0xFFFFC95A)
@@ -196,7 +196,7 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
         opened.addWidget(warning);
 
         TextLabel details = new TextLabel(0, 38, opened.getContentWidth(), 18,
-                Component.literal("Recorded actions: " + actionCount));
+                Component.translatable("shop.ui.tool_panel.reset_session.recorded_actions", actionCount));
         details.setAutoSize(false)
                 .setColor(0xFFAEB4C6)
                 .setAlignment(TextLabel.HorizontalAlignment.CENTER, TextLabel.VerticalAlignment.CENTER);
@@ -205,14 +205,14 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
         int buttonY = Math.max(60, opened.getContentHeight() - 24);
         int buttonWidth = Math.max(1, opened.getContentWidth() / 2 - 4);
 
-        ButtonWidget cancel = createActionButton(0, buttonY, buttonWidth, 20, Component.literal("Cancel"), ignored -> opened.close());
-        ButtonWidget reset = createActionButton(buttonWidth + 8, buttonY, buttonWidth, 20, Component.literal("Reset"), ignored -> {
+        ButtonWidget cancel = createActionButton(0, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.cancel"), ignored -> opened.close());
+        ButtonWidget reset = createActionButton(buttonWidth + 8, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.reset"), ignored -> {
             boolean resetDone = toolPanel.getScreen().resetEditorSession();
             opened.close();
             if (resetDone) {
-                ShopToasts.success(Component.literal("Edit session reset"));
+                ShopToasts.success(Component.translatable("shop.ui.toast.edit_session_reset"));
             } else {
-                ShopToasts.error(Component.literal("Failed to reset session"));
+                ShopToasts.error(Component.translatable("shop.ui.toast.edit_session_reset_failed"));
             }
         });
         styleButton(reset, true);
@@ -222,34 +222,34 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
     }
 
     protected ButtonWidget createSendChangesButton(ShopToolPanelElement toolPanel) {
-        ButtonWidget button = new ButtonWidget(Component.literal("Send Changes"));
+        ButtonWidget button = new ButtonWidget(Component.translatable("shop.ui.tool_panel.button.send_changes"));
         button.setTextPadding(4);
         button.setMinTextScale(0.4f);
-        button.setHoverTooltips(Component.literal("Send editor changes to server"));
+        button.setHoverTooltips(Component.translatable("shop.ui.tool_panel.button.send_changes.tooltip"));
         button.setOnPressCallback(ignored -> {
             if (!canSendChanges(toolPanel)) {
                 if (!toolPanel.getScreen().hasEditorChanges()) {
-                    ShopToasts.warning(Component.literal("No editor changes to send"));
+                    ShopToasts.warning(Component.translatable("shop.ui.toast.no_editor_changes"));
                 }
                 updateSendChangesButtonState(toolPanel, button);
                 return;
             }
 
             button.setActive(false);
-            button.setText(Component.literal("Sending..."));
+            button.setText(Component.translatable("shop.ui.tool_panel.button.sending"));
             toolPanel.getScreen().sendEditorChanges().whenComplete((success, throwable) ->
                     Minecraft.getInstance().execute(() -> {
                         if (throwable != null) {
-                            ShopToasts.error(Component.literal("Failed to send changes"));
+                            ShopToasts.error(Component.translatable("shop.ui.toast.send_changes_failed"));
                             updateSendChangesButtonState(toolPanel, button);
                             return;
                         }
 
                         if (Boolean.TRUE.equals(success)) {
                             sendChangesCooldownUntilMs = System.currentTimeMillis() + SEND_CHANGES_COOLDOWN_MS;
-                            ShopToasts.success(Component.literal("Changes sent"));
+                            ShopToasts.success(Component.translatable("shop.ui.toast.changes_sent"));
                         } else {
-                            ShopToasts.error(Component.literal("Changes rejected"));
+                            ShopToasts.error(Component.translatable("shop.ui.toast.changes_rejected"));
                         }
                         updateSendChangesButtonState(toolPanel, button);
                         scheduleSendChangesButtonRefresh(toolPanel, button);
@@ -278,15 +278,15 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
         boolean coolingDown = now < sendChangesCooldownUntilMs;
         button.setActive(hasChanges && !coolingDown);
         if (!hasChanges) {
-            button.setText(Component.literal("No Changes"));
-            button.setHoverTooltips(Component.literal("No editor changes to send"));
+            button.setText(Component.translatable("shop.ui.tool_panel.button.no_changes"));
+            button.setHoverTooltips(Component.translatable("shop.ui.toast.no_editor_changes"));
         } else if (coolingDown) {
             long seconds = Math.max(1L, (sendChangesCooldownUntilMs - now + 999L) / 1000L);
-            button.setText(Component.literal("Wait " + seconds + "s"));
-            button.setHoverTooltips(Component.literal("Please wait before sending changes again"));
+            button.setText(Component.translatable("shop.ui.tool_panel.button.wait", seconds));
+            button.setHoverTooltips(Component.translatable("shop.ui.tool_panel.button.wait.tooltip"));
         } else {
-            button.setText(Component.literal("Send Changes"));
-            button.setHoverTooltips(Component.literal("Send editor changes to server"));
+            button.setText(Component.translatable("shop.ui.tool_panel.button.send_changes"));
+            button.setHoverTooltips(Component.translatable("shop.ui.tool_panel.button.send_changes.tooltip"));
         }
     }
 
@@ -304,7 +304,7 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
 
     protected void openAdvancedFilters(Widget owner) {
         ModalWidget modal = new ModalWidget(MODAL_WIDTH, MODAL_HEIGHT)
-                .setTitle(Component.literal("Advanced Search"))
+                .setTitle(Component.translatable("shop.ui.tool_panel.advanced_search.title"))
                 .setCloseOnEsc(true)
                 .setCloseOnOutsideClick(true);
 
@@ -326,7 +326,7 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
         final int listHeight = Math.max(1, contentHeight - listY - footerHeight - MODAL_PADDING);
         final int listWidth = Math.max(1, contentWidth - SCROLLBAR_WIDTH);
 
-        TextLabel title = new TextLabel(0, 0, contentWidth, 16, Component.literal("Currencies"))
+        TextLabel title = new TextLabel(0, 0, contentWidth, 16, Component.translatable("shop.ui.tool_panel.advanced_search.currencies"))
                 .setAutoSize(false)
                 .setColor(0xFFE8E8F0)
                 .setAlignment(TextLabel.HorizontalAlignment.LEFT, TextLabel.VerticalAlignment.CENTER);
@@ -349,7 +349,7 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
         currencies.sort(Map.Entry.comparingByKey(Comparator.comparing(ResourceLocation::toString)));
 
         if (currencies.isEmpty()) {
-            rows.addWidget(new TextLabel(0, 0, listWidth, ROW_HEIGHT, Component.literal("No currencies available"))
+            rows.addWidget(new TextLabel(0, 0, listWidth, ROW_HEIGHT, Component.translatable("shop.ui.tool_panel.advanced_search.no_currencies"))
                     .setAutoSize(false)
                     .setColor(0xFFAEB4C6)
                     .setAlignment(TextLabel.HorizontalAlignment.CENTER, TextLabel.VerticalAlignment.CENTER));
@@ -372,7 +372,7 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
                 contentHeight - footerHeight,
                 Math.max(1, contentWidth / 2 - MODAL_PADDING / 2),
                 footerHeight,
-                Component.literal("Clear"),
+                Component.translatable("shop.ui.common.clear"),
                 ignored -> {
                     selectedCurrencyFilters.clear();
                     ShopUIEvents.invokeCurrencyFilterUpdate(selectedCurrencyFilters);
@@ -386,7 +386,7 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
                 contentHeight - footerHeight,
                 Math.max(1, contentWidth - (contentWidth / 2 + MODAL_PADDING / 2)),
                 footerHeight,
-                Component.literal("Done"),
+                Component.translatable("shop.ui.common.done"),
                 ignored -> modal.close()
         );
 
@@ -407,7 +407,7 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
         });
         button.setTextPadding(4);
         button.setMinTextScale(0.35f);
-        button.setHoverTooltips(currency.getDisplayName().copy().append(Component.literal(" (" + id + ")")));
+        button.setHoverTooltips(Component.translatable("shop.ui.currency.tooltip.id", currency.getDisplayName(), id));
         button.setClientSideWidget();
         updateCurrencyButton(button, id, currency);
 
@@ -416,7 +416,7 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
 
     protected Component currencyLabel(ResourceLocation id, ICurrency currency) {
         String prefix = selectedCurrencyFilters.contains(id) ? "✓ " : "";
-        return currency.getDisplayName().copy().append(Component.literal("  §8" + prefix + id));
+        return Component.translatable("shop.ui.currency.label", currency.getDisplayName(), prefix + id);
     }
 
     protected void updateCurrencyButton(ButtonWidget button, ResourceLocation id, ICurrency currency) {
@@ -436,12 +436,12 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
             return;
         }
 
-        advancedButton.setText(Component.literal("★"));
+        advancedButton.setText(Component.translatable("shop.ui.tool_panel.advanced_search.icon"));
         styleButton(advancedButton, !selectedCurrencyFilters.isEmpty());
         if (selectedCurrencyFilters.isEmpty()) {
-            advancedButton.setHoverTooltips(Component.literal("Advanced search filters"));
+            advancedButton.setHoverTooltips(Component.translatable("shop.ui.tool_panel.advanced_search.tooltip"));
         } else {
-            advancedButton.setHoverTooltips(Component.literal("Currency filters: " + selectedCurrencyFilters.size()));
+            advancedButton.setHoverTooltips(Component.translatable("shop.ui.tool_panel.advanced_search.currency_filters", selectedCurrencyFilters.size()));
         }
     }
 

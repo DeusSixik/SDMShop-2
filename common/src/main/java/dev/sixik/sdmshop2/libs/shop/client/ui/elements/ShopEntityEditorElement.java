@@ -169,6 +169,19 @@ public class ShopEntityEditorElement extends ModalWidget implements WidgetContex
         moveComponentTo(component, shopEntity.indexOfComponent(component) + offset);
     }
 
+    public boolean duplicateComponent(@Nullable ShopComponent component) {
+        if (!canEditComponent(component)) {
+            return false;
+        }
+
+        if (render instanceof DefaultEditMenuRender editMenuRender && editMenuRender.duplicateComponent(this, component)) {
+            ShopToasts.success(Component.translatable("shop.ui.toast.component_duplicated"));
+            return true;
+        }
+
+        return false;
+    }
+
     public boolean moveComponentTo(@Nullable ShopComponent component, int targetIndex) {
         if (!canEditComponent(component)) {
             return false;
@@ -196,7 +209,7 @@ public class ShopEntityEditorElement extends ModalWidget implements WidgetContex
 
         ComponentConfigWidgetConstructor.invokeUpdate(component, false);
         refreshEditorContent();
-        ShopToasts.success(Component.literal("Component moved"));
+        ShopToasts.success(Component.translatable("shop.ui.toast.component_moved"));
         return true;
     }
 
@@ -211,7 +224,7 @@ public class ShopEntityEditorElement extends ModalWidget implements WidgetContex
         }
 
         ModalWidget modal = new ModalWidget(260, 116)
-                .setTitle(Component.literal("Move Component"))
+                .setTitle(Component.translatable("shop.ui.component.move.title"))
                 .setCloseOnEsc(true)
                 .setCloseOnOutsideClick(false);
         ModalWidget opened = ModalWidget.openNested(this, modal);
@@ -220,7 +233,7 @@ public class ShopEntityEditorElement extends ModalWidget implements WidgetContex
         }
 
         TextLabel label = new TextLabel(0, 4, opened.getContentWidth(), 20,
-                Component.literal("Target position: 1 - " + getComponentCount()));
+                Component.translatable("shop.ui.common.target_position", getComponentCount()));
         label.setAutoSize(false)
                 .setAlignment(TextLabel.HorizontalAlignment.LEFT, TextLabel.VerticalAlignment.CENTER)
                 .setColor(0xFFAEB4C6);
@@ -229,19 +242,19 @@ public class ShopEntityEditorElement extends ModalWidget implements WidgetContex
         InputTextBox input = new InputTextBox(0, 28, opened.getContentWidth(), 20);
         input.setNumbersOnly(1, getComponentCount());
         input.setCurrentStringSilently(currentIndex + 1);
-        input.setPlaceholder(Component.literal("Position"));
+        input.setPlaceholder(Component.translatable("shop.ui.common.position"));
         input.setClientSideWidget();
         opened.addWidget(input);
 
         int buttonY = Math.max(56, opened.getContentHeight() - 24);
         int buttonWidth = Math.max(1, opened.getContentWidth() / 2 - 4);
-        ButtonWidget cancel = createModalButton(0, buttonY, buttonWidth, 20, Component.literal("Cancel"), ignored -> opened.close());
-        ButtonWidget move = createModalButton(buttonWidth + 8, buttonY, buttonWidth, 20, Component.literal("Move"), ignored -> {
+        ButtonWidget cancel = createModalButton(0, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.cancel"), ignored -> opened.close());
+        ButtonWidget move = createModalButton(buttonWidth + 8, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.move"), ignored -> {
             int position;
             try {
                 position = Integer.parseInt(input.getCurrentString().trim());
             } catch (Exception e) {
-                ShopToasts.warning(Component.literal("Invalid position"));
+                ShopToasts.warning(Component.translatable("shop.ui.toast.invalid_position"));
                 return;
             }
 

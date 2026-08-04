@@ -27,6 +27,7 @@ import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.DropDownB
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ModalWidget;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.network.chat.Component;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -197,7 +198,7 @@ public class ComponentConfigWidgetConstructor extends WidgetGroup {
             int selectedIndex = 0;
             for (int i = 0; i < constants.length; i++) {
                 Enum<?> constant = (Enum<?>) constants[i];
-                TextLabel option = new TextLabel(Component.literal(constant.name()))
+                TextLabel option = new TextLabel(enumOptionText(field, constant))
                         .setAutoSize(false)
                         .setPadding(4, 0)
                         .setOverflowMode(TextLabel.OverflowMode.ELLIPSIS)
@@ -528,6 +529,11 @@ public class ComponentConfigWidgetConstructor extends WidgetGroup {
         return Component.translatable(value
                 ? "client.shop.component.editor.switch.on"
                 : "client.shop.component.editor.switch.off");
+    }
+
+    private Component enumOptionText(ComponentConfigAccess.CachedField field, Enum<?> constant) {
+        String key = field.translationKey() + "." + constant.name().toLowerCase(Locale.ROOT);
+        return I18n.exists(key) ? Component.translatable(key) : Component.literal(constant.name());
     }
 
     private ButtonWidget createActionButton(Component text, Consumer<Object> onPress) {
