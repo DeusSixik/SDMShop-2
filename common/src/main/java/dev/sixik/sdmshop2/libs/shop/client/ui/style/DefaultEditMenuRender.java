@@ -218,6 +218,24 @@ public class DefaultEditMenuRender implements WidgetRender {
         }
     }
 
+    public void refreshContent(WidgetContextRender ctx) {
+        int previousScrollY = scrollPanel == null ? 0 : scrollPanel.getScrollYOffset();
+        if (scrollPanel != null) {
+            scrollPanel.setScrollYOffset(0);
+        }
+
+        rebuildContent(ctx, renderedContentWidth > 0 ? renderedContentWidth : MIN_CONTENT_WIDTH);
+
+        if (scrollPanel != null && contentWrapper != null) {
+            int maxScrollY = Math.max(0, contentWrapper.getSizeHeight() - scrollPanel.getSizeHeight());
+            scrollPanel.setScrollYOffset(Math.min(previousScrollY, maxScrollY));
+        }
+
+        rebuildActions(ctx, renderedActionWidth > 0 ? renderedActionWidth : MIN_ACTION_PANEL_WIDTH);
+        refreshPreview(ctx);
+        alightWidgets(ctx);
+    }
+
     protected void rebuildActions(WidgetContextRender ctx, int actionWidth) {
         if (actionWrapper == null) return;
 

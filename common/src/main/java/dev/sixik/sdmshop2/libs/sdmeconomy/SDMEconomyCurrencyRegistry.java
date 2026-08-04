@@ -144,6 +144,29 @@ public class SDMEconomyCurrencyRegistry {
         }
     }
 
+    public static boolean deleteCurrency(ResourceLocation id) {
+        if (id == null || ResourceLocation.tryBuild("sdm", "coin").equals(id)) {
+            return false;
+        }
+
+        try {
+            Repository<ResourceLocation, IExternalCurrency> repo = repository;
+            if (repo != null) {
+                repo.delete(id);
+            }
+
+            deleteCurrencyFile(id);
+            boolean removed = CURRENCIES.remove(id) != null;
+            removed |= CUSTOM_STORED_CURRENCIES.remove(id) != null;
+            SDMEconomyPlatform.broadcastCurrencies();
+            LOGGER.info("Deleted currency with id: '{}'", id);
+            return removed;
+        } catch (Exception e) {
+            LOGGER.error("Failed to delete currency {}", id, e);
+            return false;
+        }
+    }
+
     @Nullable
     public static IExternalCurrency getCurrency(String id) {
         return getCurrency(
@@ -492,6 +515,10 @@ public class SDMEconomyCurrencyRegistry {
         try (FileWriter writer = new FileWriter(file)) {
             GSON.toJson(json, writer);
         }
+    }
+
+    private static void deleteCurrencyFile(ResourceLocation id) throws IOException {
+        Files.deleteIfExists(currencyFile(SDMEconomyPlatform.getCurrenciesDir(), id));
     }
 
     @Nullable

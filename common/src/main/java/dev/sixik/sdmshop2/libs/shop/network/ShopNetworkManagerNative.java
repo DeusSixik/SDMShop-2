@@ -74,8 +74,16 @@ class ShopNetworkManagerNative {
     }
 
     public static void sendShopData(ShopInstance shop, Iterable<ServerPlayer> players) {
+        sendShopData(shop, null, players);
+    }
+
+    public static void sendShopData(ShopInstance shop, @Nullable UUID updater, Iterable<ServerPlayer> players) {
         broadcast(players, AsyncServerTasks.SEND_SHOP_DATA, buf -> {
             shop.serializeNetwork(buf);
+            buf.writeBoolean(updater != null);
+            if (updater != null) {
+                buf.writeUUID(updater);
+            }
             return buf;
         });
     }

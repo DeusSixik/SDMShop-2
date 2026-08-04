@@ -96,6 +96,9 @@ public class ShopScreenElement extends ShopWidgetGroup implements UIDisposable {
                 if (activeShop != null) {
                     ShopClientCache.saveEditSession(editSession, activeShop);
                 }
+                if (toolPanel != null) {
+                    toolPanel.alightWidget();
+                }
             });
         }
     }
@@ -156,6 +159,10 @@ public class ShopScreenElement extends ShopWidgetGroup implements UIDisposable {
         return editSession != null;
     }
 
+    public boolean hasEditorChanges() {
+        return editSession != null && !editSession.closed() && editSession.dirty();
+    }
+
     public CompletableFuture<Boolean> sendEditorChanges() {
         ShopInstance shop = getActiveShop();
         if (shop == null || editSession == null || editSession.closed()) {
@@ -203,7 +210,11 @@ public class ShopScreenElement extends ShopWidgetGroup implements UIDisposable {
         }
 
         for (CurrencyDraft draft : editSession.currencyDrafts()) {
-            currencies.put(draft.id(), draft.toCurrency());
+            if (draft.kind() == CurrencyDraft.Kind.DELETE) {
+                currencies.remove(draft.id());
+            } else {
+                currencies.put(draft.id(), draft.toCurrency());
+            }
         }
         return currencies;
     }
@@ -235,6 +246,39 @@ public class ShopScreenElement extends ShopWidgetGroup implements UIDisposable {
         recordEditorAction("currency.upsert_item", "currency", null, id, "Updated item currency " + id);
         ShopUIEvents.invokeRefreshCurrencies();
         return true;
+    }
+
+    public boolean deleteDraftCurrency(ResourceLocation id) {
+        if (!canEditCurrencies() || id == null || isProtectedCurrency(id)) {
+            return false;
+        }
+
+        List<CurrencyDraft> drafts = new ArrayList<>(editSession.currencyDrafts());
+        boolean removedDraft = drafts.removeIf(current -> Objects.equals(current.id(), id));
+        boolean existsOnServer = SDMEconomyServiceClient.getAllCurrencies().containsKey(id);
+        if (!existsOnServer) {
+            if (removedDraft) {
+                editSession.setCurrencyDrafts(drafts);
+                recordEditorAction("currency.delete_draft", "currency", null, id, "Deleted draft currency " + id);
+                ShopUIEvents.invokeRefreshCurrencies();
+                return true;
+            }
+            return false;
+        }
+
+        editSession.setCurrencyDrafts(drafts);
+        upsertCurrencyDraft(CurrencyDraft.delete(id));
+        recordEditorAction("currency.delete", "currency", null, id, "Deleted currency " + id);
+        ShopUIEvents.invokeRefreshCurrencies();
+        return true;
+    }
+
+    public boolean canDeleteCurrency(ResourceLocation id) {
+        return canEditCurrencies() && id != null && !isProtectedCurrency(id);
+    }
+
+    private static boolean isProtectedCurrency(ResourceLocation id) {
+        return ResourceLocation.tryBuild("sdm", "coin").equals(id);
     }
 
     private boolean canEditCurrencies() {

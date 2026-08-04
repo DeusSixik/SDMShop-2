@@ -466,9 +466,11 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
         }
 
         protected void openContextMenu(int mouseX, int mouseY) {
-            ContextMenuWidget menu = new ContextMenuWidget(mouseX, mouseY, 120);
+            ContextMenuWidget menu = new ContextMenuWidget(mouseX, mouseY, 128);
             menu.setScale(0.75f);
-            menu.addItem(Component.literal("Edit"), () -> panel.openEditCurrencyModal(id, currency));
+            menu.addItem(Component.literal("Edit"), () -> panel.openEditCurrencyModal(id, currency))
+                    .addSeparator()
+                    .addItem(Component.literal("Delete"), panel.getShopScreen().canDeleteCurrency(id), () -> panel.deleteCurrency(id));
             ContextMenuWidget.open(this, menu);
         }
     }

@@ -357,6 +357,21 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
         }
     }
 
+    public boolean deleteCurrency(ResourceLocation id) {
+        if (!isEditorMode() || id == null || !shopScreen.canDeleteCurrency(id)) {
+            ShopToasts.warning(Component.literal("This currency cannot be deleted"));
+            return false;
+        }
+
+        boolean deleted = shopScreen.deleteDraftCurrency(id);
+        if (deleted) {
+            ShopToasts.success(Component.literal("Currency deleted"));
+        } else {
+            ShopToasts.error(Component.literal("Failed to delete currency"));
+        }
+        return deleted;
+    }
+
     private void openTextCurrencyModal(@Nullable ResourceLocation existingId, @Nullable CurrencyDraft draft) {
         boolean editing = existingId != null;
         ModalWidget modal = new ModalWidget(300, editing ? 184 : 208)

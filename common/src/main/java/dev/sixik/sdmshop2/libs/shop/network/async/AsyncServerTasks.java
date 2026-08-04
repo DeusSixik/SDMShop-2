@@ -203,7 +203,7 @@ public class AsyncServerTasks {
             if (request.isReadable() && ctx.getPlayer() instanceof ServerPlayer player && ShopUtils.isPlayerAdmin(player)) {
                 ShopInstance draftShop = ShopInstance.fromNetwork(request);
                 ShopTable.Instance.save(draftShop);
-                ShopNetworkManager.sendShopData(draftShop, player.getServer().getPlayerList().getPlayers());
+                ShopNetworkManager.sendShopData(draftShop, player.getUUID(), player.getServer().getPlayerList().getPlayers());
                 success = true;
             }
 
@@ -218,7 +218,9 @@ public class AsyncServerTasks {
                 List<CurrencyDraft> drafts = CurrencyDraft.readList(request);
                 success = true;
                 for (CurrencyDraft draft : drafts) {
-                    if (draft.kind() == CurrencyDraft.Kind.ITEM) {
+                    if (draft.kind() == CurrencyDraft.Kind.DELETE) {
+                        success &= SDMEconomyCurrencyRegistry.deleteCurrency(draft.id());
+                    } else if (draft.kind() == CurrencyDraft.Kind.ITEM) {
                         success &= SDMEconomyCurrencyRegistry.registerAndSaveCurrency(draft.toExternalCurrency());
                     } else {
                         success &= SDMEconomyCurrencyRegistry.registerAndSaveStoredCurrency(draft.toStoredCurrency());

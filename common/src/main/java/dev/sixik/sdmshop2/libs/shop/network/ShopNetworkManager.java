@@ -45,6 +45,10 @@ public class ShopNetworkManager {
         ShopNetworkManagerNative.sendShopData(shop, players);
     }
 
+    public static void sendShopData(ShopInstance shop, @Nullable UUID updater, Iterable<ServerPlayer> players) {
+        ShopNetworkManagerNative.sendShopData(shop, updater, players);
+    }
+
     public static void sendLimiterData(ServerPlayer... players) {
         ShopNetworkManagerNative.sendLimiterData(players);
     }

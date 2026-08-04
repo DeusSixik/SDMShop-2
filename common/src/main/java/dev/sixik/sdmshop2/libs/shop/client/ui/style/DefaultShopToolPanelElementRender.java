@@ -32,6 +32,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 public class DefaultShopToolPanelElementRender implements WidgetRender {
 
@@ -40,6 +41,7 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
     protected static final int EDIT_BUTTON_WIDTH = 48;
     protected static final int RESET_SESSION_BUTTON_WIDTH = 84;
     protected static final int SEND_CHANGES_BUTTON_WIDTH = 88;
+    protected static final long SEND_CHANGES_COOLDOWN_MS = 3_000L;
     protected static final int TOOL_GAP = 4;
     protected static final int MODAL_WIDTH = 280;
     protected static final int MODAL_HEIGHT = 240;
@@ -53,6 +55,7 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
     protected ButtonWidget editModeButton;
     protected ButtonWidget resetSessionButton;
     protected ButtonWidget sendChangesButton;
+    protected long sendChangesCooldownUntilMs;
     protected final Set<ResourceLocation> selectedCurrencyFilters = new LinkedHashSet<>();
 
     public DefaultShopToolPanelElementRender() {
@@ -124,6 +127,9 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
         }
 
         if (sendChangesButton != null) {
+            if (ctx instanceof ShopToolPanelElement toolPanel) {
+                updateSendChangesButtonState(toolPanel, sendChangesButton);
+            }
             sendChangesButton.setSize(SEND_CHANGES_BUTTON_WIDTH, SEARCH_HEIGHT);
             sendChangesButton.setSelfPosition(Math.max(0, w_root - SEND_CHANGES_BUTTON_WIDTH - TOOL_GAP), y);
         }
@@ -221,28 +227,79 @@ public class DefaultShopToolPanelElementRender implements WidgetRender {
         button.setMinTextScale(0.4f);
         button.setHoverTooltips(Component.literal("Send editor changes to server"));
         button.setOnPressCallback(ignored -> {
+            if (!canSendChanges(toolPanel)) {
+                if (!toolPanel.getScreen().hasEditorChanges()) {
+                    ShopToasts.warning(Component.literal("No editor changes to send"));
+                }
+                updateSendChangesButtonState(toolPanel, button);
+                return;
+            }
+
             button.setActive(false);
             button.setText(Component.literal("Sending..."));
             toolPanel.getScreen().sendEditorChanges().whenComplete((success, throwable) ->
                     Minecraft.getInstance().execute(() -> {
-                        button.setActive(true);
-                        button.setText(Component.literal("Send Changes"));
                         if (throwable != null) {
                             ShopToasts.error(Component.literal("Failed to send changes"));
+                            updateSendChangesButtonState(toolPanel, button);
                             return;
                         }
 
                         if (Boolean.TRUE.equals(success)) {
+                            sendChangesCooldownUntilMs = System.currentTimeMillis() + SEND_CHANGES_COOLDOWN_MS;
                             ShopToasts.success(Component.literal("Changes sent"));
                         } else {
                             ShopToasts.error(Component.literal("Changes rejected"));
                         }
+                        updateSendChangesButtonState(toolPanel, button);
+                        scheduleSendChangesButtonRefresh(toolPanel, button);
                     })
             );
         });
         button.setClientSideWidget();
         styleButton(button, true);
+        updateSendChangesButtonState(toolPanel, button);
         return button;
+    }
+
+    protected boolean canSendChanges(ShopToolPanelElement toolPanel) {
+        return toolPanel != null
+                && toolPanel.getScreen().hasEditorChanges()
+                && System.currentTimeMillis() >= sendChangesCooldownUntilMs;
+    }
+
+    protected void updateSendChangesButtonState(ShopToolPanelElement toolPanel, ButtonWidget button) {
+        if (button == null || toolPanel == null) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        boolean hasChanges = toolPanel.getScreen().hasEditorChanges();
+        boolean coolingDown = now < sendChangesCooldownUntilMs;
+        button.setActive(hasChanges && !coolingDown);
+        if (!hasChanges) {
+            button.setText(Component.literal("No Changes"));
+            button.setHoverTooltips(Component.literal("No editor changes to send"));
+        } else if (coolingDown) {
+            long seconds = Math.max(1L, (sendChangesCooldownUntilMs - now + 999L) / 1000L);
+            button.setText(Component.literal("Wait " + seconds + "s"));
+            button.setHoverTooltips(Component.literal("Please wait before sending changes again"));
+        } else {
+            button.setText(Component.literal("Send Changes"));
+            button.setHoverTooltips(Component.literal("Send editor changes to server"));
+        }
+    }
+
+    protected void scheduleSendChangesButtonRefresh(ShopToolPanelElement toolPanel, ButtonWidget button) {
+        long delayMs = Math.max(0L, sendChangesCooldownUntilMs - System.currentTimeMillis());
+        if (delayMs <= 0L) {
+            updateSendChangesButtonState(toolPanel, button);
+            return;
+        }
+
+        CompletableFuture.delayedExecutor(delayMs, java.util.concurrent.TimeUnit.MILLISECONDS).execute(() ->
+                Minecraft.getInstance().execute(() -> updateSendChangesButtonState(toolPanel, button))
+        );
     }
 
     protected void openAdvancedFilters(Widget owner) {

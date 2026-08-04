@@ -593,7 +593,8 @@ public class ModalWidget extends WidgetGroup {
     }
 
     protected boolean isModalOverlayWidget(Widget widget) {
-        return widget instanceof DropDownBox.PopupInputLayer;
+        return widget instanceof DropDownBox.PopupInputLayer
+                || widget instanceof ContextMenuWidget;
     }
 
     protected void restoreBlockedWidget(Widget widget) {

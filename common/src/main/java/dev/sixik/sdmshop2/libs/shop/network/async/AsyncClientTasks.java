@@ -5,12 +5,16 @@ import dev.sixik.sdmshop2.libs.platform.utils.network.async.BlobTransfer;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
+import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopScreenElement;
 import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
+import dev.sixik.sdmshop2.libs.shop.client.ui.toast.ShopToasts;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentRegistry;
 import dev.sixik.sdmshop2.utils.ShopUtils;
 import io.netty.buffer.Unpooled;
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.UUID;
@@ -31,7 +35,10 @@ public class AsyncClientTasks {
         BlobTransfer.initClient();
 
         AsyncBridge.registerHandler(AsyncServerTasks.SEND_SHOP_DATA, (buf, ctx) -> {
+            ShopInstance previousShop = SDMShopClient.Shop;
             SDMShopClient.Shop = ShopInstance.fromNetwork(buf);
+            UUID updater = readOptionalUpdater(buf);
+            warnExternalShopUpdate(previousShop, SDMShopClient.Shop, updater);
             ACCEPT_SHOP_EVENT.invoker().onAcceptShopEvent(SDMShopClient.Shop);
             ShopUIEvents.invokeRefreshAll();
             return null;
@@ -83,5 +90,30 @@ public class AsyncClientTasks {
             return null;
         });
 
+    }
+
+    private static UUID readOptionalUpdater(FriendlyByteBuf buf) {
+        if (!buf.isReadable()) {
+            return null;
+        }
+
+        boolean hasUpdater = buf.readBoolean();
+        return hasUpdater && buf.isReadable() ? buf.readUUID() : null;
+    }
+
+    private static void warnExternalShopUpdate(ShopInstance previousShop, ShopInstance newShop, UUID updater) {
+        if (updater == null || previousShop == null || newShop == null || previousShop.getId() == null || newShop.getId() == null) {
+            return;
+        }
+        if (!previousShop.getId().equals(newShop.getId()) || ShopScreenElement.Instance == null) {
+            return;
+        }
+
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player != null && updater.equals(minecraft.player.getUUID())) {
+            return;
+        }
+
+        ShopToasts.warning(Component.literal("Shop was updated by another editor. Your view has been refreshed."));
     }
 }

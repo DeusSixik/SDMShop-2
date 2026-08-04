@@ -139,7 +139,7 @@ public final class ModalComponentSelectionMenu {
         }
         categorySelector.setSelectedIndex(selectedCategoryIndex, false);
 
-        final DraggableScrollableWidgetGroup scroll = new DraggableScrollableWidgetGroup(0, listY, contentWidth, listHeight);
+        final DraggableScrollableWidgetGroup scroll = new ViewportClippedScrollableWidgetGroup(0, listY, contentWidth, listHeight);
         scroll.setScrollWheelDirection(DraggableScrollableWidgetGroup.ScrollWheelDirection.VERTICAL);
         scroll.setLayout(Layout.NONE);
         scroll.setYScrollBarWidth(SCROLLBAR_WIDTH);
@@ -695,16 +695,33 @@ public final class ModalComponentSelectionMenu {
         Widget current = widget;
         while (current != null) {
             if (current instanceof DraggableScrollableWidgetGroup scroll) {
-                return mouseX >= scroll.getPositionX()
-                        && mouseY >= scroll.getPositionY()
-                        && mouseX < scroll.getPositionX() + scroll.getSizeWidth()
-                        && mouseY < scroll.getPositionY() + scroll.getSizeHeight();
+                return isInsideWidgetBounds(scroll, mouseX, mouseY);
             }
 
             current = current.getParent();
         }
 
         return true;
+    }
+
+    private static boolean isInsideWidgetBounds(Widget widget, double mouseX, double mouseY) {
+        return widget != null
+                && mouseX >= widget.getPositionX()
+                && mouseY >= widget.getPositionY()
+                && mouseX < widget.getPositionX() + widget.getSizeWidth()
+                && mouseY < widget.getPositionY() + widget.getSizeHeight();
+    }
+
+    private static class ViewportClippedScrollableWidgetGroup extends DraggableScrollableWidgetGroup {
+
+        private ViewportClippedScrollableWidgetGroup(int x, int y, int width, int height) {
+            super(x, y, width, height);
+        }
+
+        @Override
+        public boolean isMouseOverElement(double mouseX, double mouseY) {
+            return isInsideWidgetBounds(this, mouseX, mouseY);
+        }
     }
 
     private static class ScrollClippedWidgetGroup extends WidgetGroup {

@@ -2,16 +2,25 @@ package dev.sixik.sdmshop2.libs.shop.client.ui.elements;
 
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
+import dev.sixik.sdmshop2.libs.shop.base.ObjectIdGetter;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
+import dev.sixik.sdmshop2.libs.shop.client.config.constructors.ComponentConfigWidgetConstructor;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUIUtils;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.StyleApi;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIDisposable;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIEventScope;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetRender;
+import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultEditMenuRender;
+import dev.sixik.sdmshop2.libs.shop.client.ui.toast.ShopToasts;
+import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.InputTextBox;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ModalWidget;
 import lombok.Getter;
+import net.minecraft.network.chat.Component;
 import net.minecraft.client.Minecraft;
 import org.jetbrains.annotations.Nullable;
 
@@ -136,6 +145,139 @@ public class ShopEntityEditorElement extends ModalWidget implements WidgetContex
         }
 
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    public int getComponentCount() {
+        return shopEntity == null ? 0 : shopEntity.getComponents().size();
+    }
+
+    public boolean canMoveComponent(@Nullable ShopComponent component, int offset) {
+        if (!canEditComponent(component) || offset == 0) {
+            return false;
+        }
+
+        int index = shopEntity.indexOfComponent(component);
+        int target = index + offset;
+        return index >= 0 && target >= 0 && target < getComponentCount();
+    }
+
+    public void moveComponent(@Nullable ShopComponent component, int offset) {
+        if (!canEditComponent(component) || offset == 0) {
+            return;
+        }
+
+        moveComponentTo(component, shopEntity.indexOfComponent(component) + offset);
+    }
+
+    public boolean moveComponentTo(@Nullable ShopComponent component, int targetIndex) {
+        if (!canEditComponent(component)) {
+            return false;
+        }
+
+        int currentIndex = shopEntity.indexOfComponent(component);
+        if (currentIndex < 0) {
+            return false;
+        }
+
+        int clampedTarget = Math.max(0, Math.min(targetIndex, getComponentCount() - 1));
+        if (!shopEntity.moveComponentToIndex(component, clampedTarget)) {
+            return false;
+        }
+
+        if (editSession != null && !editSession.closed()) {
+            editSession.recordHistory(
+                    "component.move",
+                    shopEntity.getClass().getSimpleName(),
+                    shopEntity instanceof ObjectIdGetter idGetter ? idGetter.getUUID() : null,
+                    component.getType().getId(),
+                    "Moved component " + component.getType().getId() + " from " + (currentIndex + 1) + " to " + (clampedTarget + 1)
+            );
+        }
+
+        ComponentConfigWidgetConstructor.invokeUpdate(component, false);
+        refreshEditorContent();
+        ShopToasts.success(Component.literal("Component moved"));
+        return true;
+    }
+
+    public void openMoveComponentModal(@Nullable ShopComponent component) {
+        if (!canEditComponent(component) || getComponentCount() <= 1) {
+            return;
+        }
+
+        int currentIndex = shopEntity.indexOfComponent(component);
+        if (currentIndex < 0) {
+            return;
+        }
+
+        ModalWidget modal = new ModalWidget(260, 116)
+                .setTitle(Component.literal("Move Component"))
+                .setCloseOnEsc(true)
+                .setCloseOnOutsideClick(false);
+        ModalWidget opened = ModalWidget.openNested(this, modal);
+        if (opened == null) {
+            return;
+        }
+
+        TextLabel label = new TextLabel(0, 4, opened.getContentWidth(), 20,
+                Component.literal("Target position: 1 - " + getComponentCount()));
+        label.setAutoSize(false)
+                .setAlignment(TextLabel.HorizontalAlignment.LEFT, TextLabel.VerticalAlignment.CENTER)
+                .setColor(0xFFAEB4C6);
+        opened.addWidget(label);
+
+        InputTextBox input = new InputTextBox(0, 28, opened.getContentWidth(), 20);
+        input.setNumbersOnly(1, getComponentCount());
+        input.setCurrentStringSilently(currentIndex + 1);
+        input.setPlaceholder(Component.literal("Position"));
+        input.setClientSideWidget();
+        opened.addWidget(input);
+
+        int buttonY = Math.max(56, opened.getContentHeight() - 24);
+        int buttonWidth = Math.max(1, opened.getContentWidth() / 2 - 4);
+        ButtonWidget cancel = createModalButton(0, buttonY, buttonWidth, 20, Component.literal("Cancel"), ignored -> opened.close());
+        ButtonWidget move = createModalButton(buttonWidth + 8, buttonY, buttonWidth, 20, Component.literal("Move"), ignored -> {
+            int position;
+            try {
+                position = Integer.parseInt(input.getCurrentString().trim());
+            } catch (Exception e) {
+                ShopToasts.warning(Component.literal("Invalid position"));
+                return;
+            }
+
+            if (moveComponentTo(component, position - 1)) {
+                opened.close();
+            }
+        });
+
+        opened.addWidget(cancel);
+        opened.addWidget(move);
+        input.setFocus(true);
+    }
+
+    public void refreshEditorContent() {
+        if (render instanceof DefaultEditMenuRender editMenuRender) {
+            editMenuRender.refreshContent(this);
+            return;
+        }
+
+        render.alightWidgets(this);
+    }
+
+    protected boolean canEditComponent(@Nullable ShopComponent component) {
+        return component != null
+                && shopEntity != null
+                && shopEntity.indexOfComponent(component) >= 0
+                && editSession != null
+                && !editSession.closed();
+    }
+
+    private ButtonWidget createModalButton(int x, int y, int width, int height, Component text, java.util.function.Consumer<com.lowdragmc.lowdraglib.gui.util.ClickData> action) {
+        ButtonWidget button = new ButtonWidget(x, y, width, height, text, action);
+        button.setClientSideWidget();
+        button.setTextPadding(4);
+        button.setMinTextScale(0.35f);
+        return button;
     }
 
     protected void calculateSize() {

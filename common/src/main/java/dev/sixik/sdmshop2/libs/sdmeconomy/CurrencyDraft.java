@@ -43,6 +43,10 @@ public record CurrencyDraft(
         return new CurrencyDraft(id, Kind.ITEM, safeStack.getHoverName().getString(), "", safeStack);
     }
 
+    public static CurrencyDraft delete(ResourceLocation id) {
+        return new CurrencyDraft(id, Kind.DELETE, id == null ? "" : id.toString(), "", ItemStack.EMPTY);
+    }
+
     public ICurrency toCurrency() {
         return kind == Kind.ITEM
                 ? toExternalCurrency()
@@ -161,7 +165,8 @@ public record CurrencyDraft(
 
     public enum Kind {
         TEXT,
-        ITEM;
+        ITEM,
+        DELETE;
 
         public static Kind fromName(String value) {
             if (value == null) {
