@@ -11,6 +11,7 @@ import dev.sixik.sdmshop2.libs.shop.components.limiter.LimiterComponent;
 import dev.sixik.sdmshop2.libs.shop.events.ShopServerEvents;
 import dev.sixik.sdmshop2.libs.shop.network.ShopNetworkManager;
 import dev.sixik.sdmshop2.libs.shop.scripting.events.ShopScriptEvents;
+import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyPlatform;
 import it.unimi.dsi.fastutil.objects.*;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -124,6 +125,7 @@ public class ShopTransactionProcessor {
         }
 
         syncLimitersNetwork(limiters, player);
+        SDMEconomyPlatform.syncPlayerAccount(player);
         return true;
     }
 

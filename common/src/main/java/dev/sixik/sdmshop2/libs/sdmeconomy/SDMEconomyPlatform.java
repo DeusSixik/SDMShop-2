@@ -193,4 +193,12 @@ public class SDMEconomyPlatform {
         new SendDynamicCurrencyS2C().sendTo(player);
         new SendPlayerAccountS2C(player).sendTo(player);
     }
+
+    public static void syncPlayerAccount(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+
+        new SendPlayerAccountS2C(player).sendTo(player);
+    }
 }

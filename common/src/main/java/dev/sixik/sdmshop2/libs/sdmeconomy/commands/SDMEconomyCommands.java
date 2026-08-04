@@ -8,6 +8,9 @@ import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import dev.sixik.sdmshop2.libs.sdmeconomy.BankAccount;
 import dev.sixik.sdmshop2.libs.sdmeconomy.DynamicStoredCurrency;
+import dev.sixik.sdmshop2.libs.sdmeconomy.IStoredCurrency;
+import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyCurrencyRegistry;
+import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyPlatform;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyService;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
@@ -49,6 +52,7 @@ public class SDMEconomyCommands {
                 .then(Commands.literal("create_money")
                     .requires(source -> source.hasPermission(2))
                     .then(Commands.argument("money", ResourceLocationArgument.id())
+                        .suggests(SDMEconomyCommands::moneyIds)
                         .executes(SDMEconomyCommands::createMoney)
                         .then(Commands.argument("target", EntityArgument.player())
                             .executes(SDMEconomyCommands::createMoneyTarget)
@@ -101,12 +105,16 @@ public class SDMEconomyCommands {
         final ServerPlayer player = context.getSource().getPlayer();
 
         List<String> moneys = new ArrayList<>();
+        moneys.addAll(SDMEconomyCurrencyRegistry.getStoredCurrenciesMap().keySet().stream()
+                .map(ResourceLocation::toString)
+                .toList());
+
         if(player != null) {
             final BankAccount account = SDMEconomyService.getInstance().getAccount(player.getGameProfile().getId());
             moneys.addAll(account.getCurrenciesIds().stream().map(ResourceLocation::toString).toList());
         }
 
-        return SharedSuggestionProvider.suggest(moneys.stream(), builder);
+        return SharedSuggestionProvider.suggest(moneys.stream().distinct(), builder);
     }
 
     private static int balanceCommand(CommandContext<CommandSourceStack> context) {
@@ -123,7 +131,7 @@ public class SDMEconomyCommands {
     }
 
     private static int showBalance(CommandSourceStack source, ServerPlayer target, ResourceLocation money) {
-        DynamicStoredCurrency currency = currency(money);
+        IStoredCurrency currency = currency(money);
 
         BankAccount account = SDMEconomyService.getInstance().getAccount(target.getGameProfile().getId());
         Component outMessage = Component.literal("Balance '").append(money.toString()).append("': ")
@@ -144,10 +152,11 @@ public class SDMEconomyCommands {
     }
 
     private static int processCreateMoney(CommandSourceStack source, ServerPlayer target, ResourceLocation money) {
-        DynamicStoredCurrency currency = currency(money);
+        IStoredCurrency currency = currency(money);
 
         final BankAccount account = SDMEconomyService.getInstance().getAccount(target.getGameProfile().getId());
         account.setBalance(currency, BigDecimal.ZERO);
+        SDMEconomyPlatform.syncPlayerAccount(target);
 
         source.sendSuccess(() -> Component.literal("Created currency '" + money + "' for " + target.getScoreboardName()), true);
         return 1;
@@ -164,10 +173,11 @@ public class SDMEconomyCommands {
     }
 
     private static int processRemoveMoney(CommandSourceStack source, ServerPlayer target, ResourceLocation money) {
-        DynamicStoredCurrency currency = currency(money);
+        IStoredCurrency currency = currency(money);
 
         final BankAccount account = SDMEconomyService.getInstance().getAccount(target.getGameProfile().getId());
         account.removeBalance(currency);
+        SDMEconomyPlatform.syncPlayerAccount(target);
 
         source.sendSuccess(() -> Component.literal("Removed currency '" + money + "' from " + target.getScoreboardName()), true);
         return 1;
@@ -184,7 +194,7 @@ public class SDMEconomyCommands {
 
         final var moneyId = ResourceLocationArgument.getId(context, "money");
         BigDecimal amount = positiveAmount(context);
-        DynamicStoredCurrency currency = currency(moneyId);
+        IStoredCurrency currency = currency(moneyId);
 
         SDMEconomyService service = SDMEconomyService.getInstance();
         BankAccount sourceAccount = service.getAccount(sourcePlayer.getGameProfile().getId());
@@ -197,6 +207,8 @@ public class SDMEconomyCommands {
 
         sourceAccount.modify(currency, amount.negate());
         targetAccount.modify(currency, amount);
+        SDMEconomyPlatform.syncPlayerAccount(sourcePlayer);
+        SDMEconomyPlatform.syncPlayerAccount(targetPlayer);
 
         context.getSource().sendSuccess(() -> Component.literal("Successfully paid " + amountText(amount) + " '" + moneyId + "' to " + targetPlayer.getScoreboardName()), false);
         targetPlayer.sendSystemMessage(Component.literal("You received " + amountText(amount) + " '" + moneyId + "' from " + sourcePlayer.getScoreboardName()));
@@ -208,10 +220,11 @@ public class SDMEconomyCommands {
         final ResourceLocation moneyId = ResourceLocationArgument.getId(context, "money");
         BigDecimal amount = nonNegativeAmount(context);
 
-        DynamicStoredCurrency currency = currency(moneyId);
+        IStoredCurrency currency = currency(moneyId);
         BankAccount targetAccount = SDMEconomyService.getInstance().getAccount(targetPlayer.getGameProfile().getId());
 
         targetAccount.setBalance(currency, amount);
+        SDMEconomyPlatform.syncPlayerAccount(targetPlayer);
 
         context.getSource().sendSuccess(() -> Component.literal("Set balance of " + targetPlayer.getScoreboardName() + " to " + amountText(amount) + " '" + moneyId + "'"), true);
         return 1;
@@ -222,17 +235,19 @@ public class SDMEconomyCommands {
         final var moneyId = ResourceLocationArgument.getId(context, "money");
         BigDecimal amount = positiveAmount(context);
 
-        DynamicStoredCurrency currency = currency(moneyId);
+        IStoredCurrency currency = currency(moneyId);
         BankAccount targetAccount = SDMEconomyService.getInstance().getAccount(targetPlayer.getGameProfile().getId());
 
         targetAccount.modify(currency, amount);
+        SDMEconomyPlatform.syncPlayerAccount(targetPlayer);
 
         context.getSource().sendSuccess(() -> Component.literal("Added " + amountText(amount) + " '" + moneyId + "' to " + targetPlayer.getScoreboardName()), true);
         return 1;
     }
 
-    private static DynamicStoredCurrency currency(ResourceLocation id) {
-        return new DynamicStoredCurrency(id);
+    private static IStoredCurrency currency(ResourceLocation id) {
+        IStoredCurrency registered = SDMEconomyCurrencyRegistry.getStoredCurrency(id);
+        return registered == null ? new DynamicStoredCurrency(id) : registered;
     }
 
     private static BigDecimal positiveAmount(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
