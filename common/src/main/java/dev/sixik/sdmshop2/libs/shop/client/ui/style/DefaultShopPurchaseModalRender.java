@@ -285,7 +285,7 @@ public class DefaultShopPurchaseModalRender implements WidgetRender {
         }
 
         PriceWidget unitPrice = createUnitPriceWidget(modal, cost, color);
-        unitPrice.setSelfPosition(24, 4);
+        unitPrice.setSelfPosition(24, 5);
         row.addWidget(unitPrice);
 
         int afterPriceX = Math.min(width - 1, 24 + unitPrice.getSizeWidth() + 5);
@@ -325,7 +325,7 @@ public class DefaultShopPurchaseModalRender implements WidgetRender {
         return new PriceWidget()
                 .setPriceTexts(changed ? modal.formatCost(cost, base) : null, modal.formatCost(cost, unit))
                 .setOldPriceScale(0.72f)
-                .setNewPriceScale(0.92f)
+                .setNewPriceScale(1f)
                 .setGap(3)
                 .setColors(0xFF8A8A8A, color, 0xFFB0B0B0)
                 .setStrikeYRatio(0.40f)
