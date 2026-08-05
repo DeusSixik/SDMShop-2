@@ -3,13 +3,11 @@ package dev.sixik.sdmshop2.libs.shop.base.limiter;
 import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.platform.SDMPlatform;
 import dev.sixik.sdmshop2.libs.platform.ServerOperation;
-import dev.sixik.sdmshop2.libs.platform.ThreadingOperationTimeSave;
 import dev.sixik.sdmshop2.libs.platform.utils.repository.RepositoryStorage;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepoDefinition;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepositoryManager;
-import dev.sixik.sdmshop2.libs.shop.config.ShopDataStorageConfig;
+import dev.sixik.sdmshop2.libs.shop.config.ShopConfig;
 import dev.sixik.sdmshop2.utils.exceptions.NotInitializedException;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import lombok.Getter;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.MinecraftServer;
@@ -22,6 +20,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Серверная реализация таблицы лимитов магазина.
@@ -66,7 +65,7 @@ public final class ShopLimiterTableServer implements ShopLimiterTable {
         if(isInstance)
             Instance = this;
 
-        final ShopDataStorageConfig.MongoConfig config = SDMShop2.getDataStorageConfig().getCurrentConfig().mongodb;
+        final ShopConfig.MongoConfig config = SDMShop2.getConfig().mongodb;
         final RepositoryManager repositoryManager = SDMShop2.getRepositoryManager(server);
         offersRepository = new RepositoryStorage<>(repositoryManager.createRepository(
                 shopDirWorld.resolve("limiter").resolve("offers"),
@@ -76,11 +75,7 @@ public final class ShopLimiterTableServer implements ShopLimiterTable {
                         UUID::fromString,
                         ShopLimiterOfferData::getOfferId,
                         ShopLimiterOfferData::toJson,
-                        s -> {
-                            ShopLimiterOfferData data = new ShopLimiterOfferData(s);
-                            data.setUpdate(() -> offersRepository.update(data.getOfferId()));
-                            return data;
-                        })
+                        this::readOfferData)
         ), ConcurrentHashMap::new, ioExecutor);
 
         playersRepository = new RepositoryStorage<>(repositoryManager.createRepository(
@@ -91,12 +86,8 @@ public final class ShopLimiterTableServer implements ShopLimiterTable {
                         UUID::fromString,
                         ShopLimiterPlayerData::getUserId,
                         ShopLimiterPlayerData::toJson,
-                        s -> {
-                            ShopLimiterPlayerData data = new ShopLimiterPlayerData(s);
-                            data.setUpdate(() -> playersRepository.update(data.getUserId()));
-                            return data;
-                        })
-        ), Object2ObjectOpenHashMap::new, ioExecutor);
+                        this::readPlayerData)
+        ), ConcurrentHashMap::new, ioExecutor);
 
         dailyStatsRepository = new RepositoryStorage<>(repositoryManager.createRepository(
                 shopDirWorld,
@@ -106,24 +97,16 @@ public final class ShopLimiterTableServer implements ShopLimiterTable {
                         s -> s,
                         DailyOfferStats::getDate,
                         DailyOfferStats::toJson,
-                        s -> {
-                            DailyOfferStats stats = new DailyOfferStats(s);
-                            stats.setUpdate(() -> dailyStatsRepository.update(stats.getDate()));
-                            return stats;
-                        }
-                )
-        ), Object2ObjectOpenHashMap::new, ioExecutor);
+                        this::readDailyOfferStats
+                 )
+        ), ConcurrentHashMap::new, ioExecutor);
 
         offersRepository.loadAll();
         playersRepository.loadAll();
     }
 
-    public ShopLimiterOfferData getOfferDatga(UUID entityId) {
-        return offersRepository.getOrCreate(entityId, s -> {
-            ShopLimiterOfferData offerData = new ShopLimiterOfferData(s);
-            offerData.setUpdate(() -> offersRepository.update(entityId));
-            return offerData;
-        });
+    public ShopLimiterOfferData getOfferData(UUID entityId) {
+        return offersRepository.getOrCreate(entityId, this::createOfferData);
     }
 
     public ShopLimiterPlayerData getPlayerData(Player player) {
@@ -131,11 +114,33 @@ public final class ShopLimiterTableServer implements ShopLimiterTable {
     }
 
     public ShopLimiterPlayerData getPlayerData(UUID playerId) {
-        return playersRepository.getOrCreate(playerId, s -> {
-            ShopLimiterPlayerData playerData = new ShopLimiterPlayerData(s);
-            playerData.setUpdate(() -> playersRepository.update(playerId));
-            return playerData;
-        });
+        return playersRepository.getOrCreate(playerId, this::createPlayerData);
+    }
+
+    @Override
+    public boolean resetOfferData(UUID entityId) {
+        boolean changed = offersRepository.getValue(entityId) != null;
+        if (changed) {
+            offersRepository.delete(entityId);
+        }
+        return changed;
+    }
+
+    @Override
+    public boolean resetPlayerData(UUID playerId, UUID entityId) {
+        ShopLimiterPlayerData data = playersRepository.getValue(playerId);
+        return data != null && data.remove(entityId);
+    }
+
+    @Override
+    public int resetAllPlayerData(UUID entityId) {
+        int changed = 0;
+        for (ShopLimiterPlayerData data : playersRepository.getAllValues()) {
+            if (data.remove(entityId)) {
+                changed++;
+            }
+        }
+        return changed;
     }
 
     public DailyOfferStats getDailyOfferStats() {
@@ -143,7 +148,7 @@ public final class ShopLimiterTableServer implements ShopLimiterTable {
     }
 
     public DailyOfferStats getDailyOfferStats(String timeData) {
-        return dailyStatsRepository.getOrCreate(timeData, DailyOfferStats::new);
+        return dailyStatsRepository.getOrCreate(timeData, this::createDailyOfferStats);
     }
 
     /**
@@ -174,9 +179,57 @@ public final class ShopLimiterTableServer implements ShopLimiterTable {
     @Override
     public void shutdown() {
         ioExecutor.shutdown();
+        try {
+            if (!ioExecutor.awaitTermination(10, TimeUnit.SECONDS)) {
+                ioExecutor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            ioExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+
+        if (Instance == this) {
+            Instance = null;
+        }
     }
 
-    public static class Manager implements ServerOperation, ThreadingOperationTimeSave {
+    private ShopLimiterOfferData readOfferData(com.google.gson.JsonObject json) {
+        ShopLimiterOfferData data = new ShopLimiterOfferData(json);
+        data.setUpdate(() -> offersRepository.update(data.getOfferId()));
+        return data;
+    }
+
+    private ShopLimiterOfferData createOfferData(UUID offerId) {
+        ShopLimiterOfferData data = new ShopLimiterOfferData(offerId);
+        data.setUpdate(() -> offersRepository.update(offerId));
+        return data;
+    }
+
+    private ShopLimiterPlayerData readPlayerData(com.google.gson.JsonObject json) {
+        ShopLimiterPlayerData data = new ShopLimiterPlayerData(json);
+        data.setUpdate(() -> playersRepository.update(data.getUserId()));
+        return data;
+    }
+
+    private ShopLimiterPlayerData createPlayerData(UUID playerId) {
+        ShopLimiterPlayerData data = new ShopLimiterPlayerData(playerId);
+        data.setUpdate(() -> playersRepository.update(playerId));
+        return data;
+    }
+
+    private DailyOfferStats readDailyOfferStats(com.google.gson.JsonObject json) {
+        DailyOfferStats stats = new DailyOfferStats(json);
+        stats.setUpdate(() -> dailyStatsRepository.update(stats.getDate()));
+        return stats;
+    }
+
+    private DailyOfferStats createDailyOfferStats(String date) {
+        DailyOfferStats stats = new DailyOfferStats(date);
+        stats.setUpdate(() -> dailyStatsRepository.update(stats.getDate()));
+        return stats;
+    }
+
+    public static class Manager implements ServerOperation {
         @Override
         public void onServerStart(MinecraftServer server) {
             new ShopLimiterTableServer(server, true);
@@ -190,12 +243,5 @@ public final class ShopLimiterTableServer implements ShopLimiterTable {
         @Override
         public void onReload() { }
 
-        @Override
-        public void onDataStartSave() { }
-
-        @Override
-        public int getDataSaveTimeSeconds() {
-            return -1;
-        }
     }
 }

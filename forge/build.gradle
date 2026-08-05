@@ -60,16 +60,22 @@ dependencies {
 
     modImplementation("com.lowdragmc.ldlib:ldlib-forge-${minecraft_version}:${ldlib_version}") { transitive = false }
     modImplementation("dev.latvian.mods:kubejs-forge:${kjs_version}")
-    modImplementation("curse.maven:shadow-config-1421861:7922236")
-
 
     modImplementation('com.blamejared.crafttweaker:CraftTweaker-forge-1.20.1:14.0.60')
 
     minecraftClientRuntimeLibraries("com.github.ben-manes.caffeine:caffeine:3.2.3")
     minecraftClientRuntimeLibraries("org.mongodb:mongodb-driver-sync:5.6.5")
+    minecraftClientRuntimeLibraries("org.yaml:snakeyaml:2.2")
+    minecraftClientRuntimeLibraries("com.github.DeusSixik:YamlConfig:1.2.0")
+    minecraftServerRuntimeLibraries("com.github.ben-manes.caffeine:caffeine:3.2.3")
+    minecraftServerRuntimeLibraries("org.mongodb:mongodb-driver-sync:5.6.5")
+    minecraftServerRuntimeLibraries("org.yaml:snakeyaml:2.2")
+    minecraftServerRuntimeLibraries("com.github.DeusSixik:YamlConfig:1.2.0")
 
     include("com.github.ben-manes.caffeine:caffeine:3.2.3")
     include("org.mongodb:mongodb-driver-sync:5.6.5")
+    include("org.yaml:snakeyaml:2.2")
+    include("com.github.DeusSixik:YamlConfig:1.2.0")
 }
 
 processResources {

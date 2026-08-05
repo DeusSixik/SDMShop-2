@@ -12,7 +12,9 @@ import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import lombok.Getter;
 import net.minecraft.network.FriendlyByteBuf;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 /**
  * Базовая сущность в архитектуре Entity-Component System (ECS) магазина.
@@ -21,6 +23,11 @@ import java.util.*;
  * кэшированием и сериализацией компонентов.
  */
 public class ShopEntity implements ShopEntityCallbackSupport {
+
+    private enum InitializationSide {
+        CLIENT,
+        SERVER
+    }
 
     private boolean initialized = false;
 
@@ -44,10 +51,11 @@ public class ShopEntity implements ShopEntityCallbackSupport {
      * Вызывает метод {@link ShopComponent#init()} для каждого компонента.
      */
     private void initComponents() {
-        final Object[] array = components.elements();
-        final int size = components.size();
-        for (int i = 0; i < size; i++) {
-            ((ShopComponent) array[i]).init();
+        final ShopComponent[] snapshot = components.toArray(new ShopComponent[0]);
+        for (ShopComponent component : snapshot) {
+            if (component.getRoot() == this) {
+                component.init();
+            }
         }
         initialized = true;
     }
@@ -127,10 +135,156 @@ public class ShopEntity implements ShopEntityCallbackSupport {
     }
 
     /**
+     * Возвращает индекс компонента в текущем порядке сущности.
+     *
+     * <p>Индекс соответствует порядку в {@link #getComponents()} и порядку сериализации.
+     * Если компонент не принадлежит этой сущности, возвращается {@code -1}.</p>
+     *
+     * @param component компонент, индекс которого нужно найти
+     * @return индекс компонента или {@code -1}, если компонент не найден
+     */
+    public final int indexOfComponent(ShopComponent component) {
+        return component == null ? -1 : components.indexOf(component);
+    }
+
+    /**
+     * Перемещает компонент на указанное смещение относительно его текущей позиции.
+     *
+     * <p>Например, {@code offset = -1} поднимает компонент на одну позицию вверх,
+     * а {@code offset = 1} опускает на одну позицию вниз. Индекс автоматически
+     * ограничивается границами списка.</p>
+     *
+     * @param component компонент, который нужно переместить
+     * @param offset смещение относительно текущего индекса
+     * @return {@code true}, если порядок компонентов изменился
+     */
+    public final boolean moveComponent(ShopComponent component, int offset) {
+        int currentIndex = indexOfComponent(component);
+        if (currentIndex < 0 || offset == 0) {
+            return false;
+        }
+
+        return moveComponentToIndex(component, currentIndex + offset);
+    }
+
+    /**
+     * Перемещает компонент на конкретный индекс.
+     *
+     * <p>Метод нужен для редакторов, где пользователь может перетащить компонент
+     * в произвольную позицию. В отличие от {@link #addComponent(ShopComponent)},
+     * этот метод не сортирует компонент по {@link ShopComponent#priority()}:
+     * порядок задаётся явно пользователем.</p>
+     *
+     * <p>После успешного перемещения очищается cache компонентов и вызывается
+     * событие обновления компонента/сущности. Root у компонента не меняется.</p>
+     *
+     * @param component компонент, который нужно переместить
+     * @param targetIndex желаемый индекс; значения вне диапазона будут зажаты в границы списка
+     * @return {@code true}, если порядок компонентов изменился
+     */
+    public final boolean moveComponentToIndex(ShopComponent component, int targetIndex) {
+        int currentIndex = indexOfComponent(component);
+        if (currentIndex < 0 || components.size() <= 1) {
+            return false;
+        }
+
+        int clampedIndex = clampComponentIndex(targetIndex);
+        if (currentIndex == clampedIndex) {
+            return false;
+        }
+
+        components.remove(currentIndex);
+        components.add(clampedIndex, component);
+        componentCache.clear();
+        invokeUpdateComponent(this, component);
+        return true;
+    }
+
+    /**
+     * Перемещает компонент на место другого компонента.
+     *
+     * <p>Целевой компонент сдвигается вправо/вниз, а перемещаемый компонент становится
+     * на его индекс. Для вставки после целевого компонента используйте
+     * {@link #moveComponentAfter(ShopComponent, ShopComponent)}.</p>
+     *
+     * @param component компонент, который нужно переместить
+     * @param target компонент, на место которого нужно вставить {@code component}
+     * @return {@code true}, если порядок компонентов изменился
+     */
+    public final boolean moveComponentToComponent(ShopComponent component, ShopComponent target) {
+        int targetIndex = indexOfComponent(target);
+        if (targetIndex < 0 || component == target) {
+            return false;
+        }
+
+        return moveComponentToIndex(component, targetIndex);
+    }
+
+    /**
+     * Перемещает компонент перед указанным целевым компонентом.
+     *
+     * @param component компонент, который нужно переместить
+     * @param target компонент, перед которым нужно вставить {@code component}
+     * @return {@code true}, если порядок компонентов изменился
+     */
+    public final boolean moveComponentBefore(ShopComponent component, ShopComponent target) {
+        return moveComponentToComponent(component, target);
+    }
+
+    /**
+     * Перемещает компонент после указанного целевого компонента.
+     *
+     * @param component компонент, который нужно переместить
+     * @param target компонент, после которого нужно вставить {@code component}
+     * @return {@code true}, если порядок компонентов изменился
+     */
+    public final boolean moveComponentAfter(ShopComponent component, ShopComponent target) {
+        int targetIndex = indexOfComponent(target);
+        if (targetIndex < 0 || component == target) {
+            return false;
+        }
+
+        return moveComponentToIndex(component, targetIndex + 1);
+    }
+
+    /**
+     * Меняет два компонента местами.
+     *
+     * <p>Это удобно для UI-кнопок вида "поменять с соседним" или перетаскивания,
+     * когда нужно именно swap, а не вставка с последующим сдвигом остальных элементов.</p>
+     *
+     * @param first первый компонент
+     * @param second второй компонент
+     * @return {@code true}, если компоненты найдены и порядок изменился
+     */
+    public final boolean swapComponents(ShopComponent first, ShopComponent second) {
+        int firstIndex = indexOfComponent(first);
+        int secondIndex = indexOfComponent(second);
+        if (firstIndex < 0 || secondIndex < 0 || firstIndex == secondIndex) {
+            return false;
+        }
+
+        components.set(firstIndex, second);
+        components.set(secondIndex, first);
+        componentCache.clear();
+        invokeUpdateComponent(this, first);
+        invokeUpdateComponent(this, second);
+        return true;
+    }
+
+    private int clampComponentIndex(int index) {
+        if (components.isEmpty()) {
+            return 0;
+        }
+
+        return Math.max(0, Math.min(index, components.size() - 1));
+    }
+
+    /**
      * Проверяет наличие компонента указанного типа у сущности.
      *
-     * @param type Класс искомого типа компонента
-     * @return true, если компонент найден, иначе false
+     * @param type класс искомого типа компонента
+     * @return {@code true}, если компонент найден
      */
     public final boolean hasComponent(Class<?> type) {
         return !getComponents(type).isEmpty();
@@ -226,6 +380,7 @@ public class ShopEntity implements ShopEntityCallbackSupport {
     public final void deserializeComponents(JsonArray array) {
         components.clear();
         componentCache.clear();
+        initialized = false;
 
         for (JsonElement compJson : array) {
             final ShopComponent component = ShopComponentRegistry.fromJson(compJson.getAsJsonObject());
@@ -291,10 +446,11 @@ public class ShopEntity implements ShopEntityCallbackSupport {
 
         components.clear();
         componentCache.clear();
+        initialized = false;
         for (int i = 0; i < count; i++) {
             final ShopComponent component = ShopComponentRegistry.fromNetwork(buf);
             component.setRoot(this);
-            addComponent(component);
+            components.add(component);
         }
 
         initializeClientOnlyComponents();
@@ -321,13 +477,12 @@ public class ShopEntity implements ShopEntityCallbackSupport {
     }
 
     /**
-     * Выполняет инициализацию компонентов, специфичных для клиента.
-     * Сбрасывает флаг инициализации, вызывает {@link #customInitializeClientOnlyComponents()} и {@link #initComponents()}.
+     * Выполняет клиентскую инициализацию компонентов.
+     * Сначала добавляет общие компоненты через {@link #customInitializeCommonComponents()},
+     * затем клиентские через {@link #customInitializeClientOnlyComponents()} и вызывает {@link #initComponents()}.
      */
     protected final void initializeClientOnlyComponents() {
-        initialized = false;
-        customInitializeClientOnlyComponents();
-        initComponents();
+        initializeComponents(InitializationSide.CLIENT);
     }
 
     /**
@@ -338,13 +493,35 @@ public class ShopEntity implements ShopEntityCallbackSupport {
     }
 
     /**
-     * Выполняет инициализацию компонентов, специфичных для сервера.
-     * Сбрасывает флаг инициализации, вызывает {@link #customInitializeServerOnlyComponents()} и {@link #initComponents()}.
+     * Выполняет серверную инициализацию компонентов.
+     * Сначала добавляет общие компоненты через {@link #customInitializeCommonComponents()},
+     * затем серверные через {@link #customInitializeServerOnlyComponents()} и вызывает {@link #initComponents()}.
      */
     public final void initializeServerOnlyComponents() {
+        initializeComponents(InitializationSide.SERVER);
+    }
+
+    private void initializeComponents(InitializationSide side) {
         initialized = false;
-        customInitializeServerOnlyComponents();
+        customInitializeCommonComponents();
+
+        if (side == InitializationSide.CLIENT) {
+            customInitializeClientOnlyComponents();
+        } else {
+            customInitializeServerOnlyComponents();
+        }
+
         initComponents();
+    }
+
+    /**
+     * Хук для компонентов, которые должны существовать и на клиенте, и на сервере.
+     *
+     * <p>Используйте его для системных компонентов сущности и компонентов по умолчанию. Метод должен быть идемпотентным:
+     * перед добавлением компонента проверяйте {@link #hasComponent(Class)}, потому что инициализация может
+     * запускаться после десериализации или пересборки объекта.</p>
+     */
+    protected void customInitializeCommonComponents() {
     }
 
     /**

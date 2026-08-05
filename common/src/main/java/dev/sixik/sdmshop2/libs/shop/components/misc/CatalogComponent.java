@@ -1,12 +1,14 @@
 package dev.sixik.sdmshop2.libs.shop.components.misc;
 
-import com.google.gson.JsonObject;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
+import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfigOptions;
+import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
+import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
+import dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs;
 import lombok.Getter;
 import lombok.Setter;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.UUID;
@@ -20,12 +22,16 @@ public class CatalogComponent extends ShopComponent {
     @Getter
     @Setter
     @ComponentConfig(translationKey = "shop.component.misc.catalog.id")
+    @ComponentConfigOptions(provider = "sdm:catalog_ids")
     private String id;
 
     @Getter
     @Setter
-    @ComponentConfig(translationKey = "shop.component.misc.catalog.uuid")
     private UUID uuid;
+
+    @Getter
+    @Setter
+    private int order;
 
     public CatalogComponent() {
         this(NULL);
@@ -36,8 +42,13 @@ public class CatalogComponent extends ShopComponent {
     }
 
     public CatalogComponent(String id, UUID uuid) {
+        this(id, uuid, 0);
+    }
+
+    public CatalogComponent(String id, UUID uuid, int order) {
         this.id = id;
         this.uuid = uuid;
+        this.order = order;
     }
 
     @Override
@@ -45,9 +56,17 @@ public class CatalogComponent extends ShopComponent {
         return TYPE;
     }
 
-    private static class Type implements IComponentType<CatalogComponent> {
+    private static class Type extends SerializedComponentType<CatalogComponent> {
 
         public static final ResourceLocation ID = ResourceLocation.tryBuild("sdm", "catalog");
+        private static final ComponentSerializer<CatalogComponent> SERIALIZER = ComponentSerializer.<CatalogComponent>create()
+                .addString("catalog_id", CatalogComponent::getId, CatalogComponent::setId)
+                .add("uuid", FieldCodecs.UUID_CODEC, CatalogComponent::getUuid, CatalogComponent::setUuid)
+                .addDefaulted("order", FieldCodecs.INT, CatalogComponent::getOrder, CatalogComponent::setOrder, 0);
+
+        private Type() {
+            super(CatalogComponent::new, SERIALIZER);
+        }
 
         @Override
         public ResourceLocation getId() {
@@ -55,53 +74,17 @@ public class CatalogComponent extends ShopComponent {
         }
 
         @Override
-        public CatalogComponent deserialize(JsonObject json) {
-            return new CatalogComponent(
-                    (json.has("catalog_id") ?
-                            json.get("catalog_id").getAsString() :
-                            NULL),
-                    json.has("uuid") ? UUID.fromString(json.get("uuid").getAsString()) : UUID.randomUUID()
-            );
-        }
-
-        @Override
-        public JsonObject serialize(CatalogComponent component) {
-            JsonObject object = new JsonObject();
-            object.addProperty("catalog_id", component.id);
-            object.addProperty("uuid", component.uuid.toString());
-            return object;
-        }
-
-        @Override
-        public CatalogComponent fromNetwork(FriendlyByteBuf buf) {
-            return new CatalogComponent(buf.readUtf());
-        }
-
-        @Override
-        public void toNetwork(FriendlyByteBuf buf, CatalogComponent component) {
-            buf.writeUtf(component.getId());
-        }
-
-        @Override
-        public CatalogComponent createDefault() {
-            return new CatalogComponent();
-        }
-
-        @Override
         public CatalogComponent createFromBuilder(Object... args) {
-            if(args.length != 1 && args.length != 2)
+            if (args.length != 1 && args.length != 2) {
                 throw new IllegalArgumentException("CatalogComponent.createFromBuilder() takes 1 or 2 arguments (String, (Optional) UUID/String)");
+            }
 
-            if(args.length == 1)
+            if (args.length == 1) {
                 return new CatalogComponent((String) args[0]);
+            }
 
-            Object obj = args[1];
-            return new CatalogComponent((String) args[0], obj instanceof UUID ? (UUID) obj : UUID.fromString((String) obj));
-        }
-
-        @Override
-        public boolean showInEditor() {
-            return false;
+            Object id = args[1];
+            return new CatalogComponent((String) args[0], id instanceof UUID ? (UUID) id : UUID.fromString((String) id));
         }
     }
 }

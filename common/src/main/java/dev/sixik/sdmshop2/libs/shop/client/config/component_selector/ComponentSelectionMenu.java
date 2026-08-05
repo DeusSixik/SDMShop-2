@@ -1,38 +1,40 @@
 package dev.sixik.sdmshop2.libs.shop.client.config.component_selector;
 
-import com.lowdragmc.lowdraglib.gui.texture.*;
-import com.lowdragmc.lowdraglib.gui.widget.*;
 import com.lowdragmc.lowdraglib.gui.editor.ColorPattern;
+import com.lowdragmc.lowdraglib.gui.texture.GuiTextureGroup;
+import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
+import com.lowdragmc.lowdraglib.gui.texture.TextTexture;
+import com.lowdragmc.lowdraglib.gui.widget.*;
 import com.lowdragmc.lowdraglib.gui.widget.layout.Align;
 import com.lowdragmc.lowdraglib.gui.widget.layout.Layout;
 import com.mojang.blaze3d.platform.Window;
 import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
 import dev.sixik.sdmshop2.libs.shop.SDMShopConstants;
-import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
+import dev.sixik.sdmshop2.libs.shop.client.ui.textures.ColorRectAndBorderTexture;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentRegistry;
-import dev.sixik.sdmshop2.mixin.minecraft.SimpleTextureAccessor;
+import dev.sixik.sdmshop2.utils.ShopUtils;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.renderer.texture.SimpleTexture;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
 
 import java.util.*;
 import java.util.function.Consumer;
 
 public class ComponentSelectionMenu {
 
+    private static final int CONTEXT_MENU_WIDTH = 120;
+    private static final int CONTEXT_MENU_ROW_HEIGHT = 20;
+
     private static List<String> cachedCategories;
     private static List<IComponentType<?>> cachedSortedComponents;
+    private static int cachedRegistrySignature = Integer.MIN_VALUE;
     private static String currentCategory = SDMShopConstants.ALL_GROUP;
 
     public static DialogWidget showComponentSelector(
@@ -192,7 +194,7 @@ public class ComponentSelectionMenu {
                 SDMShop2.LOGGER.error("Malformed Wiki URL: {}", url);
             }
         });
-        wikiButton.setBackground(ColorPattern.T_GRAY.rectTexture(), new TextTexture("Wiki"));
+        wikiButton.setBackground(ColorPattern.T_GRAY.rectTexture(), new TextTexture(() -> I18n.get("client.shop.component.editor.button.wiki.short")));
         wikiButton.setHoverTexture(ColorPattern.T_LIGHT_GRAY.rectTexture());
         wikiButton.setHoverTooltips(Component.translatable("client.shop.component.editor.button.wiki.tooltip"));
 
@@ -215,6 +217,7 @@ public class ComponentSelectionMenu {
     }
 
     private static List<IComponentType<?>> getSortedComponents() {
+        refreshCachesIfRegistryChanged();
         if (cachedSortedComponents != null) {
             return cachedSortedComponents;
         }
@@ -241,6 +244,7 @@ public class ComponentSelectionMenu {
     }
 
     private static List<String> getCategories() {
+        refreshCachesIfRegistryChanged();
         if (cachedCategories != null)
             return cachedCategories;
 
@@ -258,6 +262,27 @@ public class ComponentSelectionMenu {
 
         cachedCategories = result;
         return result;
+    }
+
+    public static void invalidateCaches() {
+        cachedRegistrySignature = Integer.MIN_VALUE;
+        cachedCategories = null;
+        cachedSortedComponents = null;
+    }
+
+    private static void refreshCachesIfRegistryChanged() {
+        int registrySignature = Objects.hash(
+                ShopComponentRegistry.getTypes().size(),
+                ShopComponentRegistry.getTypes().keySet()
+        );
+
+        if (registrySignature == cachedRegistrySignature) {
+            return;
+        }
+
+        cachedRegistrySignature = registrySignature;
+        cachedCategories = null;
+        cachedSortedComponents = null;
     }
 
     private static Widget createTileWidget(
@@ -323,28 +348,7 @@ public class ComponentSelectionMenu {
             Иконка
          */
         final CurrencyIcon componentIcon = type.getIcon();
-        final Object componentIconObject = componentIcon.icon();
-        final IGuiTexture iconTexture = switch (componentIcon.type()) {
-            case ITEM -> {
-                if (componentIconObject instanceof Item item)
-                    yield new ItemStackTexture(item);
-                else if (componentIconObject instanceof ItemStack itemStack)
-                    yield new ItemStackTexture(itemStack);
-                else
-                    yield new ItemStackTexture((ItemStack) CurrencyIcon.ICE.icon());
-            }
-            case TEXTURE -> {
-                if (componentIconObject instanceof ResourceLocation id)
-                    yield new ResourceTexture(id);
-                else if (componentIconObject instanceof SimpleTexture simpleTexture)
-                    yield new ResourceTexture(((SimpleTextureAccessor) simpleTexture).getLocation());
-                else if (componentIconObject instanceof String id)
-                    yield new ResourceTexture(ResourceLocation.tryParse(id));
-                else
-                    yield new ItemStackTexture((ItemStack) CurrencyIcon.ICE.icon());
-            }
-            case NONE -> new ItemStackTexture((ItemStack) CurrencyIcon.ICE.icon());
-        };
+        final IGuiTexture iconTexture = ShopUtils.getCurrencyTexture(componentIcon);
 
         final ImageWidget icon = new ImageWidget((w - 24) / 2, 5, 24, 24, iconTexture);
         if (hasTooltip)
@@ -374,7 +378,7 @@ public class ComponentSelectionMenu {
 
         if (!(root instanceof WidgetGroup mainGroup)) return;
 
-        WidgetGroup contextMenu = new WidgetGroup(mouseX, mouseY, 120, 0) {
+        WidgetGroup contextMenu = new WidgetGroup(mouseX, mouseY, CONTEXT_MENU_WIDTH, 0) {
             @Override
             public boolean mouseClicked(double mouseX, double mouseY, int button) {
                 boolean handled = super.mouseClicked(mouseX, mouseY, button);
@@ -403,9 +407,9 @@ public class ComponentSelectionMenu {
         contextMenu.setLayout(Layout.VERTICAL_LEFT);
         contextMenu.setBackground(new ColorRectAndBorderTexture(0xFF1E1E1E, 1, 0xFF555555));
 
-        final var button = new ButtonWidget(0, 0, 120, 20, new TextTexture(() -> I18n.get("client.shop.component.editor.component_selector.widget.tile.copy_id")), (s) -> {
+        final var button = new ButtonWidget(0, 0, CONTEXT_MENU_WIDTH, CONTEXT_MENU_ROW_HEIGHT, new TextTexture(() -> I18n.get("client.shop.component.editor.component_selector.widget.tile.copy_id")), (s) -> {
             Minecraft.getInstance().keyboardHandler.setClipboard(type.getId().toString());
-            Minecraft.getInstance().player.sendSystemMessage(Component.literal("Copied!"));
+            Minecraft.getInstance().player.sendSystemMessage(Component.translatable("client.shop.component.editor.copied"));
             mainGroup.removeWidget(contextMenu);
         });
         button.initTemplate();

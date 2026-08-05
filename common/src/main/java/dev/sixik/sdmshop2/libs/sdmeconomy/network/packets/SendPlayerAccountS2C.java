@@ -7,6 +7,7 @@ import dev.sixik.sdmshop2.libs.sdmeconomy.BankAccount;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyService;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
 import dev.sixik.sdmshop2.libs.sdmeconomy.network.SDMEconomyNetwork;
+import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
@@ -38,6 +39,7 @@ public class SendPlayerAccountS2C extends BaseS2CMessage {
     public void handle(NetworkManager.PacketContext packetContext) {
         try {
             SDMEconomyServiceClient.getInstanceClient().getBankAccount().deserializeNbt(accountNbt);
+            ShopUIEvents.invokeRefreshCurrencies();
             SDMEconomyService.LOGGER.info("Accepted synchronization packet for Account!");
         } catch (Exception e) {
             SDMEconomyService.LOGGER.error("When accept synchronization packet for Account!", e);

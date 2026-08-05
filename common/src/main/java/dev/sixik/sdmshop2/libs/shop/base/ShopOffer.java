@@ -4,6 +4,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import net.minecraft.network.FriendlyByteBuf;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.UUID;
 
@@ -32,6 +33,8 @@ public class ShopOffer extends ShopEntity implements ObjectIdGetter {
      * Уникальный идентификатор предложения.
      */
     private final UUID uuid;
+    @Nullable
+    private ShopInstance parentShop;
 
     protected ShopOffer(UUID uuid) {
         this.uuid = uuid;
@@ -49,8 +52,11 @@ public class ShopOffer extends ShopEntity implements ObjectIdGetter {
     public void deserialize(JsonElement json) {
         final JsonObject object = json.getAsJsonObject();
 
-        if(object.has("components"))
+        if(object.has("components")) {
             deserializeComponents(object.get("components"));
+        } else {
+            initializeServerOnlyComponents();
+        }
     }
 
     @Override
@@ -60,9 +66,25 @@ public class ShopOffer extends ShopEntity implements ObjectIdGetter {
     }
 
     @Override
-    protected void customInitializeServerOnlyComponents() {
+    protected void customInitializeCommonComponents() {
         if(!hasComponent(CatalogComponent.class))
-            addComponent(new CatalogComponent("none"));
+            addComponent(new CatalogComponent());
+    }
+
+    public void setParentShop(@Nullable ShopInstance parentShop) {
+        this.parentShop = parentShop;
+    }
+
+    @Nullable
+    public ShopInstance getParentShop() {
+        return parentShop;
+    }
+
+    @Override
+    protected void onUpdate() {
+        if (parentShop != null) {
+            parentShop.onOfferUpdated(this);
+        }
     }
 
     /**

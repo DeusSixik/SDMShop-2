@@ -3,6 +3,7 @@ package dev.sixik.sdmshop2.libs.shop.components.api;
 import com.google.gson.JsonObject;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
 import dev.sixik.sdmshop2.libs.shop.SDMShopConstants;
+import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -21,6 +22,10 @@ public interface IComponentType<T extends ShopComponent> {
      * @return ResourceLocation идентификатор
      */
     ResourceLocation getId();
+
+    default ComponentSerializer<T> serializer() {
+        return null;
+    }
 
     /**
      * Возвращает {@link Component#translatable} для UI ли других целей

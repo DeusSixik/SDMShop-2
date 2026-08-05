@@ -52,6 +52,12 @@ subprojects {
                 includeGroup("com.jozufozu.flywheel")
             }
         }
+        maven {
+            url "https://repo.papermc.io/repository/maven-public/"
+            mavenContent {
+                includeGroup("ca.spottedleaf")
+            }
+        }
 
         maven {
             url "https://maven.latvian.dev/releases"

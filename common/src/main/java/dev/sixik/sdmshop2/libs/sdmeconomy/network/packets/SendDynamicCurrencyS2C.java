@@ -7,6 +7,7 @@ import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyCurrencyRegistry;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyService;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
 import dev.sixik.sdmshop2.libs.sdmeconomy.network.SDMEconomyNetwork;
+import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 
@@ -39,6 +40,12 @@ public class SendDynamicCurrencyS2C extends BaseS2CMessage {
     @Override
     public void handle(NetworkManager.PacketContext packetContext) {
         SDMEconomyServiceClient.CURRENCIES = SDMEconomyCurrencyRegistry.deserializeCurrencies(nbt);
-        SDMEconomyService.LOGGER.info("Accepted Custom Currencies from server ! Count: {}", SDMEconomyServiceClient.CURRENCIES.size());
+        SDMEconomyServiceClient.STORED_CURRENCIES = SDMEconomyCurrencyRegistry.deserializeStoredCurrencies(nbt);
+        ShopUIEvents.invokeRefreshCurrencies();
+        SDMEconomyService.LOGGER.info(
+                "Accepted Custom Currencies from server ! External: {}, Stored: {}",
+                SDMEconomyServiceClient.CURRENCIES.size(),
+                SDMEconomyServiceClient.STORED_CURRENCIES.size()
+        );
     }
 }

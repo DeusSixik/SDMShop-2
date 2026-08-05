@@ -1,17 +1,12 @@
 package dev.sixik.sdmshop2.libs.platform.utils.repositoryManager;
 
-import dev.sixik.sdmshop2.libs.shop.base.ShopServerGetter;
 import dev.sixik.sdmshop2.libs.platform.utils.repository.Repository;
-import lombok.Setter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.nio.file.Path;
 
 public abstract class RepositoryManager {
-
-    @Setter
-    protected ShopServerGetter serverGetter;
 
     public abstract void init();
 

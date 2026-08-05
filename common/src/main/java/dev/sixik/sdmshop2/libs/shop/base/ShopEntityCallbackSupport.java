@@ -38,27 +38,27 @@ public interface ShopEntityCallbackSupport {
     default void invokeAddComponent(ShopEntity entity, ShopComponent component) {
         final var list = getAddComponentListeners();
         if (list == null || list.isEmpty()) return;
-        final Object[] elements = list.elements();
-        for (int i = list.size() - 1; i >= 0; i--) {
-            ((ShopEntityCallbacks.OnAddComponent)elements[i]).onComponentAdd(entity, component);
+        final ShopEntityCallbacks.OnAddComponent[] snapshot = list.toArray(new ShopEntityCallbacks.OnAddComponent[0]);
+        for (int i = snapshot.length - 1; i >= 0; i--) {
+            snapshot[i].onComponentAdd(entity, component);
         }
     }    
     
     default void invokeRemoveComponent(ShopEntity entity, ShopComponent component) {
         final var list = getRemoveComponentListeners();
         if (list == null || list.isEmpty()) return;
-        final Object[] elements = list.elements();
-        for (int i = list.size() - 1; i >= 0; i--) {
-            ((ShopEntityCallbacks.OnRemoveComponent)elements[i]).onComponentRemove(entity, component);
+        final ShopEntityCallbacks.OnRemoveComponent[] snapshot = list.toArray(new ShopEntityCallbacks.OnRemoveComponent[0]);
+        for (int i = snapshot.length - 1; i >= 0; i--) {
+            snapshot[i].onComponentRemove(entity, component);
         }
     }
 
     default void invokeUpdateComponent(ShopEntity entity, ShopComponent component) {
         final var list = getUpdateComponentListeners();
         if (list == null || list.isEmpty()) return;
-        final Object[] elements = list.elements();
-        for (int i = list.size() - 1; i >= 0; i--) {
-            ((ShopEntityCallbacks.OnComponentUpdate)elements[i]).onComponentUpdate(entity, component);
+        final ShopEntityCallbacks.OnComponentUpdate[] snapshot = list.toArray(new ShopEntityCallbacks.OnComponentUpdate[0]);
+        for (int i = snapshot.length - 1; i >= 0; i--) {
+            snapshot[i].onComponentUpdate(entity, component);
         }
     }
 
@@ -66,9 +66,9 @@ public interface ShopEntityCallbackSupport {
         entity.onUpdate();
         final var list = getUpdateListeners();
         if (list == null || list.isEmpty()) return;
-        final Object[] elements = list.elements();
-        for (int i = list.size() - 1; i >= 0; i--) {
-            ((ShopEntityCallbacks.OnUpdate)elements[i]).onUpdate(entity);
+        final ShopEntityCallbacks.OnUpdate[] snapshot = list.toArray(new ShopEntityCallbacks.OnUpdate[0]);
+        for (int i = snapshot.length - 1; i >= 0; i--) {
+            snapshot[i].onUpdate(entity);
         }
     }
 

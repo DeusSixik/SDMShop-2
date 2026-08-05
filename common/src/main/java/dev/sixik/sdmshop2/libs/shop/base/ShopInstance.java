@@ -3,7 +3,6 @@ package dev.sixik.sdmshop2.libs.shop.base;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
-import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.ShopCategoriesContainerComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.ShopOffersContainerComponent;
 import io.netty.buffer.Unpooled;
@@ -59,17 +58,12 @@ public class ShopInstance extends ShopEntity {
     }
 
     @Override
-    protected void customInitializeServerOnlyComponents() {
+    protected void customInitializeCommonComponents() {
         if(!hasComponent(ShopOffersContainerComponent.class))
             addComponent(new ShopOffersContainerComponent());
 
         if(!hasComponent(ShopCategoriesContainerComponent.class))
             addComponent(new ShopCategoriesContainerComponent());
-    }
-
-    @Override
-    protected void customInitializeClientOnlyComponents() {
-        customInitializeServerOnlyComponents();
     }
 
     @Override
@@ -154,6 +148,20 @@ public class ShopInstance extends ShopEntity {
     public ShopCategoriesContainerComponent getCategories() {
         return getComponent(ShopCategoriesContainerComponent.class)
                 .orElseThrow(() -> new IllegalStateException("Shop " + id + " corrupted: missing CategoriesComponent"));
+    }
+
+    public void onOfferUpdated(ShopOffer offer) {
+        reindexCategories();
+        invokeUpdate(this);
+    }
+
+    public void onOffersChanged(ShopOffersContainerComponent offersContainer) {
+        reindexCategories();
+        invokeUpdateComponent(this, offersContainer);
+    }
+
+    private void reindexCategories() {
+        getComponent(ShopCategoriesContainerComponent.class).ifPresent(ShopCategoriesContainerComponent::reindex);
     }
 
     /**

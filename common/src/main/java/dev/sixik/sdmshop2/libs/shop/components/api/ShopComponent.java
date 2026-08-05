@@ -1,10 +1,13 @@
 package dev.sixik.sdmshop2.libs.shop.components.api;
 
-import com.google.gson.JsonObject;
+import com.lowdragmc.lowdraglib.gui.widget.Widget;
+import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
-import dev.sixik.sdmshop2.libs.shop.components.api.exceptions.ValidationException;
-import net.minecraft.network.FriendlyByteBuf;
+import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import net.minecraft.resources.ResourceLocation;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Базовый класс для всех компонентов магазина.
@@ -16,8 +19,10 @@ public abstract class ShopComponent {
      * Константа для обозначения пустого или неопределенного типа компонента.
      */
     public static ResourceLocation EMPTY = ResourceLocation.tryBuild("sdm", "null");
+    private static final ComponentSerializer<ShopComponent> EMPTY_ADDITIONAL_SERIALIZER = ComponentSerializer.create();
 
     private ShopEntity root;
+    private volatile boolean dirty;
 
     /**
      * Вызывается при инициализации компонента.
@@ -41,6 +46,13 @@ public abstract class ShopComponent {
      * @return Объект типа компонента
      */
     public abstract IComponentType<?> getType();
+
+    /**
+     * Возвращает категорию компонента для сортировоки и поиска
+     */
+    public ShopComponentCategory getCategory() {
+        return ShopComponentCategory.MISC;
+    }
 
     /**
      * Возвращает корневую сущность, которой принадлежит данный компонент.
@@ -67,8 +79,18 @@ public abstract class ShopComponent {
      *
      * @param entity Корневая сущность
      */
-    public final void setRoot(ShopEntity entity) {
-        if(root != null) return;
+    public final void setRoot(@Nullable ShopEntity entity) {
+        if (entity == null) {
+            this.root = null;
+            return;
+        }
+
+        if (root != null && root != entity) {
+            IComponentType<?> type = getType();
+            String componentId = type == null ? getClass().getName() : String.valueOf(type.getId());
+            throw new IllegalStateException("Component " + componentId + " is already attached to another ShopEntity");
+        }
+
         this.root = entity;
     }
 
@@ -79,6 +101,24 @@ public abstract class ShopComponent {
      */
     public boolean shouldSync() {
         return true;
+    }
+
+    public final boolean isDirty() {
+        return dirty;
+    }
+
+    public final void markDirty() {
+        dirty = true;
+    }
+
+    public final void clearDirty() {
+        dirty = false;
+    }
+
+    public final boolean consumeDirty() {
+        boolean wasDirty = dirty;
+        dirty = false;
+        return wasDirty;
     }
 
     /**
@@ -95,16 +135,20 @@ public abstract class ShopComponent {
      * Оповещает родителя что компонент был изменён и нужно обновить данные
      */
     public final void invokeUpdate() {
+        markDirty();
         ShopEntity root = getRoot();
         if(root == null) return;
         root.invokeUpdateComponent(root, this);
     }
 
-    public void additionalSerialize(JsonObject json) { }
+    public ComponentSerializer<? extends ShopComponent> additionalSerializer() {
+        return EMPTY_ADDITIONAL_SERIALIZER;
+    }
 
-    public void additionalDeserialize(JsonObject json) { }
-
-    public void additionalToNetwork(FriendlyByteBuf buf) { }
-
-    public void additionalFromNetwork(FriendlyByteBuf buf) { }
+    @Nullable
+    @Environment(EnvType.CLIENT)
+    public Widget createRender() {
+        SDMShop2.LOGGER.error("Can't create render because {} didn't have implementation of method 'createRender'", getType().getId());
+        return null;
+    }
 }

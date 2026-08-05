@@ -1,11 +1,17 @@
-import java.util.zip.ZipFile
 import org.objectweb.asm.ClassReader
-import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type as AsmType
+import org.objectweb.asm.tree.ClassNode
+
+import java.util.zip.ZipFile
 
 architectury {
     common rootProject.enabled_platforms.split(',')
+}
+
+repositories {
+    mavenCentral()
+    maven { url = uri("https://jitpack.io") }
 }
 
 dependencies {
@@ -17,12 +23,17 @@ dependencies {
 
     modCompileOnly("dev.latvian.mods:kubejs-fabric:${kjs_version}")
 
-    modCompileOnly("curse.maven:shadow-config-1421861:7922236")
+//    modCompileOnly("curse.maven:shadow-config-1421861:7922236")
 
     modCompileOnly('com.blamejared.crafttweaker:CraftTweaker-common-1.20.1:14.0.60')
 
     minecraftLibraries("com.github.ben-manes.caffeine:caffeine:3.2.3")
     minecraftLibraries("org.mongodb:mongodb-driver-sync:5.6.5")
+
+    testImplementation("org.mongodb:mongodb-driver-sync:5.6.5")
+
+    compileOnly("org.yaml:snakeyaml:2.2")
+    compileOnly("com.github.DeusSixik:YamlConfig:1.2.0")
 }
 
 tasks.register('generateLDLibDocsSafe') {

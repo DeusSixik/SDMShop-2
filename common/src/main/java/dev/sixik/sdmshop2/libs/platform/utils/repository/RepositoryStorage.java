@@ -5,6 +5,7 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -12,6 +13,13 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+/**
+ * In-memory cache over a repository backend.
+ *
+ * <p>All local cache mutations are synchronized because Mongo change streams,
+ * game thread reads and async save callbacks can touch this storage from
+ * different threads.</p>
+ */
 public final class RepositoryStorage<K, V> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RepositoryStorage.class);
@@ -38,28 +46,40 @@ public final class RepositoryStorage<K, V> {
 
     public void load(K key) {
         final V value = repository.load(key);
-        if(value == null) return;
-        storage.put(key, value);
+        if (value == null) return;
+
+        synchronized (writeLock) {
+            storage.put(key, value);
+        }
     }
 
     /**
-     * Безопасная перезагрузка.
-     * Игроки не заметят фризов, так как старая карта работает до момента полной загрузки новой.
+     * Fully reloads the cache and swaps the map atomically after load completes.
      */
     public void loadAll() {
         Map<K, V> newMap = mapFactory.get();
         newMap.putAll(repository.loadAll());
 
         synchronized (writeLock) {
-            this.storage = newMap; // Атомарная подмена ссылки
+            this.storage = newMap;
         }
     }
 
     /**
-     * Мгновенно обновляет кэш и асинхронно отправляет в БД.
+     * Updates local cache immediately and persists the value asynchronously.
      */
     public void putValue(K key, V value) {
-        storage.put(key, value);
+        putValue(key, value, true);
+    }
+
+    public void putValue(K key, V value, boolean persist) {
+        synchronized (writeLock) {
+            storage.put(key, value);
+        }
+
+        if (!persist) {
+            return;
+        }
 
         ioExecutor.submit(() -> {
             try {
@@ -70,8 +90,16 @@ public final class RepositoryStorage<K, V> {
         });
     }
 
+    public void putLocalValue(K key, V value) {
+        putValue(key, value, false);
+    }
+
     public void update(K key) {
-        V value = storage.get(key);
+        final V value;
+        synchronized (writeLock) {
+            value = storage.get(key);
+        }
+
         if (value != null) {
             ioExecutor.submit(() -> {
                 try {
@@ -84,71 +112,103 @@ public final class RepositoryStorage<K, V> {
     }
 
     /**
-     * Вызывается ТОЛЬКО слушателем MongoDB (Change Streams) для обновления кэша
-     * при изменениях на других серверах.
+     * Called by remote sync backends, for example MongoDB change streams.
      */
     public void reloadFromRemote(K key) {
         V updatedValue = repository.load(key);
-        if (updatedValue != null) {
-            storage.put(key, updatedValue);
-        } else {
-            storage.remove(key);
+
+        synchronized (writeLock) {
+            if (updatedValue != null) {
+                storage.put(key, updatedValue);
+            } else {
+                storage.remove(key);
+            }
         }
     }
 
     public void removeLocalCache(K key) {
-        storage.remove(key);
+        synchronized (writeLock) {
+            storage.remove(key);
+        }
     }
 
     @Nullable
     public V getValue(K key) {
-        return storage.computeIfAbsent(key, repository::load);
+        synchronized (writeLock) {
+            final V cached = storage.get(key);
+            if (cached != null) {
+                return cached;
+            }
+        }
+
+        final V loaded = repository.load(key);
+        if (loaded == null) {
+            return null;
+        }
+
+        synchronized (writeLock) {
+            final V cached = storage.get(key);
+            if (cached != null) {
+                return cached;
+            }
+
+            storage.put(key, loaded);
+            return loaded;
+        }
     }
 
     public V getOrCreate(K key, Function<K, V> entityFactory) {
-        return storage.computeIfAbsent(key, k -> {
-            /*
-                Пытаемся загрузить из базы данных
-             */
-            V loadedFromDb = repository.load(k);
-            if (loadedFromDb != null) {
-                return loadedFromDb;
+        final V cached = getValue(key);
+        if (cached != null) {
+            return cached;
+        }
+
+        final V newEntity = entityFactory.apply(key);
+        synchronized (writeLock) {
+            final V existing = storage.get(key);
+            if (existing != null) {
+                return existing;
             }
+            storage.put(key, newEntity);
+        }
 
-            /*
-                Если в БД пусто - создаем новый через переданную фабрику
-             */
-            V newEntity = entityFactory.apply(k);
-
-            ioExecutor.submit(() -> {
-                try {
-                    repository.save(k, newEntity);
-                } catch (Exception e) {
-                    LOGGER.error("Failed to async save new entity for key: {}", k, e);
-                }
-            });
-
-            return newEntity;
+        ioExecutor.submit(() -> {
+            try {
+                repository.save(key, newEntity);
+            } catch (Exception e) {
+                LOGGER.error("Failed to async save new entity for key: {}", key, e);
+            }
         });
+
+        return newEntity;
     }
 
     public Collection<V> getAllValues() {
-        return storage.values();
+        synchronized (writeLock) {
+            return new ArrayList<>(storage.values());
+        }
     }
 
     public Collection<K> getAllKeys() {
-        return storage.keySet();
+        synchronized (writeLock) {
+            return new ArrayList<>(storage.keySet());
+        }
     }
 
     public Map<K, V> getMap() {
-        return new Object2ObjectOpenHashMap<>(storage);
+        synchronized (writeLock) {
+            return new Object2ObjectOpenHashMap<>(storage);
+        }
     }
 
     /**
-     * Мгновенно удаляет из кэша и асинхронно удаляет из БД.
+     * Removes local cache immediately and deletes the value asynchronously.
      */
     public void delete(K key) {
-        V oldData = storage.remove(key);
+        final V oldData;
+        synchronized (writeLock) {
+            oldData = storage.remove(key);
+        }
 
         ioExecutor.submit(() -> {
             try {
@@ -156,27 +216,44 @@ public final class RepositoryStorage<K, V> {
             } catch (Exception e) {
                 LOGGER.error("Failed to async delete value for key: {}", key, e);
 
-                if (oldData != null)
-                    storage.put(key, oldData);
+                if (oldData != null) {
+                    synchronized (writeLock) {
+                        storage.put(key, oldData);
+                    }
+                }
             }
         });
     }
 
     public int size() {
-        return storage.size();
+        synchronized (writeLock) {
+            return storage.size();
+        }
     }
 
     public void forEach(BiConsumer<? super K, ? super V> action) {
-        storage.forEach(action);
+        getMap().forEach(action);
     }
 
     public void save(K key, V value) {
-        if(storage.get(key) != null)
+        synchronized (writeLock) {
+            if (!storage.containsKey(key)) {
+                return;
+            }
+
+            storage.put(key, value);
+        }
+
+        try {
             repository.save(key, value);
+        } catch (Exception e) {
+            LOGGER.error("Failed to save value for key: {}", key, e);
+        }
     }
 
-
     public boolean unload(K key) {
-        return storage.remove(key) != null;
+        synchronized (writeLock) {
+            return storage.remove(key) != null;
+        }
     }
 }

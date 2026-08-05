@@ -1,19 +1,17 @@
 package dev.sixik.sdmshop2.libs.shop.components.misc;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
+import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
-import dev.sixik.sdmshop2.libs.shop.base.ShopTable;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
+import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
+import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
+import dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs;
 import lombok.Getter;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ShopOffersContainerComponent extends ShopComponent {
@@ -33,8 +31,38 @@ public class ShopOffersContainerComponent extends ShopComponent {
         return 1000;
     }
 
+    @Override
+    public void init() {
+        for (ShopOffer entry : entryMap.values()) {
+            attachEntry(entry);
+        }
+    }
+
     public void addEntry(ShopOffer entry) {
-        entryMap.put(entry.getUUID(), entry);
+        Objects.requireNonNull(entry, "entry");
+
+        ShopOffer previous = entryMap.put(entry.getUUID(), entry);
+        if (previous == entry) {
+            attachEntry(entry);
+            return;
+        }
+
+        if (previous != null && previous != entry) {
+            previous.setParentShop(null);
+        }
+
+        attachEntry(entry);
+        notifyEntriesChanged();
+    }
+
+    @Nullable
+    public ShopOffer removeEntry(UUID entryId) {
+        ShopOffer removed = entryMap.remove(entryId);
+        if (removed != null) {
+            removed.setParentShop(null);
+            notifyEntriesChanged();
+        }
+        return removed;
     }
 
     @Nullable
@@ -48,9 +76,27 @@ public class ShopOffersContainerComponent extends ShopComponent {
         }
     }
 
-    private static class Type implements IComponentType<ShopOffersContainerComponent> {
+    private void attachEntry(ShopOffer entry) {
+        if (getRoot() instanceof ShopInstance shop) {
+            entry.setParentShop(shop);
+        }
+    }
+
+    private void notifyEntriesChanged() {
+        if (getRoot() instanceof ShopInstance shop) {
+            shop.onOffersChanged(this);
+        }
+    }
+
+    private static class Type extends SerializedComponentType<ShopOffersContainerComponent> {
 
         public static final ResourceLocation ID = ResourceLocation.tryBuild("sdm", "offers_container");
+        private static final ComponentSerializer<ShopOffersContainerComponent> SERIALIZER = ComponentSerializer.<ShopOffersContainerComponent>create()
+                .addRequired("offers", FieldCodecs.list(FieldCodecs.SHOP_OFFER), Type::getOffers, Type::setOffers);
+
+        private Type() {
+            super(ShopOffersContainerComponent::new, SERIALIZER);
+        }
 
         @Override
         public ResourceLocation getId() {
@@ -58,66 +104,20 @@ public class ShopOffersContainerComponent extends ShopComponent {
         }
 
         @Override
-        public JsonObject serialize(ShopOffersContainerComponent component) {
-            JsonObject json = new JsonObject();
-
-            JsonArray entryArray = new JsonArray();
-            component.entryMap.forEach((id, entry) -> entryArray.add(entry.serialize()));
-            json.add("offers", entryArray);
-
-            return json;
-        }
-
-        @Override
-        public ShopOffersContainerComponent deserialize(JsonObject json) {
-            ShopOffersContainerComponent component = new ShopOffersContainerComponent();
-
-            if(!json.has("offers"))
-                throw new NullPointerException("Not found 'entries' key!");
-
-            final Map<UUID, ShopOffer> map = component.getEntryMap();
-
-            final JsonArray entryArray = json.get("offers").getAsJsonArray();
-            for (JsonElement element : entryArray) {
-                final JsonObject entryJson = element.getAsJsonObject();
-
-                ShopOffer entry = ShopOffer.create(entryJson.has("uuid") ? UUID.fromString(entryJson.get("uuid").getAsString()) : UUID.randomUUID(), true);
-                entry.deserialize(entryJson);
-                map.put(entry.getUUID(), entry);
-            }
-
-            return component;
-        }
-
-        @Override
-        public void toNetwork(FriendlyByteBuf buf, ShopOffersContainerComponent component) {
-            final Map<UUID, ShopOffer> map = component.getEntryMap();
-
-            buf.writeVarInt(map.size());
-            map.forEach((key, value) -> value.serializeNetwork(buf));
-        }
-
-        @Override
-        public ShopOffersContainerComponent fromNetwork(FriendlyByteBuf buf) {
-            ShopOffersContainerComponent component = new ShopOffersContainerComponent();
-
-            int size = buf.readVarInt();
-
-            for (int i = 0; i < size; i++) {
-                component.addEntry(ShopOffer.fromNetwork(buf));
-            }
-
-            return component;
-        }
-
-        @Override
-        public ShopOffersContainerComponent createDefault() {
-            return new ShopOffersContainerComponent();
-        }
-
-        @Override
         public boolean showInEditor() {
             return false;
+        }
+
+        private static List<ShopOffer> getOffers(ShopOffersContainerComponent component) {
+            return new ArrayList<>(component.entryMap.values());
+        }
+
+        private static void setOffers(ShopOffersContainerComponent component, List<ShopOffer> offers) {
+            component.entryMap.values().forEach(entry -> entry.setParentShop(null));
+            component.entryMap.clear();
+            if (offers != null) {
+                offers.forEach(component::addEntry);
+            }
         }
     }
 }

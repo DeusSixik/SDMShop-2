@@ -2,6 +2,7 @@ package dev.sixik.sdmshop2.libs.shop.client.config.constructors;
 
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
+import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfigOptions;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentNumberRange;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentStringRegex;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
@@ -66,7 +67,8 @@ public class ComponentConfigAccess {
                                 getter,
                                 setter,
                                 field.isAnnotationPresent(ComponentNumberRange.class) ? field.getAnnotation(ComponentNumberRange.class) : null,
-                                field.isAnnotationPresent(ComponentStringRegex.class) ? field.getAnnotation(ComponentStringRegex.class) : null
+                                field.isAnnotationPresent(ComponentStringRegex.class) ? field.getAnnotation(ComponentStringRegex.class) : null,
+                                field.isAnnotationPresent(ComponentConfigOptions.class) ? field.getAnnotation(ComponentConfigOptions.class) : null
                         ));
 
                     } catch (IllegalAccessException e) {
@@ -86,6 +88,7 @@ public class ComponentConfigAccess {
             @Nullable Class<?> innerType,
             MethodHandle getter, MethodHandle setter,
             @Nullable ComponentNumberRange numberRange,
-            @Nullable ComponentStringRegex stringRegex
+            @Nullable ComponentStringRegex stringRegex,
+            @Nullable ComponentConfigOptions options
     ) {}
 }

@@ -2,17 +2,18 @@ package dev.sixik.sdmshop2.libs.shop.register;
 
 import dev.sixik.sdmshop2.libs.shop.components.CommandRewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.ItemRewardComponent;
+import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentRegistry;
 import dev.sixik.sdmshop2.libs.shop.components.conditions.CooldownConditionComponent;
 import dev.sixik.sdmshop2.libs.shop.components.limiter.LimiterComponent;
-import dev.sixik.sdmshop2.libs.shop.components.misc.RenderHideComponent;
-import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
-import dev.sixik.sdmshop2.libs.shop.components.misc.ShopCategoriesContainerComponent;
-import dev.sixik.sdmshop2.libs.shop.components.misc.ShopOffersContainerComponent;
-import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentRegistry;
+import dev.sixik.sdmshop2.libs.shop.components.misc.*;
 import dev.sixik.sdmshop2.libs.shop.components.money.MoneyCostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.money.MoneyRewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.promo.conditions.PromoCooldownComponent;
+import dev.sixik.sdmshop2.libs.shop.components.promo.conditions.PromoTimeComponent;
+import dev.sixik.sdmshop2.libs.shop.components.promo.conditions.PromoTriggerComponent;
+import dev.sixik.sdmshop2.libs.shop.components.promo.conditions.PromoWeeklyTimeComponent;
 import dev.sixik.sdmshop2.libs.shop.components.promo.effects.DiscountComponent;
+import dev.sixik.sdmshop2.libs.shop.components.promo.effects.PriceModifierPromoEffectComponent;
 import dev.sixik.sdmshop2.libs.shop.scripting.ScriptConditionComponent;
 import dev.sixik.sdmshop2.libs.shop.scripting.ScriptRewardComponent;
 
@@ -33,8 +34,13 @@ public class ShopRegister {
         ShopComponentRegistry.register(RenderHideComponent.TYPE);
         ShopComponentRegistry.register(LimiterComponent.TYPE);
         ShopComponentRegistry.register(DiscountComponent.TYPE);
+        ShopComponentRegistry.register(PriceModifierPromoEffectComponent.TYPE);
         ShopComponentRegistry.register(PromoCooldownComponent.TYPE);
+        ShopComponentRegistry.register(PromoTimeComponent.TYPE);
+        ShopComponentRegistry.register(PromoTriggerComponent.TYPE);
+        ShopComponentRegistry.register(PromoWeeklyTimeComponent.TYPE);
         ShopComponentRegistry.register(CooldownConditionComponent.TYPE);
+        ShopComponentRegistry.register(NameComponent.TYPE);
 
         ShopComponentRegistry.register(ScriptRewardComponent.TYPE);
         ShopComponentRegistry.register(ScriptConditionComponent.TYPE);

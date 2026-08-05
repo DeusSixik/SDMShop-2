@@ -1,6 +1,5 @@
 package dev.sixik.sdmshop2.libs.shop.base.limiter;
 
-import com.google.gson.JsonObject;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.player.Player;
 
@@ -20,7 +19,12 @@ public interface ShopLimiterTable {
      * @param entityId UUID товара (сущности)
      * @return Объект данных лимита для указанного товара
      */
-    ShopLimiterOfferData getOfferDatga(UUID entityId);
+    ShopLimiterOfferData getOfferData(UUID entityId);
+
+    @Deprecated
+    default ShopLimiterOfferData getOfferDatga(UUID entityId) {
+        return getOfferData(entityId);
+    }
 
     /**
      * Возвращает персональные данные о лимитах указанного игрока.
@@ -37,6 +41,19 @@ public interface ShopLimiterTable {
      * @return Объект персональных данных лимитов игрока
      */
     ShopLimiterPlayerData getPlayerData(UUID playerId);
+
+    default boolean resetOfferData(UUID entityId) {
+        getOfferData(entityId).reset();
+        return true;
+    }
+
+    default boolean resetPlayerData(UUID playerId, UUID entityId) {
+        return getPlayerData(playerId).remove(entityId);
+    }
+
+    default int resetAllPlayerData(UUID entityId) {
+        return 0;
+    }
 
     @Deprecated
     default void save() {

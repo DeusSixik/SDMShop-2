@@ -6,8 +6,8 @@ import dev.architectury.event.Event;
 import dev.architectury.event.EventFactory;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.client.config.constructors.ComponentConfigWidgetConstructor;
+import dev.sixik.sdmshop2.libs.shop.client.ui.ShopScreenController;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
-import dev.sixik.sdmshop2.libs.shop.network.async.AsyncClientTasks;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 
@@ -47,16 +47,16 @@ public class SDMShopClient {
 
     public static ShopInstance Shop = ShopInstance.createManager(ShopInstance.NULL_MANAGER, false);
 
-    public static void init() {
-        AsyncClientTasks.init();
+    public static void openShopGui() {
+        ShopScreenController.openShop();
     }
 
-    public static void openShopGui() {
-        System.out.println("Open Shop");
+    public static void openShopEditorGui() {
+        ShopScreenController.openShopEditor();
     }
 
     /**
-     * Template !
+     * Шаблонный метод.
      */
     @Environment(EnvType.CLIENT)
     @Deprecated

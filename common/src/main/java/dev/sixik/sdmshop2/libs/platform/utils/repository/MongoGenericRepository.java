@@ -19,6 +19,12 @@ import java.util.function.Function;
 public class MongoGenericRepository<K, V> implements Repository<K, V>, MongoRepositoryManager.MongoChangeListener {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MongoGenericRepository.class);
+    private static final String ID_FIELD = "_id";
+    private static final String LEGACY_UPDATED_BY_FIELD = "last_updated_by";
+    private static final String META_FIELD = "_sdm_meta";
+    private static final String META_UPDATED_BY_FIELD = "updated_by";
+    private static final String META_UPDATED_AT_FIELD = "updated_at";
+    private static final String META_SCHEMA_VERSION_FIELD = "schema_version";
 
     private final MongoCollection<Document> collection;
     private final String serverIdentifier;
@@ -31,6 +37,7 @@ public class MongoGenericRepository<K, V> implements Repository<K, V>, MongoRepo
 
     private Consumer<K> onUpdateCallback;
     private Consumer<K> onDeleteCallback;
+    private final Map<String, Long> localDeletes = new ConcurrentHashMap<>();
 
     public MongoGenericRepository(
             MongoRepositoryManager manager,
@@ -61,11 +68,15 @@ public class MongoGenericRepository<K, V> implements Repository<K, V>, MongoRepo
         JsonObject json = serializer.apply(entity);
 
         Document doc = Document.parse(json.toString());
-        doc.put("_id", stringId);
-        doc.put("last_updated_by", serverIdentifier);
+        doc.put(ID_FIELD, stringId);
+        doc.put(LEGACY_UPDATED_BY_FIELD, serverIdentifier);
+        doc.put(META_FIELD, new Document()
+                .append(META_UPDATED_BY_FIELD, serverIdentifier)
+                .append(META_UPDATED_AT_FIELD, System.currentTimeMillis())
+                .append(META_SCHEMA_VERSION_FIELD, 1));
 
         collection.replaceOne(
-                Filters.eq("_id", stringId),
+                Filters.eq(ID_FIELD, stringId),
                 doc,
                 new ReplaceOptions().upsert(true)
         );
@@ -73,13 +84,13 @@ public class MongoGenericRepository<K, V> implements Repository<K, V>, MongoRepo
 
     @Override
     public @Nullable V load(K id) {
-        Document doc = collection.find(Filters.eq("_id", keyToString.apply(id))).first();
+        Document doc = collection.find(Filters.eq(ID_FIELD, keyToString.apply(id))).first();
         if (doc == null) return null;
 
         try {
-            JsonObject json = JsonParser.parseString(doc.toJson()).getAsJsonObject();
-            return deserializer.apply(json);
+            return deserializer.apply(toEntityJson(doc));
         } catch (Exception e) {
+            LOGGER.error("Failed to deserialize entity from MongoDB. Doc ID: {}", doc.getString(ID_FIELD), e);
             return null;
         }
     }
@@ -89,11 +100,10 @@ public class MongoGenericRepository<K, V> implements Repository<K, V>, MongoRepo
         Map<K, V> map = createMap();
         for (Document doc : collection.find()) {
             try {
-                JsonObject json = JsonParser.parseString(doc.toJson()).getAsJsonObject();
-                V entity = deserializer.apply(json);
+                V entity = deserializer.apply(toEntityJson(doc));
                 map.put(extractKey.apply(entity), entity);
             } catch (Exception e) {
-                LOGGER.error("Failed to deserialize entity from MongoDB. Doc ID: {}", doc.getString("_id"), e);
+                LOGGER.error("Failed to deserialize entity from MongoDB. Doc ID: {}", doc.getString(ID_FIELD), e);
             }
         }
         return map;
@@ -101,7 +111,23 @@ public class MongoGenericRepository<K, V> implements Repository<K, V>, MongoRepo
 
     @Override
     public void delete(K id) {
-        collection.deleteOne(Filters.eq("_id", keyToString.apply(id)));
+        cleanupLocalDeletes();
+        final String stringId = keyToString.apply(id);
+        localDeletes.put(stringId, System.currentTimeMillis());
+        collection.deleteOne(Filters.eq(ID_FIELD, stringId));
+    }
+
+    private JsonObject toEntityJson(Document doc) {
+        JsonObject json = JsonParser.parseString(doc.toJson()).getAsJsonObject();
+        json.remove(ID_FIELD);
+        json.remove(LEGACY_UPDATED_BY_FIELD);
+        json.remove(META_FIELD);
+        return json;
+    }
+
+    private void cleanupLocalDeletes() {
+        final long threshold = System.currentTimeMillis() - 60_000L;
+        localDeletes.entrySet().removeIf(entry -> entry.getValue() < threshold);
     }
 
     @Override
@@ -119,6 +145,10 @@ public class MongoGenericRepository<K, V> implements Repository<K, V>, MongoRepo
 
     @Override
     public void onRemoteDelete(String rawId) {
+        if (localDeletes.remove(rawId) != null) {
+            return;
+        }
+
         if (onDeleteCallback != null) {
             onDeleteCallback.accept(stringToKey.apply(rawId));
         }

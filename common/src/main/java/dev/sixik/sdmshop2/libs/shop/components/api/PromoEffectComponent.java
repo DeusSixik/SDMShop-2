@@ -1,22 +1,32 @@
 package dev.sixik.sdmshop2.libs.shop.components.api;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
+import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
+import dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import lombok.Getter;
 import lombok.Setter;
-import net.minecraft.network.FriendlyByteBuf;
 
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 public abstract class PromoEffectComponent extends ShopComponent {
 
+    private static final ComponentSerializer<PromoEffectComponent> ADDITIONAL_SERIALIZER = ComponentSerializer.<PromoEffectComponent>create()
+            .addDefaultedString("target_promo_id", PromoEffectComponent::getTargetPromoId, PromoEffectComponent::setTargetPromoId, "")
+            .addDefaultedInt("priority", PromoEffectComponent::getPriority, PromoEffectComponent::setPriority, 0)
+            .add("apply_groups", FieldCodecs.list(FieldCodecs.STRING), PromoEffectComponent::getApplyGroupsList, PromoEffectComponent::setApplyGroupsList);
+
     @Getter
     @Setter
     @ComponentConfig(translationKey = "shop.component.promo.effects.target_promo_id")
-    private String targetPromoId;
+    private String targetPromoId = "";
+
+    @Getter
+    @Setter
+    @ComponentConfig(translationKey = "shop.component.promo.effects.priority")
+    private int priority;
 
     @Getter
     @ComponentConfig(translationKey = "shop.component.promo.apply_groups")
@@ -26,11 +36,19 @@ public abstract class PromoEffectComponent extends ShopComponent {
      * Проверяет, применим ли данный эффект при текущих активных акциях и выбранной группе оплаты.
      */
     public boolean canApply(Set<String> activePromos, String chosenGroupId) {
-        boolean matchPromo = targetPromoId == null || targetPromoId.isEmpty() || activePromos.contains(targetPromoId);
+        boolean hasActivePromo = activePromos != null && !activePromos.isEmpty();
+        boolean matchPromo = targetPromoId == null || targetPromoId.isEmpty()
+                ? hasActivePromo
+                : hasActivePromo && activePromos.contains(targetPromoId);
         boolean matchGroup = applyGroups.isEmpty() || applyGroups.contains(chosenGroupId);
         return matchPromo && matchGroup;
     }
 
+    public double applyPrice(PromoPriceContext context) {
+        return applyPrice(context.currentPrice(), context.activePromos(), applyGroups);
+    }
+
+    @Deprecated
     public double applyPrice(double input, Set<String> activePromo, Set<String> activeGroups) {
         return input;
     }
@@ -48,42 +66,23 @@ public abstract class PromoEffectComponent extends ShopComponent {
     }
 
     @Override
-    public void additionalSerialize(JsonObject json) {
-        if(targetPromoId != null && !targetPromoId.isEmpty())
-            json.addProperty("target_promo_id", targetPromoId);
-
-        JsonArray array = new JsonArray();
-        applyGroups.forEach(array::add);
-        json.add("apply_groups", array);
+    public ComponentSerializer<PromoEffectComponent> additionalSerializer() {
+        return ADDITIONAL_SERIALIZER;
     }
 
     @Override
-    public void additionalDeserialize(JsonObject json) {
-        if(json.has("target_promo_id"))
-            targetPromoId = json.get("target_promo_id").getAsString();
-
-        if(json.has("apply_groups")) {
-            JsonArray array = json.getAsJsonArray("apply_groups");
-            array.forEach(element -> applyGroups.add(element.getAsString()));
-        }
+    public ShopComponentCategory getCategory() {
+        return ShopComponentCategory.PROMO_EFFECT;
     }
 
-    @Override
-    public void additionalToNetwork(FriendlyByteBuf buf) {
-        buf.writeUtf(targetPromoId != null ? targetPromoId : "");
-
-        buf.writeVarInt(applyGroups.size());
-        applyGroups.forEach(buf::writeUtf);
+    private List<String> getApplyGroupsList() {
+        return new ArrayList<>(applyGroups);
     }
 
-    @Override
-    public void additionalFromNetwork(FriendlyByteBuf buf) {
-        targetPromoId = buf.readUtf();
-
+    private void setApplyGroupsList(List<String> groups) {
         applyGroups.clear();
-        int size = buf.readVarInt();
-        for(int i = 0; i < size; i++) {
-            applyGroups.add(buf.readUtf());
+        if (groups != null) {
+            applyGroups.addAll(groups);
         }
     }
 }

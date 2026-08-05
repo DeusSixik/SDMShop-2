@@ -1,5 +1,6 @@
 package dev.sixik.sdmshop2.libs.shop.network;
 
+import dev.sixik.sdmshop2.libs.sdmeconomy.CurrencyDraft;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
@@ -44,6 +45,10 @@ public class ShopNetworkManager {
         ShopNetworkManagerNative.sendShopData(shop, players);
     }
 
+    public static void sendShopData(ShopInstance shop, @Nullable UUID updater, Iterable<ServerPlayer> players) {
+        ShopNetworkManagerNative.sendShopData(shop, updater, players);
+    }
+
     public static void sendLimiterData(ServerPlayer... players) {
         ShopNetworkManagerNative.sendLimiterData(players);
     }
@@ -80,6 +85,11 @@ public class ShopNetworkManager {
      * Запросить серверные условия для списка товаров (батч)
      */
     @Environment(EnvType.CLIENT)
+    public static CompletableFuture<Boolean> purchaseOffer(ShopOffer shopOffer, @Nullable String chosenGroupId, int amount) {
+        return ShopNetworkManagerNative.purchaseOffer(shopOffer, chosenGroupId, amount);
+    }
+
+    @Environment(EnvType.CLIENT)
     public static CompletableFuture<Map<UUID, Map<ConditionComponent, Boolean>>> fetchServerConditions(Collection<ShopOffer> shopOffers) {
         return ShopNetworkManagerNative.fetchServerConditions(shopOffers);
     }
@@ -92,5 +102,20 @@ public class ShopNetworkManager {
     @Environment(EnvType.CLIENT)
     public static void requestShopAndOpen(ResourceLocation shopId) {
         ShopNetworkManagerNative.requestShopAndOpen(shopId);
+    }
+
+    @Environment(EnvType.CLIENT)
+    public static void requestConfiguredShopOpen() {
+        ShopNetworkManagerNative.requestConfiguredShopOpen();
+    }
+
+    @Environment(EnvType.CLIENT)
+    public static CompletableFuture<Boolean> sendShopChanges(ShopInstance draftShop) {
+        return ShopNetworkManagerNative.sendShopChanges(draftShop);
+    }
+
+    @Environment(EnvType.CLIENT)
+    public static CompletableFuture<Boolean> sendCurrencyChanges(Collection<CurrencyDraft> currencyDrafts) {
+        return ShopNetworkManagerNative.sendCurrencyChanges(currencyDrafts);
     }
 }

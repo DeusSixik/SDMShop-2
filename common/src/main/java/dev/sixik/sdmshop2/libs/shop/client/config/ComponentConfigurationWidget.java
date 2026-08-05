@@ -1,19 +1,17 @@
 package dev.sixik.sdmshop2.libs.shop.client.config;
 
 import com.lowdragmc.lowdraglib.gui.texture.ColorBorderTexture;
-import com.lowdragmc.lowdraglib.gui.texture.GuiTextureGroup;
-import com.lowdragmc.lowdraglib.gui.texture.TextTexture;
 import com.lowdragmc.lowdraglib.gui.texture.TransformTexture;
-import com.lowdragmc.lowdraglib.gui.widget.*;
+import com.lowdragmc.lowdraglib.gui.widget.Widget;
+import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import com.lowdragmc.lowdraglib.gui.widget.layout.Layout;
 import com.lowdragmc.lowdraglib.utils.Size;
 import dev.sixik.sdmshop2.libs.shop.client.WidgetGroupAccessor;
 import dev.sixik.sdmshop2.libs.shop.client.config.constructors.ComponentConfigAccess;
 import dev.sixik.sdmshop2.libs.shop.client.config.constructors.ComponentConfigWidgetConstructor;
-import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.ExternTextFieldWidget;
-import dev.sixik.sdmshop2.libs.shop.client.screens.widgets.SDMTextLabel;
-import dev.sixik.sdmshop2.libs.shop.client.textures.ColorRectAndBorderTexture;
+import dev.sixik.sdmshop2.libs.shop.client.ui.textures.ColorRectAndBorderTexture;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
+import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import lombok.Getter;
 import lombok.Setter;
@@ -30,34 +28,40 @@ import java.util.function.BiConsumer;
 
 public class ComponentConfigurationWidget extends WidgetGroup {
 
+    protected static final int DEFAULT_WIDTH = 60;
+    protected static final int LABEL_X = 10;
+    protected static final int TOP_PADDING = 10;
+    protected static final int ROW_SPACING = 5;
+    protected static final int EDITOR_WIDTH = 85;
+    protected static final int RIGHT_PADDING = 10;
+    protected static final int LABEL_EDITOR_GAP = 5;
+    protected static final int DEFAULT_EDITOR_HEIGHT = 20;
+    protected static final float MIN_LABEL_SCALE = 0.4f;
+
     public static final ColorRectAndBorderTexture texture = new ColorRectAndBorderTexture();
     public static final ColorBorderTexture hoverTexture = new ColorBorderTexture(1, -1);
 
-    protected final List<Widget[]> uiPairs = new ArrayList<>();
+    protected final List<UiPair> uiPairs = new ArrayList<>();
 
     @Getter
     @Nullable
     protected ShopComponent component;
 
     @Setter
-    protected BiConsumer<Integer, SwitchWidget> modifySwitchWidgetCallback = (index, widget) -> {
-        widget.setTexture(new GuiTextureGroup(getTexture(), new TextTexture("off")), new GuiTextureGroup(getTexture(), new TextTexture("on")));
-    };
+    protected ComponentConfigWidgetConstructor.Style editorStyle = ComponentConfigWidgetConstructor.Style.defaults();
 
     @Setter
-    protected BiConsumer<Integer, ExternTextFieldWidget> modifyExternTextFieldWidgetCallback = (index, widget) -> {
-        widget.setTextFieldHeight(20);
-    };
+    protected BiConsumer<Integer, ComponentConfigWidgetConstructor> modifyConfigWidgetCallback = (index, widget) -> { };
 
     @Setter
-    protected BiConsumer<Integer, SDMTextLabel> modifyTextLabelCreateCallback = (index, widget) -> { };
+    protected BiConsumer<Integer, TextLabel> modifyTextLabelCreateCallback = (index, widget) -> { };
 
     @Setter
     protected ModifyElements modifyInitElementsCallback = ((main, label, editor, font, editorWidth, editorX, currentY) -> {
         editor.setSizeWidth(editorWidth);
         editor.setSelfPosition(editorX, currentY);
 
-        int maxLabelWidth = editorX - 10 - 5;
+        int maxLabelWidth = editorX - LABEL_X - LABEL_EDITOR_GAP;
         int originalTextWidth = font.width(label.getText());
 
         /*
@@ -69,29 +73,30 @@ public class ComponentConfigurationWidget extends WidgetGroup {
                 Если текст шире, чем доступное место, считаем коэффициент сжатия.
              */
             scale = (float) maxLabelWidth / originalTextWidth;
-            scale = Math.max(scale, 0.4f);
+            scale = Math.max(scale, MIN_LABEL_SCALE);
         }
 
         label.setScale(scale);
+        label.setSize(maxLabelWidth, Math.max(1, Math.round(font.lineHeight * scale)));
 
         int editorHeight = editor.getSizeHeight();
         float visualTextHeight = font.lineHeight * scale;
 
         int labelY = currentY + (int)((editorHeight - visualTextHeight) / 2f);
 
-        label.setSelfPosition(10, labelY);
+        label.setSelfPosition(LABEL_X, labelY);
 
         /*
             Возвращаем шаг по Y для следующего элемента (высота виджета + отступ)
          */
-        return editorHeight + 5;
+        return editorHeight + ROW_SPACING;
     });
 
     @Getter @Setter
     protected int fixedWidth;
 
     public ComponentConfigurationWidget(@Nullable ShopComponent component) {
-        this(60, component);
+        this(DEFAULT_WIDTH, component);
     }
 
     public ComponentConfigurationWidget(int width, @Nullable ShopComponent component) {
@@ -106,8 +111,9 @@ public class ComponentConfigurationWidget extends WidgetGroup {
 
     @Override
     public void initWidget() {
-        updateConfiguration();
+        rebuildConfiguration();
         super.initWidget();
+        repositionWidgets();
     }
 
     public void setComponent(ShopComponent component) {
@@ -117,6 +123,14 @@ public class ComponentConfigurationWidget extends WidgetGroup {
     }
 
     public void updateConfiguration() {
+        rebuildConfiguration();
+        if (isInitialized()) {
+            super.initWidget();
+        }
+        repositionWidgets();
+    }
+
+    protected void rebuildConfiguration() {
         clearAllWidgets();
         uiPairs.clear();
         if(component == null) return;
@@ -128,20 +142,19 @@ public class ComponentConfigurationWidget extends WidgetGroup {
             final var datum = fieldsList.get(i);
             Widget editorWidget = ComponentConfigWidgetConstructor.createWidget(component, datum);
             if (editorWidget == null) continue;
-            if(editorWidget instanceof SwitchWidget switchWidget) {
-                modifySwitchWidgetCallback.accept(i, switchWidget);
-            } else if(editorWidget instanceof ExternTextFieldWidget textFieldWidget) {
-                modifyExternTextFieldWidgetCallback.accept(i, textFieldWidget);
+            if (editorWidget instanceof ComponentConfigWidgetConstructor configWidget) {
+                configWidget.setStyle(editorStyle);
+                modifyConfigWidgetCallback.accept(i, configWidget);
             }
 
             editorWidget.setHoverTexture(getHoverTexture());
-            editorWidget.setSizeHeight(20);
 
-            if (!(editorWidget instanceof WidgetGroup)) {
-                editorWidget.setSizeHeight(20);
+            if (!(editorWidget instanceof ComponentConfigWidgetConstructor)) {
+                editorWidget.setSizeHeight(DEFAULT_EDITOR_HEIGHT);
             }
 
-            SDMTextLabel textLabel = new SDMTextLabel(Component.translatable(datum.translationKey()));
+            TextLabel textLabel = new TextLabel(Component.translatable(datum.translationKey()))
+                    .setAutoSize(false);
             modifyTextLabelCreateCallback.accept(i, textLabel);
 
             @Nullable String tooltip = datum.tooltipTranslationKey();
@@ -150,7 +163,7 @@ public class ComponentConfigurationWidget extends WidgetGroup {
                 textLabel.setHoverTooltips(tooltip);
             }
 
-            uiPairs.add(new Widget[]{textLabel, editorWidget});
+            uiPairs.add(new UiPair(textLabel, editorWidget));
         }
 
 
@@ -159,29 +172,24 @@ public class ComponentConfigurationWidget extends WidgetGroup {
             поэтому его DropDown перекроет все нижние виджеты и заберет клики.
          */
         for (int i = uiPairs.size() - 1; i >= 0; i--) {
-            Widget[] pair = uiPairs.get(i);
-            this.addWidget(pair[0]); // Label
-            this.addWidget(pair[1]); // Editor
+            UiPair pair = uiPairs.get(i);
+            this.addWidget(pair.label()); // Метка
+            this.addWidget(pair.editor()); // Редактор
         }
-
-        super.initWidget();
-        repositionWidgets();
     }
 
     /**
      * Тот самый метод, который двигает всё "в прямом эфире"
      */
     public void repositionWidgets() {
-        int currentY = 10;
-        int editorWidth = 85;
-        int paddingRight = 10;
+        int currentY = TOP_PADDING;
+        int editorWidth = EDITOR_WIDTH;
+        int paddingRight = RIGHT_PADDING;
         int editorX = getSizeWidth() - editorWidth - paddingRight;
         Font font = Minecraft.getInstance().font;
 
-        for (Widget[] pair : uiPairs) {
-            SDMTextLabel label = (SDMTextLabel) pair[0];
-            Widget editor = pair[1];
-            currentY += modifyInitElementsCallback.accept(this, label, editor, font, editorWidth, editorX, currentY);
+        for (UiPair pair : uiPairs) {
+            currentY += modifyInitElementsCallback.accept(this, pair.label(), pair.editor(), font, editorWidth, editorX, currentY);
         }
 
         /*
@@ -217,7 +225,7 @@ public class ComponentConfigurationWidget extends WidgetGroup {
     }
 
     //////////////////////////////////////////////////////
-    ///             FIX SIZE WIDTH                     ///
+    ///             ИСПРАВЛЕНИЕ ШИРИНЫ                ///
     //////////////////////////////////////////////////////
     @Override
     public void setSize(Size size) {
@@ -238,6 +246,9 @@ public class ComponentConfigurationWidget extends WidgetGroup {
 
     public interface ModifyElements {
 
-        int accept(ComponentConfigurationWidget main, SDMTextLabel label, Widget editor, Font font, int editorWidth, int editorX, int currentY);
+        int accept(ComponentConfigurationWidget main, TextLabel label, Widget editor, Font font, int editorWidth, int editorX, int currentY);
+    }
+
+    protected record UiPair(TextLabel label, Widget editor) {
     }
 }

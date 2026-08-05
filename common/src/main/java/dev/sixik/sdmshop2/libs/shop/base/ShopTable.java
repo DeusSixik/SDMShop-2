@@ -4,11 +4,11 @@ import dev.architectury.platform.Platform;
 import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.platform.SDMPlatform;
 import dev.sixik.sdmshop2.libs.platform.ServerOperation;
-import dev.sixik.sdmshop2.libs.platform.ThreadingOperationTimeSave;
 import dev.sixik.sdmshop2.libs.platform.utils.repository.RepositoryStorage;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepoDefinition;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepositoryManager;
 import dev.sixik.sdmshop2.libs.shop.events.ShopServerEvents;
+import dev.sixik.sdmshop2.libs.shop.generator.DefaultShopGenerator;
 import dev.sixik.sdmshop2.libs.shop.scripting.events.ShopScriptEvents;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import lombok.Getter;
@@ -24,19 +24,20 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Глобальный менеджер всех магазинов в системе.
  * Отвечает за хранение, загрузку, сохранение и удаление экземпляров {@link ShopInstance}.
  */
-public final class ShopTable implements ShopServerGetter{
+public final class ShopTable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ShopTable.class);
 
     /**
      * Глобальный экземпляр ShopTable.
      */
-    public static ShopTable Instance;
+    public static volatile ShopTable Instance;
 
     private final ExecutorService ioExecutor;
     private RepositoryStorage<ResourceLocation, ShopInstance> shopsRepository;
@@ -77,12 +78,11 @@ public final class ShopTable implements ShopServerGetter{
         this.shopDirConfig = SDMPlatform.resolveSdmDir(Platform.getConfigFolder(), "shop");
         this.shopsDir = SDMPlatform.resolveSdmDir(Platform.getConfigFolder(), "shop/shops");
         this.manager = manager;
-        this.manager.setServerGetter(this);
         this.manager.init();
 
         shopsRepository = new RepositoryStorage<>(manager.createRepository(
             shopsDir,
-            SDMShop2.getDataStorageConfig().getDefaultConfig().mongodb.shopsCollection,
+            SDMShop2.getConfig().mongodb.shopsCollection,
             new RepoDefinition<>(
                     ResourceLocation::toString,
                     ResourceLocation::new,
@@ -90,7 +90,7 @@ public final class ShopTable implements ShopServerGetter{
                     shop -> shop.serialize().getAsJsonObject(),
                     json -> {
                         ShopInstance instance = ShopInstance.fromJson(json);
-                        instance.setOnUpdate(() -> shopsRepository.update(instance.getId()));
+                        attachAutoSave(instance);
                         return instance;
                     }
             )
@@ -115,7 +115,9 @@ public final class ShopTable implements ShopServerGetter{
      * @param instance Экземпляр магазина
      */
     public void addShop(ShopInstance instance) {
-        shopsRepository.putValue(instance.getId(), instance);
+        attachAutoSave(instance);
+        shopsRepository.putValue(instance.getId(), instance, instance.shouldSave());
+        SDMShop2.LOGGER.info("Create new shop with id: {}", instance.getId());
     }
 
     /**
@@ -175,6 +177,11 @@ public final class ShopTable implements ShopServerGetter{
      * @param instance Экземпляр магазина
      */
     public void save(ShopInstance instance) {
+        if (!instance.shouldSave()) {
+            return;
+        }
+
+        attachAutoSave(instance);
         shopsRepository.save(instance.getId(), instance);
     }
 
@@ -184,7 +191,19 @@ public final class ShopTable implements ShopServerGetter{
      * @param instance Экземпляр магазина
      */
     public void saveAsync(ShopInstance instance) {
+        if (!instance.shouldSave()) {
+            return;
+        }
+
         ioExecutor.submit(() -> save(instance));
+    }
+
+    private void attachAutoSave(ShopInstance instance) {
+        instance.setOnUpdate(() -> {
+            if (instance.shouldSave()) {
+                shopsRepository.update(instance.getId());
+            }
+        });
     }
 
     /**
@@ -202,6 +221,7 @@ public final class ShopTable implements ShopServerGetter{
 
             ShopScriptEvents.SCRIPT_SHOP_LOAD_EVENT.invoker().invoke(server, this);
             ShopServerEvents.SHOP_LOAD_EVENT.invoker().invoke(server, this);
+            DefaultShopGenerator.registerDefaultIfEmpty(this);
 
             LOGGER.info("Loaded {} shops.", shopsRepository.size());
         } catch (Exception e) {
@@ -217,15 +237,27 @@ public final class ShopTable implements ShopServerGetter{
     public void reloadShop(ResourceLocation id) {
         if (shopsRepository == null) return;
         shopsRepository.load(id);
-        // TODO: Shop update event
+        // TODO: событие обновления магазина
         // ShopServerEvents.SHOP_UPDATED_EVENT.invoker().invoke(server, updatedShop);
     }
 
     public void shutdown() {
-        manager.close();
+        try {
+            ioExecutor.shutdown();
+            try {
+                if (!ioExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                    ioExecutor.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                ioExecutor.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        } finally {
+            manager.close();
+        }
     }
 
-    public static class Manager implements ServerOperation, ThreadingOperationTimeSave {
+    public static class Manager implements ServerOperation {
 
         @Override
         public void onReload() {
@@ -241,15 +273,11 @@ public final class ShopTable implements ShopServerGetter{
 
         @Override
         public void onServerStop(MinecraftServer server) {
-            ShopTable.Instance.shutdown();
+            if (ShopTable.Instance != null) {
+                ShopTable.Instance.shutdown();
+                ShopTable.Instance = null;
+            }
         }
 
-        @Override
-        public void onDataStartSave() { }
-
-        @Override
-        public int getDataSaveTimeSeconds() {
-            return -1;
-        }
     }
 }

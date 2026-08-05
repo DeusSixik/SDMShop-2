@@ -2,6 +2,7 @@ package dev.sixik.sdmshop2.libs.platform.utils.repository;
 
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -14,7 +15,19 @@ public interface Repository<K, V> {
 
     void delete(K id);
 
+    default void saveAll(Map<K, V> entities) {
+        entities.forEach(this::save);
+    }
+
+    default void deleteAll(Collection<K> ids) {
+        ids.forEach(this::delete);
+    }
+
     default void setSyncCallbacks(Consumer<K> onUpdate, Consumer<K> onDelete) {
+
+    }
+
+    default void close() {
 
     }
 }

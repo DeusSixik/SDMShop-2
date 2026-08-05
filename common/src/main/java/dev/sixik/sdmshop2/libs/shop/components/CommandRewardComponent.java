@@ -1,17 +1,24 @@
 package dev.sixik.sdmshop2.libs.shop.components;
 
-import com.google.gson.JsonObject;
+import com.lowdragmc.lowdraglib.gui.texture.ItemStackTexture;
+import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.IconType;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopEmptyWidget;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
+import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
+import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
 import lombok.Getter;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Items;
+import org.jetbrains.annotations.Nullable;
 
 public class CommandRewardComponent extends RewardComponent {
 
@@ -19,6 +26,8 @@ public class CommandRewardComponent extends RewardComponent {
     public static final String DEFAULT_COMMAND = "/time set day";
 
     public static final IComponentType<CommandRewardComponent> TYPE = new Type();
+
+    protected static final ItemStackTexture DEFAULT_TEXTURE = new ItemStackTexture(Items.COMMAND_BLOCK);
 
     @Getter
     @ComponentConfig(translationKey = "shop.component.reward.command.display_name")
@@ -39,9 +48,9 @@ public class CommandRewardComponent extends RewardComponent {
 
     @Override
     public void reward(ServerPlayer player, int amount) {
-        CommandSourceStack source = player.createCommandSourceStack();
-        source.withPermission(2);
-        source.withSuppressedOutput();
+        CommandSourceStack source = player.createCommandSourceStack()
+                .withPermission(2)
+                .withSuppressedOutput();
 
         String format = formatCommand(command, player);
         for (int i = 0; i < amount; i++) {
@@ -54,56 +63,27 @@ public class CommandRewardComponent extends RewardComponent {
         return TYPE;
     }
 
-    private static class Type implements IComponentType<CommandRewardComponent> {
+    @Override
+    @Environment(EnvType.CLIENT)
+    public @Nullable Widget createRender() {
+        return new ShopEmptyWidget().setBackground(DEFAULT_TEXTURE)
+                .setHoverTooltips(Component.translatable("shop.ui.offer_element.component.reward.command", command));
+    }
+
+    private static class Type extends SerializedComponentType<CommandRewardComponent> {
 
         private static final ResourceLocation ID = ResourceLocation.tryBuild("sdm", "reward_command");
+        private static final ComponentSerializer<CommandRewardComponent> SERIALIZER = ComponentSerializer.<CommandRewardComponent>create()
+                .addDefaultedString("name", CommandRewardComponent::getDisplayName, (component, value) -> component.displayName = value, EMPTY)
+                .addDefaultedString("command", CommandRewardComponent::getCommand, (component, value) -> component.command = value, DEFAULT_COMMAND, false);
+
+        private Type() {
+            super(CommandRewardComponent::new, SERIALIZER);
+        }
 
         @Override
         public ResourceLocation getId() {
             return ID;
-        }
-
-        @Override
-        public JsonObject serialize(CommandRewardComponent component) {
-            JsonObject json = new JsonObject();
-
-            if(!component.displayName.equals(EMPTY))
-                json.addProperty("name", component.displayName);
-
-            if(!component.command.equals(DEFAULT_COMMAND))
-                json.addProperty("command", component.command);
-
-           return json;
-        }
-
-        @Override
-        public CommandRewardComponent deserialize(JsonObject json) {
-
-            String command = DEFAULT_COMMAND;
-            String name = EMPTY;
-
-            if(json.has("name"))
-                name = json.get("name").getAsString();
-
-            if(json.has("command"))
-                command = json.get("command").getAsString();
-
-            return new CommandRewardComponent(command, name);
-        }
-
-        @Override
-        public void toNetwork(FriendlyByteBuf buf, CommandRewardComponent component) {
-            buf.writeUtf(component.displayName);
-        }
-
-        @Override
-        public CommandRewardComponent fromNetwork(FriendlyByteBuf buf) {
-            return new CommandRewardComponent(DEFAULT_COMMAND, buf.readUtf());
-        }
-
-        @Override
-        public CommandRewardComponent createDefault() {
-            return new CommandRewardComponent();
         }
 
         @Override

@@ -1,8 +1,6 @@
 package dev.sixik.sdmshop2.libs.shop.base.limiter;
 
-import com.google.gson.JsonObject;
 import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.player.Player;
@@ -18,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class ShopLimiterTableClient implements ShopLimiterTable {
 
-    private final Map<UUID, ShopLimiterOfferData> entitiesData = new Object2ObjectOpenHashMap<>();
+    private final Map<UUID, ShopLimiterOfferData> entitiesData = new ConcurrentHashMap<>();
     private ShopLimiterPlayerData localPlayerData;
 
     public static final ShopLimiterTableClient INSTANCE = new ShopLimiterTableClient();
@@ -26,17 +24,17 @@ public final class ShopLimiterTableClient implements ShopLimiterTable {
     public ShopLimiterTableClient() { }
 
     @Override
-    public ShopLimiterOfferData getOfferDatga(UUID entityId) {
+    public ShopLimiterOfferData getOfferData(UUID entityId) {
         return entitiesData.computeIfAbsent(entityId, ShopLimiterOfferData::new);
     }
 
     public ShopLimiterPlayerData getPlayerData() {
-        return getPlayerData(Minecraft.getInstance().player.getGameProfile().getId());
+        return getPlayerData(localPlayerId());
     }
 
     @Override
     public ShopLimiterPlayerData getPlayerData(Player player) {
-        return getPlayerData(player);
+        return getPlayerData(player.getGameProfile().getId());
     }
 
     /**
@@ -47,14 +45,35 @@ public final class ShopLimiterTableClient implements ShopLimiterTable {
      */
     @Override
     public ShopLimiterPlayerData getPlayerData(UUID playerId) {
-        if(playerId != null && !playerId.equals(Minecraft.getInstance().player.getGameProfile().getId()))
+        UUID localPlayerId = localPlayerId();
+        if(playerId != null && localPlayerId != null && !playerId.equals(localPlayerId))
             throw new IllegalArgumentException("Player ID must be equal to local player ID");
 
         if (localPlayerData == null) {
-            localPlayerData = new ShopLimiterPlayerData(playerId);
+            localPlayerData = new ShopLimiterPlayerData(playerId == null ? new UUID(0L, 0L) : playerId);
         }
 
         return localPlayerData;
+    }
+
+    @Override
+    public boolean resetOfferData(UUID entityId) {
+        return entitiesData.remove(entityId) != null;
+    }
+
+    @Override
+    public boolean resetPlayerData(UUID playerId, UUID entityId) {
+        UUID localPlayerId = localPlayerId();
+        if (playerId != null && localPlayerId != null && !playerId.equals(localPlayerId)) {
+            return false;
+        }
+
+        return localPlayerData != null && localPlayerData.remove(entityId);
+    }
+
+    @Override
+    public int resetAllPlayerData(UUID entityId) {
+        return localPlayerData != null && localPlayerData.remove(entityId) ? 1 : 0;
     }
 
     @Override
@@ -70,7 +89,7 @@ public final class ShopLimiterTableClient implements ShopLimiterTable {
     @Override
     public void fromNetwork(FriendlyByteBuf buf) {
         entitiesData.clear();
-        localPlayerData = new ShopLimiterPlayerData(Minecraft.getInstance().player.getGameProfile().getId(), buf);
+        localPlayerData = new ShopLimiterPlayerData(localPlayerId(), buf);
 
         int entitiesSize = buf.readVarInt();
         for (int i = 0; i < entitiesSize; i++) {
@@ -79,5 +98,13 @@ public final class ShopLimiterTableClient implements ShopLimiterTable {
         }
 
         SDMShopClient.ACCEPT_LIMITER_DATA_EVENT.invoker().onAcceptLimiterDataEvent(this);
+    }
+
+    private static UUID localPlayerId() {
+        if (Minecraft.getInstance().player == null) {
+            return new UUID(0L, 0L);
+        }
+
+        return Minecraft.getInstance().player.getGameProfile().getId();
     }
 }

@@ -1,6 +1,10 @@
 package dev.sixik.sdmshop2.libs.shop.network.async;
 
-import com.lowdragmc.lowdraglib.gui.widget.LabelWidget;
+import dev.sixik.sdmshop2.SDMShop2;
+import dev.sixik.sdmshop2.libs.platform.utils.network.async.AsyncBridge;
+import dev.sixik.sdmshop2.libs.platform.utils.network.async.BlobTransfer;
+import dev.sixik.sdmshop2.libs.sdmeconomy.CurrencyDraft;
+import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyCurrencyRegistry;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.base.ShopTable;
@@ -9,6 +13,7 @@ import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
 import dev.sixik.sdmshop2.libs.shop.network.ShopNetworkManager;
 import dev.sixik.sdmshop2.libs.shop.processors.ShopTransactionProcessor;
 import dev.sixik.sdmshop2.utils.NetworkExtern;
+import dev.sixik.sdmshop2.utils.ShopUtils;
 import io.netty.buffer.Unpooled;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
@@ -16,7 +21,10 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 public class AsyncServerTasks {
 
@@ -43,6 +51,7 @@ public class AsyncServerTasks {
             if (shopInstance == null) return null;
 
             final MinecraftServer server = ShopTable.Instance.getServer();
+            final Player player = ctx.getPlayer();
 
             FriendlyByteBuf reply = new FriendlyByteBuf(Unpooled.buffer());
 
@@ -59,7 +68,7 @@ public class AsyncServerTasks {
                 Map<UUID, Map<CostComponent, Double>> outMap = new HashMap<>();
                 for (int i = 0; i < offers.length; i++) {
                     if (offers[i] != null) {
-                        outMap.put(in_data[i], ShopTransactionProcessor.calculateFinalCosts(offers[i], server, chosenGroupId));
+                        outMap.put(in_data[i], ShopTransactionProcessor.calculateFinalCosts(offers[i], server, player, chosenGroupId));
                     }
                 }
 
@@ -84,7 +93,7 @@ public class AsyncServerTasks {
                 }
 
                 Map<CostComponent, Double> prices = ShopTransactionProcessor
-                        .calculateFinalCosts(offer, server, chosenGroupId);
+                        .calculateFinalCosts(offer, server, player, chosenGroupId);
                 getPricesForOfferWriteOfferData(reply, offerId, offer, prices);
             }
             return reply;
@@ -163,6 +172,26 @@ public class AsyncServerTasks {
             }
         });
 
+        AsyncBridge.registerHandler(AsyncClientTasks.PURCHASE_SHOP_OFFER, (request, ctx) -> {
+            if (!request.isReadable() || !(ctx.getPlayer() instanceof ServerPlayer player)) return null;
+
+            final ResourceLocation shopId = request.readResourceLocation();
+            final UUID offerId = request.readUUID();
+            final String chosenGroupId = request.readUtf();
+            final int amount = request.readVarInt();
+
+            final ShopInstance shopInstance = ShopTable.Instance.getShop(shopId);
+            final ShopOffer offer = shopInstance == null ? null : shopInstance.getEntries().getEntry(offerId);
+            final boolean success = offer != null && ShopTransactionProcessor.executePlayerPurchase(offer, player, chosenGroupId, amount);
+            if (!success && offer != null) {
+                ShopNetworkManager.sendLimiterData(player);
+            }
+
+            FriendlyByteBuf reply = new FriendlyByteBuf(Unpooled.buffer());
+            reply.writeBoolean(success);
+            return reply;
+        });
+
         AsyncBridge.registerHandler(AsyncClientTasks.REQUEST_SHOP, (request, ctx) -> {
             if (!request.isReadable()) return null;
             final ResourceLocation shopId = request.readResourceLocation();
@@ -175,6 +204,71 @@ public class AsyncServerTasks {
 
             return null;
         });
+
+        AsyncBridge.registerHandler(AsyncClientTasks.REQUEST_CONFIGURED_SHOP_OPEN, (request, ctx) -> {
+            if (!(ctx.getPlayer() instanceof ServerPlayer player)) {
+                return null;
+            }
+
+            ResourceLocation shopId = parseConfiguredOpenShopId();
+            if (shopId == null) {
+                return null;
+            }
+
+            final ShopInstance shopInstance = ShopTable.Instance.getShop(shopId);
+            if (shopInstance == null) {
+                SDMShop2.LOGGER.warn("Configured keybind shop '{}' was requested by {}, but it does not exist.", shopId, player.getScoreboardName());
+                return null;
+            }
+
+            ShopNetworkManager.sendShopDataAndOpen(shopInstance, player);
+            return null;
+        });
+
+        AsyncBridge.registerHandler(AsyncClientTasks.SEND_SHOP_CHANGES, (request, ctx) -> {
+            boolean success = false;
+            if (request.isReadable() && ctx.getPlayer() instanceof ServerPlayer player && ShopUtils.isPlayerAdmin(player)) {
+                ShopInstance draftShop = ShopInstance.fromNetwork(request);
+                ShopTable.Instance.save(draftShop);
+                ShopNetworkManager.sendShopData(draftShop, player.getUUID(), player.getServer().getPlayerList().getPlayers());
+                success = true;
+            }
+
+            FriendlyByteBuf reply = new FriendlyByteBuf(Unpooled.buffer());
+            reply.writeBoolean(success);
+            return reply;
+        });
+
+        AsyncBridge.registerHandler(AsyncClientTasks.SEND_CURRENCY_CHANGES, (request, ctx) -> {
+            boolean success = false;
+            if (request.isReadable() && ctx.getPlayer() instanceof ServerPlayer player && ShopUtils.isPlayerAdmin(player)) {
+                List<CurrencyDraft> drafts = CurrencyDraft.readList(request);
+                success = true;
+                for (CurrencyDraft draft : drafts) {
+                    if (draft.kind() == CurrencyDraft.Kind.DELETE) {
+                        success &= SDMEconomyCurrencyRegistry.deleteCurrency(draft.id());
+                    } else if (draft.kind() == CurrencyDraft.Kind.ITEM) {
+                        success &= SDMEconomyCurrencyRegistry.registerAndSaveCurrency(draft.toExternalCurrency());
+                    } else {
+                        success &= SDMEconomyCurrencyRegistry.registerAndSaveStoredCurrency(draft.toStoredCurrency());
+                    }
+                }
+            }
+
+            FriendlyByteBuf reply = new FriendlyByteBuf(Unpooled.buffer());
+            reply.writeBoolean(success);
+            return reply;
+        });
+    }
+
+    private static ResourceLocation parseConfiguredOpenShopId() {
+        String raw = SDMShop2.getConfig().openShopKeybindShopId;
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+
+        raw = raw.trim();
+        return raw.contains(":") ? ResourceLocation.tryParse(raw) : ResourceLocation.tryBuild("sdm", raw);
     }
 
     private static void getConditionForOfferWriteOfferData(UUID offerId, Map<ConditionComponent, Boolean> conditionMap, List<ConditionComponent> components, FriendlyByteBuf reply) {

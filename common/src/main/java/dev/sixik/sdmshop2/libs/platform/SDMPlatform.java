@@ -1,7 +1,6 @@
 package dev.sixik.sdmshop2.libs.platform;
 
 import dev.architectury.event.events.common.LifecycleEvent;
-import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyPlatform;
 import net.minecraft.server.MinecraftServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,7 +16,6 @@ public class SDMPlatform {
     private static final List<ServerOperation> OPERATIONS = new ArrayList<>();
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SDMPlatform.class);
-    private static final SDMAutoSaveManager AUTO_SAVE_MANAGER = SDMAutoSaveManager.INSTANCE;
 
     public static void onReload() {
         for (ServerOperation runnable : OPERATIONS) {
@@ -25,19 +23,8 @@ public class SDMPlatform {
         }
     }
 
-    public static void addTask(Object o) {
-        if(o instanceof ServerOperation serverOperation)
-            addOperation(serverOperation);
-        if(o instanceof ThreadingOperationTimeSave timeSaveTask)
-            addTimeSaveTask(timeSaveTask);
-    }
-
     public static void addOperation(ServerOperation operation) {
         OPERATIONS.add(operation);
-    }
-
-    public static void addTimeSaveTask(ThreadingOperationTimeSave task) {
-        AUTO_SAVE_MANAGER.registerTask(task);
     }
 
     public static void onServerOperationLoad(MinecraftServer server) {
@@ -55,7 +42,6 @@ public class SDMPlatform {
     }
 
     public static void init() {
-        addOperation(AUTO_SAVE_MANAGER);
         LifecycleEvent.SERVER_BEFORE_START.register(SDMPlatform::onServerOperationLoad);
         LifecycleEvent.SERVER_STOPPED.register(SDMPlatform::onServerOperationUnload);
     }

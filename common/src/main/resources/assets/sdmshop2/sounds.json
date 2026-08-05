@@ -1,0 +1,14 @@
+{
+  "buy_success": {
+    "subtitle" : "sounds.sdmshop2.buy_success",
+    "sounds": [
+      "sdmshop2:buy_sound"
+    ]
+  },
+  "buy_fail": {
+    "subtitle" : "sounds.sdmshop2.buy_fail",
+    "sounds": [
+      "sdmshop2:buy_fail"
+    ]
+  }
+}

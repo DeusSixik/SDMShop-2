@@ -2,6 +2,8 @@ package dev.sixik.sdmshop2.forge;
 
 import dev.sixik.sdmshop2.SDMShop2;
 import dev.architectury.platform.forge.EventBuses;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
@@ -12,5 +14,8 @@ public final class SDMShop2Forge {
         EventBuses.registerModEventBus(SDMShop2.MODID, FMLJavaModLoadingContext.get().getModEventBus());
         // Run our common setup.
         SDMShop2.init();
+        DistExecutor.safeRunWhenOn(Dist.CLIENT, () -> () ->
+                dev.sixik.sdmshop2.libs.shop.client.SDMShopClientKeybinds.init()
+        );
     }
 }

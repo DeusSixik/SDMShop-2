@@ -26,14 +26,24 @@ public class SDMShaders {
 
     public static ShaderProgram FILLED_FRAME_ROUND_BOX;
     public static Shader FILLED_FRAME_ROUND_BOX_F;
+    public static ShaderProgram PIXEL_BEVEL_BOX;
+    public static Shader PIXEL_BEVEL_BOX_F;
+    public static ShaderProgram PIXEL_PROGRESS_BAR;
+    public static Shader PIXEL_PROGRESS_BAR_F;
 
     public static void initShaderProgram() {
         FILLED_FRAME_ROUND_BOX = Util.make(new ShaderProgram(), program ->
                 program.attach(FILLED_FRAME_ROUND_BOX_F).attach(Shaders.SCREEN_V));
+        PIXEL_BEVEL_BOX = Util.make(new ShaderProgram(), program ->
+                program.attach(PIXEL_BEVEL_BOX_F).attach(Shaders.SCREEN_V));
+        PIXEL_PROGRESS_BAR = Util.make(new ShaderProgram(), program ->
+                program.attach(PIXEL_PROGRESS_BAR_F).attach(Shaders.SCREEN_V));
     }
 
     public static void initShader() {
         FILLED_FRAME_ROUND_BOX_F = Shaders.load(Shader.ShaderType.FRAGMENT, new ResourceLocation(SDMShop2.MODID, "filled_frame_round_box"));
+        PIXEL_BEVEL_BOX_F = Shaders.load(Shader.ShaderType.FRAGMENT, new ResourceLocation(SDMShop2.MODID, "pixel_bevel_box"));
+        PIXEL_PROGRESS_BAR_F = Shaders.load(Shader.ShaderType.FRAGMENT, new ResourceLocation(SDMShop2.MODID, "pixel_progress_bar"));
     }
 
     public static void drawFilledFrameRoundBox(@Nonnull GuiGraphics graphics, Rect square, float thickness, Vector4f radius, int fillColor, int borderColor) {
@@ -60,6 +70,80 @@ public class SDMShaders {
             uniform.fillRGBAColor("BorderColor", borderColor);
 
             uniform.glUniform1F("Blur", 2);
+        });
+
+        RenderSystem.enableBlend();
+        uploadScreenPosVertex();
+    }
+
+    public static void drawPixelBevelBox(
+            @Nonnull GuiGraphics graphics,
+            Rect square,
+            float bevelThickness,
+            int fillColor,
+            int highlightColor,
+            int shadowColor
+    ) {
+        PIXEL_BEVEL_BOX.use(uniform -> {
+            DrawerHelper.updateScreenVshUniform(graphics, uniform);
+            uniform.glUniformMatrix4F("PoseStack", new Matrix4f());
+
+            var point1 = new Vector4f(square.left - 0.25f, square.up - 0.25f, 0, 1);
+            var point2 = new Vector4f(square.right - 0.25f, square.down - 0.25f, 0, 1);
+            var matrix = graphics.pose().last().pose();
+            point1.mul(matrix);
+            point2.mul(matrix);
+
+            uniform.glUniform4F("SquareVertex", point1.x, point1.y, point2.x, point2.y);
+            uniform.glUniform1F("BevelThickness", bevelThickness);
+            uniform.fillRGBAColor("FillColor", fillColor);
+            uniform.fillRGBAColor("HighlightColor", highlightColor);
+            uniform.fillRGBAColor("ShadowColor", shadowColor);
+        });
+
+        RenderSystem.enableBlend();
+        uploadScreenPosVertex();
+    }
+
+    public static void drawPixelProgressBar(
+            @Nonnull GuiGraphics graphics,
+            Rect square,
+            float progress,
+            float bevelThickness,
+            int trackColor,
+            int trackHighlightColor,
+            int trackShadowColor,
+            int progressColor,
+            int progressHighlightColor,
+            int progressShadowColor,
+            int dividerColor,
+            int dividerCount,
+            float dividerThickness,
+            boolean dividersEnabled
+    ) {
+        PIXEL_PROGRESS_BAR.use(uniform -> {
+            DrawerHelper.updateScreenVshUniform(graphics, uniform);
+            uniform.glUniformMatrix4F("PoseStack", new Matrix4f());
+
+            var point1 = new Vector4f(square.left - 0.25f, square.up - 0.25f, 0, 1);
+            var point2 = new Vector4f(square.right - 0.25f, square.down - 0.25f, 0, 1);
+            var matrix = graphics.pose().last().pose();
+            point1.mul(matrix);
+            point2.mul(matrix);
+
+            uniform.glUniform4F("SquareVertex", point1.x, point1.y, point2.x, point2.y);
+            uniform.glUniform1F("Progress", progress);
+            uniform.glUniform1F("BevelThickness", bevelThickness);
+            uniform.glUniform1F("DividerCount", dividerCount);
+            uniform.glUniform1F("DividerThickness", dividerThickness);
+            uniform.glUniform1F("DividersEnabled", dividersEnabled ? 1.0f : 0.0f);
+            uniform.fillRGBAColor("TrackColor", trackColor);
+            uniform.fillRGBAColor("TrackHighlightColor", trackHighlightColor);
+            uniform.fillRGBAColor("TrackShadowColor", trackShadowColor);
+            uniform.fillRGBAColor("ProgressColor", progressColor);
+            uniform.fillRGBAColor("ProgressHighlightColor", progressHighlightColor);
+            uniform.fillRGBAColor("ProgressShadowColor", progressShadowColor);
+            uniform.fillRGBAColor("DividerColor", dividerColor);
         });
 
         RenderSystem.enableBlend();
