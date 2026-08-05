@@ -4,10 +4,10 @@ SDM Shop 2 is a component-based shop built around an ECS-style architecture. Sho
 
 ## Documentation
 
-- [JSON: Shop Components](https://github.com/DeusSixik/SDMShop2/wiki/%5BJSON%5D-Shop-Components-(ECS)-%5BEN%5D)
-- [Java: ECS System](https://github.com/DeusSixik/SDMShop2/wiki/%5BJava%5D-ECS-System-%5BEN%5D)
-- [Scripting: Modifying Logic with Scripts](https://github.com/DeusSixik/SDMShop2/wiki/%5BScripting%5D-Modifying-Logic-with-Scripts-%5BEN%5D)
-- [CONFIG: Configuration File](https://github.com/DeusSixik/SDMShop2/wiki/%5BCONFIG%5D-Configuration-File-%5BEN%5D)
+- [JSON: Shop Components](JSON-Shop-Components-ECS-EN)
+- [Java: ECS System](Java-ECS-System-EN)
+- [Scripting: Modifying Logic with Scripts](Scripting-Modifying-Logic-with-Scripts-EN)
+- [CONFIG: Configuration File](CONFIG-Configuration-File-EN)
 
 ## Important Notes About the Current Core
 

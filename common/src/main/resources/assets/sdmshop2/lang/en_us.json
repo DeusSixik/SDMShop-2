@@ -121,7 +121,7 @@
   "client.shop.component.editor.json.preivew" : "§eCurrent JSON (Preview):",
   "client.shop.component.editor.json.preview" : "§eCurrent JSON (Preview):",
   "client.shop.component.editor.copied" : "Copied!",
-  "client.shop.component.editor.button.wiki" : "https://github.com/DeusSixik/SDMShop2/wiki/%5BJSON%5D-Shop-Components-(ECS)-%5BEN%5D",
+  "client.shop.component.editor.button.wiki" : "https://github.com/DeusSixik/SDMShop-2/wiki/JSON-Shop-Components-ECS-EN",
   "client.shop.component.editor.button.wiki.short" : "Wiki",
   "client.shop.component.editor.button.wiki.tooltip" : "Open the official Wiki for detailed documentation on components and their properties.",
   "client.shop.component.editor.json.generation_error" : "§cError JSON generation",
