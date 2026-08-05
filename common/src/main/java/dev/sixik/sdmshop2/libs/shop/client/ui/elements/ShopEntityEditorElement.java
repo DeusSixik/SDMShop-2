@@ -9,6 +9,7 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.api.*;
 import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultEditMenuRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.toast.ShopToasts;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
+import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.InputTextBox;
@@ -34,6 +35,7 @@ public class ShopEntityEditorElement extends ModalWidget implements WidgetContex
     protected final UIEventScope eventScope = new UIEventScope();
     @Nullable
     protected final Runnable onEdit;
+    protected final boolean allowComponentDelete;
     protected boolean editCallbackInvoked;
 
     public static ShopEntityEditorElement open(Widget owner, @Nullable ShopEntity shopEntity) {
@@ -44,12 +46,20 @@ public class ShopEntityEditorElement extends ModalWidget implements WidgetContex
         return ModalWidget.open(owner, new ShopEntityEditorElement(owner, shopEntity, onEdit));
     }
 
+    public static ShopEntityEditorElement open(Widget owner, @Nullable ShopEntity shopEntity, @Nullable Runnable onEdit, boolean allowComponentDelete) {
+        return ModalWidget.open(owner, new ShopEntityEditorElement(owner, shopEntity, onEdit, allowComponentDelete));
+    }
+
     public static ShopEntityEditorElement open(Widget owner, @Nullable ShopEditSession editSession, @Nullable ShopEntity shopEntity) {
         return open(owner, editSession, shopEntity, null);
     }
 
     public static ShopEntityEditorElement open(Widget owner, @Nullable ShopEditSession editSession, @Nullable ShopEntity shopEntity, @Nullable Runnable onEdit) {
         return ModalWidget.open(owner, new ShopEntityEditorElement(owner, editSession, shopEntity, onEdit));
+    }
+
+    public static ShopEntityEditorElement open(Widget owner, @Nullable ShopEditSession editSession, @Nullable ShopEntity shopEntity, @Nullable Runnable onEdit, boolean allowComponentDelete) {
+        return ModalWidget.open(owner, new ShopEntityEditorElement(owner, editSession, shopEntity, onEdit, allowComponentDelete));
     }
 
     protected ShopEntityEditorElement(Widget owner, @Nullable ShopEntity shopEntity) {
@@ -60,8 +70,16 @@ public class ShopEntityEditorElement extends ModalWidget implements WidgetContex
         this(owner, null, shopEntity, StyleApi.getDefaultStyle(StyleApi.Category.Editor).get(), onEdit);
     }
 
+    protected ShopEntityEditorElement(Widget owner, @Nullable ShopEntity shopEntity, @Nullable Runnable onEdit, boolean allowComponentDelete) {
+        this(owner, null, shopEntity, StyleApi.getDefaultStyle(StyleApi.Category.Editor).get(), onEdit, allowComponentDelete);
+    }
+
     protected ShopEntityEditorElement(Widget owner, @Nullable ShopEditSession editSession, @Nullable ShopEntity shopEntity, @Nullable Runnable onEdit) {
         this(owner, editSession, shopEntity, StyleApi.getDefaultStyle(StyleApi.Category.Editor).get(), onEdit);
+    }
+
+    protected ShopEntityEditorElement(Widget owner, @Nullable ShopEditSession editSession, @Nullable ShopEntity shopEntity, @Nullable Runnable onEdit, boolean allowComponentDelete) {
+        this(owner, editSession, shopEntity, StyleApi.getDefaultStyle(StyleApi.Category.Editor).get(), onEdit, allowComponentDelete);
     }
 
     protected ShopEntityEditorElement(Widget owner, @Nullable ShopEntity shopEntity, WidgetRender render) {
@@ -73,9 +91,14 @@ public class ShopEntityEditorElement extends ModalWidget implements WidgetContex
     }
 
     protected ShopEntityEditorElement(Widget owner, @Nullable ShopEditSession editSession, @Nullable ShopEntity shopEntity, WidgetRender render, @Nullable Runnable onEdit) {
+        this(owner, editSession, shopEntity, render, onEdit, true);
+    }
+
+    protected ShopEntityEditorElement(Widget owner, @Nullable ShopEditSession editSession, @Nullable ShopEntity shopEntity, WidgetRender render, @Nullable Runnable onEdit, boolean allowComponentDelete) {
         this.shopEntity = shopEntity;
         this.editSession = editSession;
         this.onEdit = onEdit;
+        this.allowComponentDelete = allowComponentDelete;
 
         this.render = Objects.requireNonNull(render, "render");
         this.render.constructor(this);
@@ -175,6 +198,36 @@ public class ShopEntityEditorElement extends ModalWidget implements WidgetContex
         }
 
         return false;
+    }
+
+    public boolean canDeleteComponent(@Nullable ShopComponent component) {
+        return canEditComponent(component)
+                && allowComponentDelete
+                && !isRequiredComponent(component);
+    }
+
+    public boolean removeComponent(@Nullable ShopComponent component) {
+        if (!canDeleteComponent(component)) {
+            ShopToasts.warning(Component.translatable("shop.ui.toast.component_delete_protected"));
+            return false;
+        }
+
+        if (editSession != null && !editSession.closed()) {
+            editSession.recordHistory(
+                    "component.delete",
+                    shopEntity.getClass().getSimpleName(),
+                    shopEntity instanceof ObjectIdGetter idGetter ? idGetter.getUUID() : null,
+                    component.getType().getId(),
+                    "Deleted component " + component.getType().getId()
+            );
+        }
+
+        boolean removed = shopEntity.removeComponent(component);
+        if (removed) {
+            refreshEditorContent();
+        }
+
+        return removed;
     }
 
     public boolean moveComponentTo(@Nullable ShopComponent component, int targetIndex) {
@@ -278,6 +331,10 @@ public class ShopEntityEditorElement extends ModalWidget implements WidgetContex
                 && shopEntity.indexOfComponent(component) >= 0
                 && editSession != null
                 && !editSession.closed();
+    }
+
+    protected boolean isRequiredComponent(@Nullable ShopComponent component) {
+        return component instanceof CatalogComponent;
     }
 
     private ButtonWidget createModalButton(int x, int y, int width, int height, Component text, java.util.function.Consumer<com.lowdragmc.lowdraglib.gui.util.ClickData> action) {

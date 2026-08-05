@@ -8,6 +8,7 @@ import dev.sixik.sdmshop2.libs.platform.utils.repository.RepositoryStorage;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepoDefinition;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.RepositoryManager;
 import dev.sixik.sdmshop2.libs.shop.events.ShopServerEvents;
+import dev.sixik.sdmshop2.libs.shop.generator.DefaultShopGenerator;
 import dev.sixik.sdmshop2.libs.shop.scripting.events.ShopScriptEvents;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import lombok.Getter;
@@ -220,6 +221,7 @@ public final class ShopTable {
 
             ShopScriptEvents.SCRIPT_SHOP_LOAD_EVENT.invoker().invoke(server, this);
             ShopServerEvents.SHOP_LOAD_EVENT.invoker().invoke(server, this);
+            DefaultShopGenerator.registerDefaultIfEmpty(this);
 
             LOGGER.info("Loaded {} shops.", shopsRepository.size());
         } catch (Exception e) {
@@ -235,7 +237,7 @@ public final class ShopTable {
     public void reloadShop(ResourceLocation id) {
         if (shopsRepository == null) return;
         shopsRepository.load(id);
-        // TODO: Shop update event
+        // TODO: событие обновления магазина
         // ShopServerEvents.SHOP_UPDATED_EVENT.invoker().invoke(server, updatedShop);
     }
 

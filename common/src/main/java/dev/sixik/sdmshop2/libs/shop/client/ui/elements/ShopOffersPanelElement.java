@@ -109,11 +109,42 @@ public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup i
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (!isInsideOffersViewport(mouseX, mouseY)) {
+            return false;
+        }
+
         if (render.mouseClicked(this, mouseX, mouseY, button)) {
             return true;
         }
 
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public Widget getHoverElement(double mouseX, double mouseY) {
+        return isInsideOffersViewport(mouseX, mouseY) ? super.getHoverElement(mouseX, mouseY) : null;
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        return isInsideOffersViewport(mouseX, mouseY) && super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        return isInsideOffersViewport(mouseX, mouseY) && super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseWheelMove(double mouseX, double mouseY, double wheelDelta) {
+        return isInsideOffersViewport(mouseX, mouseY) && super.mouseWheelMove(mouseX, mouseY, wheelDelta);
+    }
+
+    protected boolean isInsideOffersViewport(double mouseX, double mouseY) {
+        return mouseX >= getPositionX()
+                && mouseY >= getPositionY()
+                && mouseX < getPositionX() + getSizeWidth()
+                && mouseY < getPositionY() + getSizeHeight();
     }
 
     @Override

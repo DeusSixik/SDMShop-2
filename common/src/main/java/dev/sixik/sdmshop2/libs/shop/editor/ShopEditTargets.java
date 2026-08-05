@@ -6,7 +6,7 @@ import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import net.minecraft.resources.ResourceLocation;
 
 /**
- * Well-known draft targets used by the default editor modules.
+ * Стандартные цели черновиков, используемые модулями редактора по умолчанию.
  */
 public final class ShopEditTargets {
 

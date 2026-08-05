@@ -12,13 +12,13 @@ public class ShopColors {
     /** Фон карточки товара */
     public static final int BG_CARD = 0xFF2A2A36;
 
-    /** Фон при наведении на элемент списка (Hover) */
+    /** Фон при наведении на элемент списка */
     public static final int BG_HOVER = 0xFF333342;
 
     /** Фон кнопки */
     public static final int BG_BUTTON = 0xFF333342;
 
-    /** Фон кнопки при наведении (Hover)*/
+    /** Фон кнопки при наведении */
     public static final int HOV_BUTTON = 0xFF525269;
 
     /** Полупрозрачный черный фон для кнопок цены (Alpha ~30%) */
@@ -28,7 +28,7 @@ public class ShopColors {
     /** Цвет всех границ (Сайдбар, Карточки, Поиск) */
     public static final int BORDER = 0xFF3D3D4E;
 
-    // --- Текст (Text) ---
+    // --- Текст ---
     /** Основной белый/светло-серый текст */
     public static final int TEXT_MAIN = 0xFFEAEAEA;
 

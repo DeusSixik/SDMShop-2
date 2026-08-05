@@ -22,12 +22,12 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Runtime state for promos which are activated externally, for example from scripts.
+ * Состояние времени выполнения для акций, которые активируются извне, например из скриптов.
  *
- * <p>State is keyed by an activation id. Direct promos can use plain {@code promo_id};
+ * <p>Состояние хранится по id активации. Прямые акции могут использовать обычный {@code promo_id};
  * {@link dev.sixik.sdmshop2.libs.shop.components.promo.conditions.PromoTriggerComponent}
- * uses a stable per-offer key so the same {@code promo_id} can have different timers
- * on different offers.</p>
+ * использует стабильный ключ для каждого товара, поэтому один и тот же {@code promo_id}
+ * может иметь разные таймеры на разных товарах.</p>
  */
 public final class PromoStateStore {
 

@@ -66,12 +66,6 @@ public class SDMShopCommandsDebug {
 //                    ShopNetworkManager.sendNewComponent(debugShop, shopOffer, component, ctx.getSource().getPlayerOrException());
                 })
                 .register(dispatcher);
-        CommandBuilder.create("sdm_shop tests generate_default")
-                .requires(2)
-                .executesVoid((ctx) -> {
-                    DefaultShopGenerator.registerDefault();
-                })
-                .register(dispatcher);
         CommandBuilder.create("sdm_shop tests config")
                 .requires(2)
                 .executesVoid((ctx) -> {

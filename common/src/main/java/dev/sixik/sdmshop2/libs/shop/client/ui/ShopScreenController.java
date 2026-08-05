@@ -72,7 +72,7 @@ public final class ShopScreenController {
 
     private static void openSessionConflictModal(Widget owner, PersistentEditSession persisted, ShopInstance currentShop) {
         ModalWidget modal = new ModalWidget(310, 138)
-                .setTitle(Component.literal("Existing Edit Session"))
+                .setTitle(Component.translatable("shop.ui.editor.session_conflict.title"))
                 .setCloseOnEsc(true)
                 .setCloseOnOutsideClick(false);
         ModalWidget opened = ModalWidget.openNested(owner, modal);
@@ -81,7 +81,7 @@ public final class ShopScreenController {
         }
 
         TextLabel warning = new TextLabel(0, 4, opened.getContentWidth(), 42,
-                Component.literal("A saved edit session exists for another shop."));
+                Component.translatable("shop.ui.editor.session_conflict.warning"));
         warning.setAutoSize(false)
                 .setWrapText(true)
                 .setColor(0xFFFFC95A)
@@ -89,7 +89,7 @@ public final class ShopScreenController {
         opened.addWidget(warning);
 
         TextLabel details = new TextLabel(0, 48, opened.getContentWidth(), 28,
-                Component.literal("Saved: " + persisted.shopId() + " | Current: " + currentShop.getId()));
+                Component.translatable("shop.ui.editor.session_conflict.details", persisted.shopId(), currentShop.getId()));
         details.setAutoSize(false)
                 .setWrapText(true)
                 .setColor(0xFFAEB4C6)
@@ -99,7 +99,7 @@ public final class ShopScreenController {
         int buttonY = Math.max(82, opened.getContentHeight() - 24);
         int buttonWidth = Math.max(1, opened.getContentWidth() / 2 - 5);
 
-        ButtonWidget clear = new ButtonWidget(0, buttonY, buttonWidth, 20, Component.literal("Clear Old"), ignored -> {
+        ButtonWidget clear = new ButtonWidget(0, buttonY, buttonWidth, 20, Component.translatable("shop.ui.editor.session_conflict.clear_old"), ignored -> {
             opened.close();
             ShopClientCache.clearEditSession();
             openNewEditor(currentShop);
@@ -108,7 +108,7 @@ public final class ShopScreenController {
         clear.setTextPadding(4);
         clear.setMinTextScale(0.35f);
 
-        ButtonWidget restore = new ButtonWidget(buttonWidth + 10, buttonY, buttonWidth, 20, Component.literal("Continue Old"), ignored -> {
+        ButtonWidget restore = new ButtonWidget(buttonWidth + 10, buttonY, buttonWidth, 20, Component.translatable("shop.ui.editor.session_conflict.continue_old"), ignored -> {
             opened.close();
             openPersistedEditor(persisted);
         });

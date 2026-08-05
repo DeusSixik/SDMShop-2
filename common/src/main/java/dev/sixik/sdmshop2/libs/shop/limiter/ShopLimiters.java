@@ -17,11 +17,11 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Small facade for offer purchase limits.
+ * Небольшой фасад для лимитов покупки товаров.
  *
- * <p>Limiters are combined as constraints: if an offer has both World and Player limits,
- * purchase availability is the lowest remaining value and a successful purchase increments
- * every limiter.</p>
+ * <p>Лимитеры объединяются как ограничения: если у товара есть лимиты World и Player,
+ * доступное для покупки количество равно минимальному оставшемуся значению, а успешная
+ * покупка увеличивает счётчик каждого лимитера.</p>
  */
 public final class ShopLimiters {
 

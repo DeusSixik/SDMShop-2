@@ -434,9 +434,9 @@ public class ShopBadgeHBoxWidget extends WidgetGroup {
             drawBadgeForeground(badges.get(i), graphics, mouseX, mouseY, partialTicks);
         }
 
-        // Overflow text is drawn in the background phase together with its badge.
-        // LDLib foreground rendering can be skipped/reordered when hover moves
-        // across WidgetGroups or outside the game window, which made (+N) text flicker.
+        // Текст переполнения рисуется на этапе фона вместе со своим бейджем.
+        // Рендер переднего слоя LDLib может пропускаться или менять порядок при движении
+        // курсора между группами виджетов или за пределы игрового окна, из-за чего текст (+N) мерцал.
     }
 
     private void drawBadgeBackground(ShopBadgeWidget badge, GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {

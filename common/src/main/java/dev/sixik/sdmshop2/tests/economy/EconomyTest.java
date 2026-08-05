@@ -55,7 +55,7 @@ public class EconomyTest {
 
         ShopInstance shop = ShopTable.Instance.getShop(DefaultShopGenerator.ID);
         if(shop == null) {
-            DefaultShopGenerator.registerDefault();
+//            DefaultShopGenerator.registerDefault();
             shop = ShopTable.Instance.getShop(DefaultShopGenerator.ID);
         }
 

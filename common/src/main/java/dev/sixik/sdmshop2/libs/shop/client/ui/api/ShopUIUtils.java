@@ -16,8 +16,16 @@ public final class ShopUIUtils {
        return ShopEntityEditorElement.open(owner, editable, onEdit);
     }
 
+    public static ModalWidget createEditMenu(Widget owner, ShopEntity editable, Runnable onEdit, boolean allowComponentDelete) {
+       return ShopEntityEditorElement.open(owner, editable, onEdit, allowComponentDelete);
+    }
+
     public static ModalWidget createEditMenu(Widget owner, @Nullable ShopEditSession editSession, ShopEntity editable, Runnable onEdit) {
        return ShopEntityEditorElement.open(owner, editSession, editable, onEdit);
+    }
+
+    public static ModalWidget createEditMenu(Widget owner, @Nullable ShopEditSession editSession, ShopEntity editable, Runnable onEdit, boolean allowComponentDelete) {
+       return ShopEntityEditorElement.open(owner, editSession, editable, onEdit, allowComponentDelete);
     }
 
     public static void disposeTree(Widget widget) {

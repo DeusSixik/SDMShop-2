@@ -715,8 +715,8 @@ public class ShopScreenElement extends ShopWidgetGroup implements UIDisposable {
 
     protected void alightWidgets() {
        /*
-            cur_* = Current N
-            tsw_*  = TabsWidget
+            cur_* = текущий N
+            tsw_*  = виджет вкладок
         */
         final Size cur_size = getSize();
         final int cur_w     = cur_size.width;
@@ -747,7 +747,7 @@ public class ShopScreenElement extends ShopWidgetGroup implements UIDisposable {
         }
 
         /*
-            ep_* = OffersPanel
+            ep_* = панель товаров
          */
         shopOffersPanel.setSize(
                 cur_w  - tsw_w          - x_w_space  * 2,

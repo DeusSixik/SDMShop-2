@@ -4,6 +4,14 @@
   "key.categories.sdmshop2": "SDM Shop 2",
   "key.sdmshop2.open_shop": "Open Shop",
 
+  "shop.default.category.resources": "Resources",
+  "shop.default.category.blocks": "Building Blocks",
+  "shop.default.category.farming_food": "Farming & Food",
+  "shop.default.category.utility": "Utility",
+  "shop.default.category.redstone": "Redstone",
+  "shop.default.category.rares": "Rare Items",
+  "shop.default.category.exchange": "Exchange",
+
   "shop.component.cost.group_id": "Group ID",
   "shop.component.promo.conditions.promo_id": "Promo ID",
   "shop.component.promo.effects.target_promo_id": "Target Promo ID",
@@ -113,7 +121,7 @@
   "client.shop.component.editor.json.preivew" : "§eCurrent JSON (Preview):",
   "client.shop.component.editor.json.preview" : "§eCurrent JSON (Preview):",
   "client.shop.component.editor.copied" : "Copied!",
-  "client.shop.component.editor.button.wiki" : "https://github.com/DeusSixik/SDMShop2/wiki/%5BJSON%5D-%D0%9A%D0%BE%D0%BC%D0%BF%D0%BE%D0%BD%D0%B5%D0%BD%D1%82%D1%8B-%D0%BC%D0%B0%D0%B3%D0%B0%D0%B7%D0%B8%D0%BD%D0%B0-(ECS)-%5BRU%5D",
+  "client.shop.component.editor.button.wiki" : "https://github.com/DeusSixik/SDMShop2/wiki/%5BJSON%5D-Shop-Components-(ECS)-%5BEN%5D",
   "client.shop.component.editor.button.wiki.short" : "Wiki",
   "client.shop.component.editor.button.wiki.tooltip" : "Open the official Wiki for detailed documentation on components and their properties.",
   "client.shop.component.editor.json.generation_error" : "§cError JSON generation",
@@ -198,6 +206,11 @@
 
   "shop.ui.editor.button.add_component" : "+ Component",
   "shop.ui.component.move.title" : "Move Component",
+  "shop.ui.editor.session_conflict.title" : "Existing Edit Session",
+  "shop.ui.editor.session_conflict.warning" : "A saved edit session exists for another shop.",
+  "shop.ui.editor.session_conflict.details" : "Saved: %s  |  Current: %s",
+  "shop.ui.editor.session_conflict.clear_old" : "Clear Old",
+  "shop.ui.editor.session_conflict.continue_old" : "Continue Old",
 
   "shop.ui.offer_element.button.buy" : "Buy",
   "shop.ui.offer_element.button.sell" : "Sell",
@@ -315,6 +328,8 @@
   "shop.ui.toast.invalid_position" : "Invalid position",
   "shop.ui.toast.component_duplicated" : "Component duplicated",
   "shop.ui.toast.component_moved" : "Component moved",
+  "shop.ui.toast.component_deleted" : "Component deleted",
+  "shop.ui.toast.component_delete_protected" : "This component is required and cannot be deleted",
   "shop.ui.toast.offer_missing" : "Offer no longer exists",
   "shop.ui.toast.purchase_complete" : "Purchase complete",
   "shop.ui.toast.actual_price_load_failed" : "Failed to load actual price",
@@ -323,5 +338,8 @@
   "shop.ui.toast.no_editor_changes" : "No editor changes to send",
   "shop.ui.toast.send_changes_failed" : "Failed to send changes",
   "shop.ui.toast.changes_sent" : "Changes sent",
-  "shop.ui.toast.changes_rejected" : "Changes rejected"
+  "shop.ui.toast.changes_rejected" : "Changes rejected",
+
+  "sounds.sdmshop2.buy_success" : "Purchase complete",
+  "sounds.sdmshop2.buy_fail" : "Purchase failed"
 }

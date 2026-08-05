@@ -173,8 +173,8 @@ public class ComponentConfigurationWidget extends WidgetGroup {
          */
         for (int i = uiPairs.size() - 1; i >= 0; i--) {
             UiPair pair = uiPairs.get(i);
-            this.addWidget(pair.label()); // Label
-            this.addWidget(pair.editor()); // Editor
+            this.addWidget(pair.label()); // Метка
+            this.addWidget(pair.editor()); // Редактор
         }
     }
 
@@ -225,7 +225,7 @@ public class ComponentConfigurationWidget extends WidgetGroup {
     }
 
     //////////////////////////////////////////////////////
-    ///             FIX SIZE WIDTH                     ///
+    ///             ИСПРАВЛЕНИЕ ШИРИНЫ                ///
     //////////////////////////////////////////////////////
     @Override
     public void setSize(Size size) {

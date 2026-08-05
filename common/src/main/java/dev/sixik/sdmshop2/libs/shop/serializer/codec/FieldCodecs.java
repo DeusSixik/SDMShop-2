@@ -16,12 +16,12 @@ import java.math.BigDecimal;
 import java.util.*;
 
 /**
- * Набор готовых codec-ов для часто используемых типов полей.
+ * Набор готовых кодеков для часто используемых типов полей.
  */
 public final class FieldCodecs {
 
     /**
-     * Codec для boolean значений.
+     * Кодек для значений boolean.
      */
     public static final FieldCodec<Boolean> BOOL = FieldCodec.<Boolean>builder()
             .schema("bool")
@@ -37,7 +37,7 @@ public final class FieldCodecs {
             .build();
 
     /**
-     * Codec для int значений через VarInt в сети.
+     * Кодек для значений int через VarInt в сети.
      */
     public static final FieldCodec<Integer> INT = FieldCodec.<Integer>builder()
             .schema("int")
@@ -53,7 +53,7 @@ public final class FieldCodecs {
             .build();
 
     /**
-     * Codec для long значений через VarLong в сети.
+     * Кодек для значений long через VarLong в сети.
      */
     public static final FieldCodec<Long> LONG = FieldCodec.<Long>builder()
             .schema("long")
@@ -69,7 +69,7 @@ public final class FieldCodecs {
             .build();
 
     /**
-     * Codec для float значений.
+     * Кодек для значений float.
      */
     public static final FieldCodec<Float> FLOAT = FieldCodec.<Float>builder()
             .schema("float")
@@ -85,7 +85,7 @@ public final class FieldCodecs {
             .build();
 
     /**
-     * Codec для double значений.
+     * Кодек для значений double.
      */
     public static final FieldCodec<Double> DOUBLE = FieldCodec.<Double>builder()
             .schema("double")
@@ -117,7 +117,7 @@ public final class FieldCodecs {
             .build();
 
     /**
-     * Codec для строк. null записывается как пустая строка.
+     * Кодек для строк. null записывается как пустая строка.
      */
     public static final FieldCodec<String> STRING = FieldCodec.<String>builder()
             .schema("string")
@@ -136,7 +136,7 @@ public final class FieldCodecs {
             .build();
 
     /**
-     * Codec для ResourceLocation.
+     * Кодек для ResourceLocation.
      */
     public static final FieldCodec<ResourceLocation> RESOURCE_LOCATION = FieldCodec.<ResourceLocation>builder()
             .schema("resource_location")
@@ -154,7 +154,7 @@ public final class FieldCodecs {
             .build();
 
     /**
-     * Codec для UUID.
+     * Кодек для UUID.
      */
     public static final FieldCodec<UUID> UUID_CODEC = FieldCodec.<UUID>builder()
             .schema("uuid")
@@ -172,7 +172,7 @@ public final class FieldCodecs {
             .build();
 
     /**
-     * Codec для ItemStack в полном NBT-представлении.
+     * Кодек для ItemStack в полном NBT-представлении.
      */
     public static final FieldCodec<ItemStack> ITEM_STACK = FieldCodec.<ItemStack>builder()
             .schema("item_stack")
@@ -191,7 +191,7 @@ public final class FieldCodecs {
             .build();
 
     /**
-     * Codec для ItemStack как id предмета + отдельный nbt, совместимый со старым JSON форматом item reward.
+     * Кодек для ItemStack как id предмета + отдельный nbt, совместимый со старым JSON-форматом награды предметом.
      */
     public static final FieldCodec<ItemStack> ITEM_STACK_ID_NBT = FieldCodec.<ItemStack>builder()
             .schema("item_stack_id_nbt")
@@ -210,7 +210,7 @@ public final class FieldCodecs {
             .build();
 
     /**
-     * Codec для вложенного ShopOffer.
+     * Кодек для вложенного ShopOffer.
      */
     public static final FieldCodec<ShopOffer> SHOP_OFFER = FieldCodec.<ShopOffer>builder()
             .schema("shop_offer")
@@ -254,7 +254,7 @@ public final class FieldCodecs {
             .build();
 
     /**
-     * Codec для вложенного ShopInstance.
+     * Кодек для вложенного ShopInstance.
      */
     public static final FieldCodec<ShopInstance> SHOP_INSTANCE = FieldCodec.<ShopInstance>builder()
             .schema("shop_instance")
@@ -283,7 +283,7 @@ public final class FieldCodecs {
             .build();
 
     /**
-     * Делает codec nullable: значение может быть null в JSON и сети.
+     * Делает кодек допускающим null: значение может быть null в JSON и сети.
      */
     public static <Value> FieldCodec<Value> nullable(FieldCodec<Value> codec) {
         Objects.requireNonNull(codec, "codec");
@@ -315,7 +315,7 @@ public final class FieldCodecs {
     }
 
     /**
-     * Создает codec для списка значений одного типа.
+     * Создает кодек для списка значений одного типа.
      */
     public static <Element> FieldCodec<List<Element>> list(FieldCodec<Element> elementCodec) {
         Objects.requireNonNull(elementCodec, "elementCodec");
@@ -364,7 +364,7 @@ public final class FieldCodecs {
     }
 
     /**
-     * Создает codec для map, где ключ и значение имеют свои codec-и.
+     * Создает кодек для ассоциативной карты, где ключ и значение имеют свои кодеки.
      */
     public static <Key, Value> FieldCodec<Map<Key, Value>> map(FieldCodec<Key> keyCodec, FieldCodec<Value> valueCodec) {
         Objects.requireNonNull(keyCodec, "keyCodec");
@@ -415,7 +415,7 @@ public final class FieldCodecs {
     }
 
     /**
-     * Создает codec для enum. JSON дополнительно принимает значение в другом регистре.
+     * Создает кодек для enum. JSON дополнительно принимает значение в другом регистре.
      */
     public static <EnumType extends Enum<EnumType>> FieldCodec<EnumType> enumCodec(Class<EnumType> enumClass) {
         Objects.requireNonNull(enumClass, "enumClass");

@@ -6,6 +6,7 @@ import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
+import dev.sixik.sdmshop2.libs.shop.client.sound.ShopClientSounds;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.*;
 import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
 import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopPurchaseModalRender;
@@ -236,18 +237,21 @@ public class ShopPurchaseModalElement extends ModalWidget implements
 
                 if (throwable != null) {
                     actionStatus = Component.translatable("shop.ui.purchase.status.failed_with_message", throwable.getMessage());
+                    ShopClientSounds.playPurchaseFail();
                     ShopToasts.error(actionStatus);
                     refreshRenderState();
                     return;
                 }
 
                 if (Boolean.TRUE.equals(success)) {
+                    ShopClientSounds.playPurchaseSuccess();
                     ShopToasts.success(Component.translatable("shop.ui.toast.purchase_complete"));
                     close();
                     return;
                 }
 
                 actionStatus = Component.translatable("shop.ui.purchase.status.failed");
+                ShopClientSounds.playPurchaseFail();
                 ShopToasts.error(actionStatus);
                 refreshRenderState();
             });

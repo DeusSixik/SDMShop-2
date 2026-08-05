@@ -5,11 +5,11 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.Objects;
 
 /**
- * Typed key for one draft object inside a {@link ShopEditSession}.
+ * Типизированный ключ одного черновика объекта внутри {@link ShopEditSession}.
  *
- * <p>The editor is not limited to one {@code ShopInstance}: economy currencies,
- * addon settings and custom tools can store their own draft objects under their
- * own targets.</p>
+ * <p>Редактор не ограничен одним {@code ShopInstance}: валюты экономики,
+ * настройки аддонов и пользовательские инструменты могут хранить свои черновики
+ * объектов под собственными целями.</p>
  */
 public final class ShopEditTarget<T> {
 

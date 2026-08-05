@@ -2,13 +2,12 @@ package dev.sixik.sdmshop2.libs.shop.client.config;
 
 import com.google.gson.JsonObject;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
-import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
-import dev.sixik.sdmshop2.libs.shop.client.WidgetGroupAccessor;
 import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopEntityEditorElement;
 import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopScreenElement;
+import dev.sixik.sdmshop2.libs.shop.client.ui.toast.ShopToasts;
 import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.CollapsedGroupWidget;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentRegistry;
@@ -156,24 +155,9 @@ public class ComponentCollapsedGroupWidget extends CollapsedGroupWidget {
                     }
                 })
                 .addSeparator()
-                .addItem(Component.translatable("client.shop.component.editor.components.delete"), () -> {
-                    if (component.getRoot() != null) {
-                        if (ShopScreenElement.Instance != null && ShopScreenElement.Instance.getEditSession() != null) {
-                            ShopScreenElement.Instance.getEditSession().recordHistory(
-                                    "component.delete",
-                                    root == null ? "unknown" : root.getClass().getSimpleName(),
-                                    root instanceof dev.sixik.sdmshop2.libs.shop.base.ObjectIdGetter idGetter ? idGetter.getUUID() : null,
-                                    component.getType().getId(),
-                                    "Deleted component " + component.getType().getId()
-                            );
-                        }
-                        component.getRoot().removeComponent(component);
-                    }
-
-                    WidgetGroup parentGroup = this.getParent();
-                    if (parentGroup != null) {
-                        parentGroup.removeWidget(this);
-                        ((WidgetGroupAccessor) parentGroup).sdm$onChildSizeUpdate(this);
+                .addItem(Component.translatable("client.shop.component.editor.components.delete"), editor != null && editor.canDeleteComponent(component), () -> {
+                    if (editor != null && editor.removeComponent(component)) {
+                        ShopToasts.success(Component.translatable("shop.ui.toast.component_deleted"));
                     }
                 });
         ContextMenuWidget.open(this, menu);

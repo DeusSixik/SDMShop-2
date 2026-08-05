@@ -56,7 +56,7 @@ public class SDMShopClient {
     }
 
     /**
-     * Template !
+     * Шаблонный метод.
      */
     @Environment(EnvType.CLIENT)
     @Deprecated

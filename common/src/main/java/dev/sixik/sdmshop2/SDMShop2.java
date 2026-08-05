@@ -21,6 +21,7 @@ import dev.sixik.sdmshop2.libs.shop.config.ShopConfigHolder;
 import dev.sixik.sdmshop2.libs.shop.network.SDMShopNetwork;
 import dev.sixik.sdmshop2.libs.shop.promo.PromoStateStore;
 import dev.sixik.sdmshop2.libs.shop.register.ShopRegister;
+import dev.sixik.sdmshop2.libs.shop.sound.ShopSounds;
 import dev.sixik.sdmshop2.libs.shop.scripting.events.ShopScriptEvents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
@@ -72,6 +73,7 @@ public final class SDMShop2 {
 
         SDMEconomyPlatform.init();
         ShopRegister.init();
+        ShopSounds.init();
 
         SDMShopNetwork.init();
 

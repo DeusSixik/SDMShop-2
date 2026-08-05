@@ -11,10 +11,10 @@ import org.jetbrains.annotations.Nullable;
 import java.util.UUID;
 
 /**
- * Script-friendly facade for common shop operations.
+ * Удобный для скриптов фасад для основных операций магазина.
  *
- * <p>Keep methods defensive: scripts should receive false/0 instead of noisy
- * exceptions for missing players, invalid UUID strings or unloaded offers.</p>
+ * <p>Методы должны быть защитными: скрипты должны получать false/0 вместо шумных
+ * исключений при отсутствующих игроках, некорректных строках UUID или незагруженных товарах.</p>
  */
 public final class ShopScriptApi {
 

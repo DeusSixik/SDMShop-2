@@ -10,7 +10,7 @@ import net.minecraft.world.entity.player.Player;
 import java.util.UUID;
 
 /**
- * Small script-friendly facade over {@link PromoStateStore}.
+ * Небольшой удобный для скриптов фасад над {@link PromoStateStore}.
  */
 public final class ShopPromoTriggers {
 

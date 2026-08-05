@@ -26,7 +26,7 @@ public interface FieldCodec<Value> {
 
     /**
      * Записывает значение как самостоятельный JSON element.
-     * Используется вложенными codec-ами, чтобы не создавать временный JsonObject на каждый элемент.
+     * Используется вложенными кодеками, чтобы не создавать временный JsonObject на каждый элемент.
      */
     default JsonElement toJsonElement(Value value) {
         JsonObject json = new JsonObject();
@@ -64,28 +64,28 @@ public interface FieldCodec<Value> {
     }
 
     /**
-     * Сравнивает два значения поля с учетом правил конкретного codec.
+     * Сравнивает два значения поля с учетом правил конкретного кодека.
      */
     default boolean areEqual(Value first, Value second) {
         return Objects.equals(first, second);
     }
 
     /**
-     * Возвращает имя codec для проверки совместимости сетевой схемы.
+     * Возвращает имя кодека для проверки совместимости сетевой схемы.
      */
     default String schemaName() {
         return getClass().getName();
     }
 
     /**
-     * Создает builder для быстрого объявления нового codec.
+     * Создает билдер для быстрого объявления нового кодека.
      */
     static <Value> Builder<Value> builder() {
         return new Builder<>();
     }
 
     /**
-     * Builder для создания codec из функций чтения/записи.
+     * Билдер для создания кодека из функций чтения/записи.
      */
     final class Builder<Value> {
         private String schemaName;
@@ -99,7 +99,7 @@ public interface FieldCodec<Value> {
         private ValueEquality<Value> equality = Objects::equals;
 
         /**
-         * Задает стабильное имя codec для сетевой схемы.
+         * Задает стабильное имя кодека для сетевой схемы.
          */
         public Builder<Value> schema(String schemaName) {
             this.schemaName = schemaName;
@@ -150,7 +150,7 @@ public interface FieldCodec<Value> {
         }
 
         /**
-         * Собирает готовый codec и проверяет, что все обязательные функции заданы.
+         * Собирает готовый кодек и проверяет, что все обязательные функции заданы.
          */
         public FieldCodec<Value> build() {
             if (jsonWriter == null) throw new IllegalStateException("Json writer is not configured");

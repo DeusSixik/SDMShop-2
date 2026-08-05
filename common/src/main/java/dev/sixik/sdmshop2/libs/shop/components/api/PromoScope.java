@@ -1,16 +1,16 @@
 package dev.sixik.sdmshop2.libs.shop.components.api;
 
 /**
- * Scope for promo activation state.
+ * Область действия состояния активации акции.
  */
 public enum PromoScope {
     /**
-     * One active state is shared by every player.
+     * Одно активное состояние общее для всех игроков.
      */
     GLOBAL,
 
     /**
-     * Active state is stored independently for each player UUID.
+     * Активное состояние хранится отдельно для UUID каждого игрока.
      */
     PLAYER
 }

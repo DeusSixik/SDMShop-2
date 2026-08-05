@@ -3,7 +3,7 @@ package dev.sixik.sdmshop2.libs.shop.editor;
 import java.util.*;
 
 /**
- * Session-scoped draft object storage.
+ * Хранилище черновиков объектов в рамках одной сессии.
  */
 public final class ShopEditDraftStore {
 

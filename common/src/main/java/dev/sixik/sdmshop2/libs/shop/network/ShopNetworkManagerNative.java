@@ -7,6 +7,8 @@ import dev.sixik.sdmshop2.libs.shop.base.ObjectIdGetter;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
+import dev.sixik.sdmshop2.libs.shop.base.limiter.ShopLimiterTable;
+import dev.sixik.sdmshop2.libs.shop.base.limiter.ShopLimiterTableServer;
 import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
 import dev.sixik.sdmshop2.libs.shop.components.api.ConditionComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
@@ -16,7 +18,7 @@ import dev.sixik.sdmshop2.libs.shop.network.async.AsyncClientTasks;
 import dev.sixik.sdmshop2.libs.shop.network.async.AsyncServerTasks;
 import dev.sixik.sdmshop2.libs.shop.network.packets.SendLimiterDataS2C;
 import dev.sixik.sdmshop2.utils.NetworkExtern;
-import dev.sixik.sdmshop2.utils.ShopUtils;
+import dev.sixik.sdmshop2.utils.exceptions.NotInitializedException;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.network.FriendlyByteBuf;
@@ -99,11 +101,16 @@ class ShopNetworkManagerNative {
     }
 
     public static void sendLimiterData(Iterable<ServerPlayer> players) {
-        ShopUtils.getLimiterTable(false).ifPresent(limiterTable -> {
-            for (ServerPlayer player : players) {
-                new SendLimiterDataS2C(player).sendTo(player);
-            }
-        });
+        final ShopLimiterTable limiterTable;
+        try {
+            limiterTable = ShopLimiterTableServer.getInstance();
+        } catch (NotInitializedException ignored) {
+            return;
+        }
+
+        for (ServerPlayer player : players) {
+            new SendLimiterDataS2C(player, limiterTable).sendTo(player);
+        }
     }
 
     public static void broadcast(Iterable<ServerPlayer> players, String task, Function<FriendlyByteBuf, FriendlyByteBuf> writer) {
@@ -116,7 +123,7 @@ class ShopNetworkManagerNative {
     public static void requestShop(ResourceLocation shopId) {
         AsyncBridge.askServer(AsyncClientTasks.REQUEST_SHOP, buf -> {
             buf.writeResourceLocation(shopId);
-            buf.writeBoolean(false); // isOpen: false
+            buf.writeBoolean(false); // открывать: false
             return buf;
         });
     }
@@ -125,7 +132,7 @@ class ShopNetworkManagerNative {
     public static void requestShopAndOpen(ResourceLocation shopId) {
         AsyncBridge.askServer(AsyncClientTasks.REQUEST_SHOP, buf -> {
             buf.writeResourceLocation(shopId);
-            buf.writeBoolean(true); // isOpen: true
+            buf.writeBoolean(true); // открывать: true
             return buf;
         });
     }
@@ -178,7 +185,7 @@ class ShopNetworkManagerNative {
     public static CompletableFuture<Map<CostComponent, Double>> getOfferPrice(ShopOffer shopOffer, @Nullable String chosenGroupId) {
         return AsyncBridge.askServer(AsyncClientTasks.GET_PRICES_FOR_OFFER, buf -> {
             buf.writeResourceLocation(SDMShopClient.Shop.getId());
-            buf.writeBoolean(false); // isBatch = false
+            buf.writeBoolean(false); // пакетный режим = false
             buf.writeUtf(chosenGroupId != null ? chosenGroupId : "");
             buf.writeUUID(shopOffer.getUUID());
             return buf;
@@ -204,7 +211,7 @@ class ShopNetworkManagerNative {
     public static CompletableFuture<Map<UUID, Map<CostComponent, Double>>> getOffersPrice(Collection<ShopOffer> shopOffers, @Nullable String chosenGroupId) {
         return AsyncBridge.askServer(AsyncClientTasks.GET_PRICES_FOR_OFFER, buf -> {
             buf.writeResourceLocation(SDMShopClient.Shop.getId());
-            buf.writeBoolean(true); // isBatch = true
+            buf.writeBoolean(true); // пакетный режим = true
             buf.writeUtf(chosenGroupId != null ? chosenGroupId : "");
             NetworkExtern.writeOffersUUIDs(buf, shopOffers);
             return buf;
@@ -246,7 +253,7 @@ class ShopNetworkManagerNative {
     public static CompletableFuture<Map<ConditionComponent, Boolean>> fetchServerCondition(ShopOffer shopOffer) {
         return AsyncBridge.askServer(AsyncClientTasks.GET_CONDITIONS_FOR_OFFER, buf -> {
             buf.writeResourceLocation(SDMShopClient.Shop.getId());
-            buf.writeBoolean(false); // isBatch = false
+            buf.writeBoolean(false); // пакетный режим = false
             buf.writeUUID(shopOffer.getUUID());
             return buf;
         }).thenApply((response) -> {
@@ -293,7 +300,7 @@ class ShopNetworkManagerNative {
     public static CompletableFuture<Map<UUID, Map<ConditionComponent, Boolean>>> fetchServerConditions(Collection<ShopOffer> shopOffers) {
         return AsyncBridge.askServer(AsyncClientTasks.GET_CONDITIONS_FOR_OFFER, buf -> {
             buf.writeResourceLocation(SDMShopClient.Shop.getId());
-            buf.writeBoolean(true); // isBatch = true
+            buf.writeBoolean(true); // пакетный режим = true
             NetworkExtern.writeOffersUUIDs(buf, shopOffers);
             return buf;
         }).thenApply((response) -> {

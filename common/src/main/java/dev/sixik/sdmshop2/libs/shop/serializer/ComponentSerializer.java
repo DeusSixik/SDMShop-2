@@ -111,7 +111,7 @@ public final class ComponentSerializer<T extends ShopComponent> {
     }
 
     /**
-     * Добавляет поле со значением по умолчанию. В JSON default-значение не записывается.
+     * Добавляет поле со значением по умолчанию. В JSON значение по умолчанию не записывается.
      */
     public <Value> ComponentSerializer<T> addDefaulted(
             String key,
@@ -162,7 +162,7 @@ public final class ComponentSerializer<T extends ShopComponent> {
     }
 
     /**
-     * Добавляет nullable-поле только для диска.
+     * Добавляет поле, допускающее null, только для диска.
      */
     public <Value> ComponentSerializer<T> addOptionalDiskOnly(
             String key,
@@ -208,7 +208,7 @@ public final class ComponentSerializer<T extends ShopComponent> {
     }
 
     /**
-     * Добавляет defaulted int-поле с ручным выбором сетевой синхронизации.
+     * Добавляет int-поле со значением по умолчанию и ручным выбором сетевой синхронизации.
      */
     public ComponentSerializer<T> addDefaultedInt(String key, ToIntFunction<T> getter, ObjIntConsumer<T> setter, int defaultValue, boolean shouldSyncNet) {
         return addDefaulted(key, FieldCodecs.INT, getter::applyAsInt, setter::accept, defaultValue, shouldSyncNet);
@@ -236,7 +236,7 @@ public final class ComponentSerializer<T extends ShopComponent> {
     }
 
     /**
-     * Добавляет defaulted long-поле с ручным выбором сетевой синхронизации.
+     * Добавляет long-поле со значением по умолчанию и ручным выбором сетевой синхронизации.
      */
     public ComponentSerializer<T> addDefaultedLong(String key, ToLongFunction<T> getter, ObjLongConsumer<T> setter, long defaultValue, boolean shouldSyncNet) {
         return addDefaulted(key, FieldCodecs.LONG, getter::applyAsLong, setter::accept, defaultValue, shouldSyncNet);
@@ -278,7 +278,7 @@ public final class ComponentSerializer<T extends ShopComponent> {
     }
 
     /**
-     * Добавляет defaulted boolean-поле с ручным выбором сетевой синхронизации.
+     * Добавляет boolean-поле со значением по умолчанию и ручным выбором сетевой синхронизации.
      */
     public ComponentSerializer<T> addDefaultedBool(String key, Function<T, Boolean> getter, BiConsumer<T, Boolean> setter, boolean defaultValue, boolean shouldSyncNet) {
         return addDefaulted(key, FieldCodecs.BOOL, getter, setter, defaultValue, shouldSyncNet);
@@ -306,7 +306,7 @@ public final class ComponentSerializer<T extends ShopComponent> {
     }
 
     /**
-     * Добавляет defaulted double-поле с ручным выбором сетевой синхронизации.
+     * Добавляет double-поле со значением по умолчанию и ручным выбором сетевой синхронизации.
      */
     public ComponentSerializer<T> addDefaultedDouble(String key, ToDoubleFunction<T> getter, ObjDoubleConsumer<T> setter, double defaultValue, boolean shouldSyncNet) {
         return addDefaulted(key, FieldCodecs.DOUBLE, getter::applyAsDouble, setter::accept, defaultValue, shouldSyncNet);
@@ -334,7 +334,7 @@ public final class ComponentSerializer<T extends ShopComponent> {
     }
 
     /**
-     * Добавляет defaulted float-поле с ручным выбором сетевой синхронизации.
+     * Добавляет float-поле со значением по умолчанию и ручным выбором сетевой синхронизации.
      */
     public ComponentSerializer<T> addDefaultedFloat(String key, Function<T, Float> getter, BiConsumer<T, Float> setter, float defaultValue, boolean shouldSyncNet) {
         return addDefaulted(key, FieldCodecs.FLOAT, getter, setter, defaultValue, shouldSyncNet);
@@ -450,7 +450,7 @@ public final class ComponentSerializer<T extends ShopComponent> {
     }
 
     /**
-     * Добавляет map-поле.
+     * Добавляет поле ассоциативной карты.
      */
     public <Key, Value> ComponentSerializer<T> addMap(
             String key,
@@ -463,7 +463,7 @@ public final class ComponentSerializer<T extends ShopComponent> {
     }
 
     /**
-     * Добавляет map-поле с ручным выбором сетевой синхронизации.
+     * Добавляет поле ассоциативной карты с ручным выбором сетевой синхронизации.
      */
     public <Key, Value> ComponentSerializer<T> addMap(
             String key,
@@ -1032,7 +1032,7 @@ public final class ComponentSerializer<T extends ShopComponent> {
         }
 
         /**
-         * Возвращает все значения snapshot как неизменяемую map.
+         * Возвращает все значения снимка как неизменяемую ассоциативную карту.
          */
         public Map<String, Object> values() {
             return values;

@@ -19,11 +19,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 
 /**
- * Generic client-side key-value cache backed by a flat JSON object.
+ * Универсальный клиентский кэш ключ-значение, сохраняемый как плоский JSON-объект.
  *
- * <p>Values are kept as raw {@link JsonElement}s and decoded lazily through the
- * caller-provided {@link FieldCodec}. Adding a new cached value only requires a
- * stable string key and a codec for that value type.</p>
+ * <p>Значения хранятся как сырые {@link JsonElement} и лениво декодируются через
+ * переданный вызывающей стороной {@link FieldCodec}. Для добавления нового
+ * кэшируемого значения нужен только стабильный строковый ключ и кодек для типа
+ * этого значения.</p>
  */
 public final class ClientCache {
 

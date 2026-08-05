@@ -126,8 +126,9 @@ public final class ShopUIEvents {
     public record OnBuyShopEntity(@NotNull ShopEntity entity, String money_group) { }
 
     /**
-     * Mutable event fired after the default offers panel filtering and title sorting.
-     * Listeners can reorder {@link #offers()} in-place before widgets are created.
+     * Изменяемое событие, вызываемое после стандартной фильтрации панели товаров
+     * и сортировки по названию.
+     * Слушатели могут переупорядочить {@link #offers()} на месте до создания виджетов.
      */
     public record SortShopOffers(
             @NotNull ShopOffersPanelElement panel,

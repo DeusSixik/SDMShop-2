@@ -12,7 +12,7 @@ public @interface ComponentConfig {
     String translationKey() default "";
 
     /**
-     * Default {@code translationKey() + .tooltip}
+     * По умолчанию {@code translationKey() + .tooltip}
      */
     String tooltipTranslationKey() default "";
 }
