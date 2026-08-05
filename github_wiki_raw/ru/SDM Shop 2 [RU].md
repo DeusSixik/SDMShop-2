@@ -23,12 +23,12 @@ SDM Shop 2 — компонентный магазин на ECS-архитект
 /sdm_shop create_shop <shop_id>
 /sdm_shop open_shop <targets> <shop_id>
 /sdm_shop reload shops
-/sdm_shop synchronization limiter_data
 ```
 
 ## Команды лимитов
 
 ```mcfunction
+/sdm_shop limiter sync
 /sdm_shop limiter reset world <shop_id> <offer_id>
 /sdm_shop limiter reset player <target> <shop_id> <offer_id>
 /sdm_shop limiter reset offer <shop_id> <offer_id>

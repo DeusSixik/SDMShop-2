@@ -90,7 +90,7 @@ public class SDMShopCommands {
                 )
                 .register(dispatcher);
 
-        CommandBuilder.create("sdm_shop synchronization limiter_data")
+        CommandBuilder.create("sdm_shop limiter sync")
                 .requires(2)
                 .executesVoid(ctx -> {
                     ShopNetworkManager.sendLimiterData(ctx.getSource().getPlayerOrException());
