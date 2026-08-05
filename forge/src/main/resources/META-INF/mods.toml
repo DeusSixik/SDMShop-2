@@ -11,7 +11,7 @@ authors = ""
 description = '''
 
 '''
-#logoFile = ""
+logoFile = "assets/sdmshop2/icon.png"
 
 [[dependencies.sdmshop2]]
 modId = "forge"
