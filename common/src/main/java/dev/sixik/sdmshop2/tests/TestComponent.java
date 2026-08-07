@@ -37,7 +37,7 @@ public class TestComponent extends ShopComponent {
     @ComponentConfig(translationKey = "shop.component.limiter.limiter.reset_interval_ms")
     private long resetIntervalMs;
 
-    @ComponentConfig
+    @ComponentConfig(translationKey = "shop.component.limiter.limiter.test_boolean")
     private boolean test_boolean = true;
 
     @ComponentConfig
