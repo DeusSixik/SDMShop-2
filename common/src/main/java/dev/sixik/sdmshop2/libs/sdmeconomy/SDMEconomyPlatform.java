@@ -2,6 +2,7 @@ package dev.sixik.sdmshop2.libs.sdmeconomy;
 
 import dev.architectury.event.events.common.PlayerEvent;
 import dev.architectury.platform.Platform;
+import dev.sixik.sdmeconomy.api.EconomyApi;
 import dev.sixik.sdmshop2.libs.platform.SDMPlatform;
 import dev.sixik.sdmshop2.libs.platform.ServerOperation;
 import dev.sixik.sdmshop2.libs.platform.utils.repositoryManager.JsonRepositoryManager;
@@ -108,9 +109,8 @@ public class SDMEconomyPlatform {
         });
 
         SDMEconomyPlatform.loadConfigDir(Platform.getConfigFolder());
-
-        SDMEconomyCurrencyRegistry.registerStoredCurrency(BasicCoinCurrency.CURRENCY);
-        SDMEconomyCurrencyRegistry.registerType(ResourceLocation.tryBuild("minecraft", "item"), ExternalItemCurrency.TYPE);
+        EconomyApi.registerCurrency(BasicCoinCurrency.CURRENCY);
+        EconomyApi.registerCurrencyType(ResourceLocation.tryBuild("minecraft", "item"), ExternalItemCurrency.TYPE);
         shutdownHook();
 
         SDMEconomyNetwork.init();

@@ -4,13 +4,18 @@ import com.google.gson.*;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
+import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Block;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -19,6 +24,8 @@ import java.util.*;
  * Набор готовых кодеков для часто используемых типов полей.
  */
 public final class FieldCodecs {
+
+    private static final ResourceLocation EMPTY_TAG_LOCATION = new ResourceLocation("minecraft", "air");
 
     /**
      * Кодек для значений boolean.
@@ -152,6 +159,16 @@ public final class FieldCodecs {
             )
             .network(FriendlyByteBuf::writeResourceLocation, FriendlyByteBuf::readResourceLocation)
             .build();
+
+    /**
+     * Кодек для TagKey<Item>.
+     */
+    public static final FieldCodec<TagKey<Item>> ITEM_TAG = tagKey("item_tag", Registries.ITEM);
+
+    /**
+     * Кодек для TagKey<Block>.
+     */
+    public static final FieldCodec<TagKey<Block>> BLOCK_TAG = tagKey("block_tag", Registries.BLOCK);
 
     /**
      * Кодек для UUID.
@@ -451,6 +468,40 @@ public final class FieldCodecs {
                         buf -> buf.readEnum(enumClass)
                 )
                 .build();
+    }
+
+    public static <Value> FieldCodec<TagKey<Value>> tagKey(String schemaName, ResourceKey<? extends Registry<Value>> registryKey) {
+        Objects.requireNonNull(schemaName, "schemaName");
+        Objects.requireNonNull(registryKey, "registryKey");
+        return FieldCodec.<TagKey<Value>>builder()
+                .schema(schemaName)
+                .json(
+                        (json, key, value) -> {
+                            if (value != null) json.addProperty(key, value.location().toString());
+                        },
+                        (json, key, defaultValue) -> json.has(key)
+                                ? readTagKey(json.get(key), defaultValue, registryKey)
+                                : defaultValue
+                )
+                .jsonElement(
+                        value -> value == null ? JsonNull.INSTANCE : new JsonPrimitive(value.location().toString()),
+                        (element, defaultValue) -> readTagKey(element, defaultValue, registryKey)
+                )
+                .network(
+                        (buf, value) -> buf.writeResourceLocation(value == null ? EMPTY_TAG_LOCATION : value.location()),
+                        buf -> TagKey.create(registryKey, buf.readResourceLocation())
+                )
+                .build();
+    }
+
+    private static <Value> TagKey<Value> readTagKey(
+            JsonElement element,
+            TagKey<Value> defaultValue,
+            ResourceKey<? extends Registry<Value>> registryKey
+    ) {
+        if (element == null || element.isJsonNull()) return defaultValue;
+        ResourceLocation location = ResourceLocation.tryParse(element.getAsString());
+        return location == null ? defaultValue : TagKey.create(registryKey, location);
     }
 
     private static <Element> JsonArray writeListJsonElement(List<Element> value, FieldCodec<Element> elementCodec) {

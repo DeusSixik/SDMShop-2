@@ -83,9 +83,9 @@ public class SDMEconomyService {
      */
     public BankAccount getAccount(UUID gameProfileId) {
         return accountRepository.getOrCreate(gameProfileId, (player) -> {
-            BankAccount obj = new BankAccount(player);
-            obj.setOnUpdate(() -> accountRepository.update(obj.getGameProfileOwnerId()));
-            return obj;
+            BankAccount account = new BankAccount(player);
+            account.setOnUpdate(() -> accountRepository.update(account.getGameProfileOwnerId()));
+            return account;
         });
     }
 

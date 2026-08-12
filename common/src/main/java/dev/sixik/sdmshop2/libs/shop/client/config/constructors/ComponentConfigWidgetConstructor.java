@@ -17,6 +17,7 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.textures.ColorRectAndBorderTexture
 import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.CollapsedGroupWidget;
 import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.SDMBlockSelectorWidget;
 import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.SDMItemStackSelectorWidget;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.SDMTagKeySelectorWidget;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentNumberRange;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentStringRegex;
@@ -29,6 +30,7 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -214,6 +216,10 @@ public class ComponentConfigWidgetConstructor extends WidgetGroup {
             return dropDownBox;
         }
 
+        if (type == TagKey.class) {
+            return createTagKeyEditor(value, field, onChange);
+        }
+
         if (type == ItemStack.class || type == Item.class) {
             SDMItemStackSelectorWidget selectorWidget = new SDMItemStackSelectorWidget(0, 0, DEFAULT_W, false);
             selectorWidget.setClientSideWidget();
@@ -242,6 +248,17 @@ public class ComponentConfigWidgetConstructor extends WidgetGroup {
         }
 
         return null;
+    }
+
+    private @Nullable Widget createTagKeyEditor(@Nullable Object value, ComponentConfigAccess.CachedField field, Consumer<Object> onChange) {
+        SDMTagKeySelectorWidget.TargetRegistry targetRegistry = tagTargetRegistry(field.innerType());
+        if (targetRegistry == null) return null;
+
+        SDMTagKeySelectorWidget selectorWidget = new SDMTagKeySelectorWidget(0, 0, DEFAULT_W, targetRegistry);
+        selectorWidget.setClientSideWidget();
+        selectorWidget.setTagKey(value instanceof TagKey<?> tagKey ? tagKey : null);
+        selectorWidget.setOnTagKeyUpdate(onChange::accept);
+        return selectorWidget;
     }
 
     private @Nullable Widget createOptionsEditor(Class<?> type, @Nullable Object currentValue, ComponentConfigAccess.CachedField field, Consumer<Object> onChange) {
@@ -648,6 +665,9 @@ public class ComponentConfigWidgetConstructor extends WidgetGroup {
         if (Collection.class.isAssignableFrom(type)) {
             return field.innerType() != null && supportsValueType(field.innerType());
         }
+        if (type == TagKey.class) {
+            return tagTargetRegistry(field.innerType()) != null;
+        }
         return supportsValueType(type);
     }
 
@@ -660,6 +680,12 @@ public class ComponentConfigWidgetConstructor extends WidgetGroup {
                 || type == Item.class
                 || type == Block.class
                 || type == BlockState.class;
+    }
+
+    private static SDMTagKeySelectorWidget.TargetRegistry tagTargetRegistry(@Nullable Class<?> tagValueType) {
+        if (tagValueType == Item.class) return SDMTagKeySelectorWidget.TargetRegistry.ITEM;
+        if (tagValueType == Block.class) return SDMTagKeySelectorWidget.TargetRegistry.BLOCK;
+        return null;
     }
 
     private static boolean isTextEditableType(Class<?> type) {

@@ -122,6 +122,59 @@ Costs define what the player must pay. Multiple <code>CostComponent</code> entri
 
 Example of alternative payment: one offer can be bought either with coins or diamonds if the UI/purchase logic passes the selected <code>group_id</code>.
 
+### Item Cost: <code>sdm:cost_item</code>
+
+Charges a specific item stack from the player's inventory.
+
+~~~json
+{
+  "type": "sdm:cost_item",
+  "item": "minecraft:diamond",
+  "amount": 3,
+  "group_id": "default"
+}
+~~~
+
+With NBT matching:
+
+~~~json
+{
+  "type": "sdm:cost_item",
+  "item": "minecraft:diamond_sword",
+  "amount": 1,
+  "nbt": "{Damage:0}"
+}
+~~~
+
+| Parameter | Type | Required | Description |
+|---|---:|:---:|---|
+| <code>item</code> | resource location | Yes | Item ID to charge. |
+| <code>amount</code> | int | No | Base item amount before promo modifiers. Defaults to <code>1</code>. The final charged count is rounded up after modifiers. |
+| <code>nbt</code> | string | No | Optional SNBT that must match the charged item stack. |
+| <code>group_id</code> | string | No | Payment group. Empty string means the default group. |
+
+### Item Tag Cost: <code>sdm:cost_item_tag</code>
+
+Charges any items matching an item tag.
+
+~~~json
+{
+  "type": "sdm:cost_item_tag",
+  "tagKey": "minecraft:planks",
+  "amount": 16,
+  "group_id": "default"
+}
+~~~
+
+| Parameter | Type | Required | Description |
+|---|---:|:---:|---|
+| <code>tagKey</code> | resource location | Yes | Item tag ID without the leading <code>#</code>. |
+| <code>amount</code> | int | No | Base item amount before promo modifiers. Defaults to <code>1</code>. The final charged count is rounded up after modifiers. |
+| <code>group_id</code> | string | No | Payment group. Empty string means the default group. |
+
+The editor provides a searchable TagKey picker. This component uses item tags; block tags are only shown for fields typed as <code>TagKey&lt;Block&gt;</code>.
+
+
 ## Rewards
 
 Rewards are granted after conditions pass and costs are charged. If granting a reward fails, already charged costs are rolled back.
@@ -378,7 +431,9 @@ After all effects, the price is sanitized: negative, infinite, and NaN values be
   "type": "sdm:catalog",
   "catalog_id": "weapons",
   "uuid": "0b2dfdcc-e9a8-4d6f-97c4-3ae18f711111",
-  "order": 10
+  "order": 10,
+  "icon_type": "TEXTURE",
+  "icon_texture": "sdmshop2:textures/gui/category/weapons.png"
 }
 ~~~
 
@@ -387,6 +442,14 @@ After all effects, the price is sanitized: negative, infinite, and NaN values be
 | <code>catalog_id</code> | string | No | Category ID. |
 | <code>uuid</code> | uuid | No | Stable category UUID. |
 | <code>order</code> | int | No | Category sort order. |
+| <code>icon_type</code> | string | No | Icon mode: <code>NONE</code>, <code>ITEM</code>, or <code>TEXTURE</code>. Defaults to <code>NONE</code>. |
+| <code>icon_item</code> | item stack SNBT | No | ItemStack icon used when <code>icon_type</code> is <code>ITEM</code>. |
+| <code>icon_texture</code> | resource location | No | Texture used when <code>icon_type</code> is <code>TEXTURE</code>. Example: <code>modid:textures/gui/icon.png</code>. |
+
+Icon notes:
+
+- <code>icon_item</code> uses the full ItemStack SNBT format, for example <code>{id:"minecraft:diamond",Count:1b}</code>.
+- In editor mode, left-click the category icon slot to choose an item icon and right-click it to choose a texture icon. The texture picker shows loaded textures in a searchable grid.
 
 ### Hide When Unavailable: <code>sdm:hide_render</code>
 
