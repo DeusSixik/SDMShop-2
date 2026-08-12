@@ -310,7 +310,7 @@ public class ShopScreenElement extends ShopWidgetGroup implements UIDisposable {
 
         CatalogComponent targetCategory = category == null ? firstOrDefaultCategory() : category;
         ShopOffer offer = ShopOffer.create(UUID.randomUUID(), false);
-        offer.addComponent(new CatalogComponent(targetCategory.getId(), targetCategory.getUuid(), targetCategory.getOrder()));
+        offer.addComponent(CatalogComponent.copyOf(targetCategory));
         offer.addComponent(new NameComponent("New Offer"));
         entries.addEntry(offer);
 
@@ -412,6 +412,46 @@ public class ShopScreenElement extends ShopWidgetGroup implements UIDisposable {
                 category.getUuid(),
                 null,
                 "Renamed category " + oldId + " to " + safeId
+        );
+        reloadShopData();
+        ShopUIEvents.invokeRefreshCategories();
+        return true;
+    }
+
+    public boolean updateDraftCategoryIcon(
+            CatalogComponent category,
+            CatalogComponent.IconType iconType,
+            @Nullable ItemStack iconItem,
+            @Nullable ResourceLocation iconTexture
+    ) {
+        if (!isEditableCategory(category) || iconType == null) {
+            return false;
+        }
+
+        final CatalogComponent.IconType safeIconType = iconType;
+        ItemStack preparedIconItem = iconItem == null ? ItemStack.EMPTY : iconItem.copyWithCount(1);
+        ResourceLocation preparedIconTexture = iconTexture == null ? CatalogComponent.EMPTY_ICON_TEXTURE : iconTexture;
+        if (safeIconType != CatalogComponent.IconType.ITEM) {
+            preparedIconItem = ItemStack.EMPTY;
+        }
+        if (safeIconType != CatalogComponent.IconType.TEXTURE) {
+            preparedIconTexture = CatalogComponent.EMPTY_ICON_TEXTURE;
+        }
+
+        final ItemStack safeIconItem = preparedIconItem;
+        final ResourceLocation safeIconTexture = preparedIconTexture;
+        forEachMatchingCategory(category, current -> {
+            current.setIconType(safeIconType);
+            current.setIconItem(safeIconItem);
+            current.setIconTexture(safeIconTexture);
+        });
+
+        recordEditorAction(
+                "category.icon_update",
+                "category",
+                category.getUuid(),
+                null,
+                "Updated category icon for " + category.getId()
         );
         reloadShopData();
         ShopUIEvents.invokeRefreshCategories();
@@ -539,6 +579,7 @@ public class ShopScreenElement extends ShopWidgetGroup implements UIDisposable {
                     offerCategory.setId(target.getId());
                     offerCategory.setUuid(target.getUuid());
                     offerCategory.setOrder(target.getOrder());
+                    offerCategory.copyIconFrom(target);
                     return true;
                 })
                 .orElse(false);

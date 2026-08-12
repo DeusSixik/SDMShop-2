@@ -11,6 +11,8 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.api.*;
 import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
 import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopPurchaseModalRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.toast.ShopToasts;
+import dev.sixik.sdmshop2.libs.shop.components.ItemCostComponent;
+import dev.sixik.sdmshop2.libs.shop.components.ItemTagCostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.sdmshop2.libs.shop.components.money.MoneyCostComponent;
@@ -18,6 +20,7 @@ import dev.sixik.sdmshop2.libs.shop.components.utils.ShopComponentsUtils;
 import dev.sixik.sdmshop2.libs.shop.limiter.ShopLimiters;
 import dev.sixik.sdmshop2.libs.shop.network.ShopNetworkManager;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ModalWidget;
+import dev.sixik.sdmshop2.utils.ShopItemHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -305,6 +308,18 @@ public class ShopPurchaseModalElement extends ModalWidget implements
                     return 0xFFFF7777;
                 }
             }
+        } else if (cost instanceof ItemCostComponent itemCost) {
+            Player player = Minecraft.getInstance().player;
+            int required = itemCost.requiredAmount(getUnitAmount(cost) * Math.max(0, quantity));
+            if (player != null && required >= 0 && itemCost.countAvailable(player) < required) {
+                return 0xFFFF7777;
+            }
+        } else if (cost instanceof ItemTagCostComponent itemTagCost) {
+            Player player = Minecraft.getInstance().player;
+            int required = itemTagCost.requiredAmount(getUnitAmount(cost) * Math.max(0, quantity));
+            if (player != null && required >= 0 && ShopItemHelper.countItem(player.getInventory(), itemTagCost.getTagKey()) < required) {
+                return 0xFFFF7777;
+            }
         }
 
         return 0xFFFFFFFF;
@@ -368,6 +383,10 @@ public class ShopPurchaseModalElement extends ModalWidget implements
             if (currency != null) {
                 return currency.format(BigDecimal.valueOf(amount));
             }
+        } else if (cost instanceof ItemCostComponent itemCost) {
+            return DECIMAL_FORMAT.format(Math.max(0, itemCost.requiredAmount(amount)));
+        } else if (cost instanceof ItemTagCostComponent itemTagCost) {
+            return DECIMAL_FORMAT.format(Math.max(0, itemTagCost.requiredAmount(amount)));
         }
 
         return DECIMAL_FORMAT.format(amount);
@@ -380,6 +399,16 @@ public class ShopPurchaseModalElement extends ModalWidget implements
 
             if (currency != null && player != null) {
                 return currency.format(SDMEconomyServiceClient.getBalance(currency, player));
+            }
+        } else if (cost instanceof ItemCostComponent itemCost) {
+            Player player = Minecraft.getInstance().player;
+            if (player != null) {
+                return DECIMAL_FORMAT.format(itemCost.countAvailable(player));
+            }
+        } else if (cost instanceof ItemTagCostComponent itemTagCost) {
+            Player player = Minecraft.getInstance().player;
+            if (player != null) {
+                return DECIMAL_FORMAT.format(ShopItemHelper.countItem(player.getInventory(), itemTagCost.getTagKey()));
             }
         }
 
@@ -436,21 +465,36 @@ public class ShopPurchaseModalElement extends ModalWidget implements
             }
 
             for (CostComponent cost : costs) {
-                if (!(cost instanceof MoneyCostComponent moneyCost)) {
-                    continue;
-                }
-
-                ICurrency currency = currency(moneyCost.getMoneyId());
                 double unit = getUnitAmount(cost);
 
-                if (currency == null || unit <= 0.0D) {
-                    continue;
+                if (cost instanceof MoneyCostComponent moneyCost) {
+                    ICurrency currency = currency(moneyCost.getMoneyId());
+                    if (currency == null || unit <= 0.0D) {
+                        continue;
+                    }
+
+                    int affordable = (int) Math.floor(SDMEconomyServiceClient.getBalance(currency, player).doubleValue() / unit);
+                    balanceMax = Math.min(balanceMax, Math.max(0, affordable));
+                    max = Math.min(max, Math.max(0, affordable));
+                } else if (cost instanceof ItemCostComponent itemCost) {
+                    int required = itemCost.requiredAmount(unit);
+                    if (required <= 0) {
+                        continue;
+                    }
+
+                    int affordable = itemCost.countAvailable(player) / required;
+                    balanceMax = Math.min(balanceMax, Math.max(0, affordable));
+                    max = Math.min(max, Math.max(0, affordable));
+                } else if (cost instanceof ItemTagCostComponent itemTagCost) {
+                    int required = itemTagCost.requiredAmount(unit);
+                    if (required <= 0) {
+                        continue;
+                    }
+
+                    int affordable = ShopItemHelper.countItem(player.getInventory(), itemTagCost.getTagKey()) / required;
+                    balanceMax = Math.min(balanceMax, Math.max(0, affordable));
+                    max = Math.min(max, Math.max(0, affordable));
                 }
-
-                int affordable = (int) Math.floor(SDMEconomyServiceClient.getBalance(currency, player).doubleValue() / unit);
-
-                balanceMax = Math.min(balanceMax, Math.max(0, affordable));
-                max = Math.min(max, Math.max(0, affordable));
             }
         }
 

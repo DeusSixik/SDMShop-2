@@ -1,5 +1,6 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.elements;
 
+import com.lowdragmc.lowdraglib.gui.texture.ResourceTexture;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.utils.Size;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.DODEventBus;
@@ -22,6 +23,8 @@ import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ModalWidget;
 import lombok.Getter;
 import lombok.Setter;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -29,11 +32,21 @@ import net.minecraft.world.item.Items;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 public class ShopTabsPanelElement extends ShopWidgetGroup implements
         ShopUiElement, WidgetContextRender, UIDisposable {
+    private static final int TEXTURE_PICKER_GRID_ITEM_SIZE = 24;
+    private static final int TEXTURE_PICKER_GRID_GAP = 3;
+    private static final int TEXTURE_PICKER_SCROLLBAR_WIDTH = 4;
+    private static final int TEXTURE_PICKER_SCROLLBAR_PADDING = 2;
+
 
     @Getter
     @Setter
@@ -179,6 +192,148 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
         opened.addWidget(cancel);
         opened.addWidget(rename);
         input.setFocus(true);
+    }
+
+    public void openCategoryItemIconModal(CatalogComponent category) {
+        if (!isEditorMode() || category == null) {
+            return;
+        }
+
+        ModalWidget modal = new ModalWidget(300, 118)
+                .setTitle(Component.translatable("shop.ui.category.icon.item.title"))
+                .setCloseOnEsc(true)
+                .setCloseOnOutsideClick(false);
+        ModalWidget opened = ModalWidget.openNested(this, modal);
+        if (opened == null) {
+            return;
+        }
+
+        TextLabel label = new TextLabel(0, 4, opened.getContentWidth(), 20,
+                Component.translatable("shop.ui.category.icon.item_label"));
+        label.setAutoSize(false)
+                .setAlignment(TextLabel.HorizontalAlignment.LEFT, TextLabel.VerticalAlignment.CENTER)
+                .setColor(0xFFAEB4C6);
+        opened.addWidget(label);
+
+        SDMItemStackSelectorWidget itemSelector = new SDMItemStackSelectorWidget(0, 28, opened.getContentWidth(), false);
+        itemSelector.setItemStack(category.hasItemIcon() ? category.getIconItem() : ItemStack.EMPTY);
+        opened.addWidget(itemSelector);
+
+        int buttonY = Math.max(58, opened.getContentHeight() - 24);
+        int buttonWidth = Math.max(1, (opened.getContentWidth() - 12) / 3);
+        ButtonWidget cancel = createModalButton(0, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.cancel"), ignored -> opened.close());
+        ButtonWidget clear = createModalButton(buttonWidth + 6, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.clear"), ignored -> {
+            if (shopScreen.updateDraftCategoryIcon(category, CatalogComponent.IconType.NONE, ItemStack.EMPTY, CatalogComponent.EMPTY_ICON_TEXTURE)) {
+                opened.close();
+                ShopToasts.success(Component.translatable("shop.ui.toast.category_icon_cleared"));
+            }
+        });
+        ButtonWidget save = createModalButton((buttonWidth + 6) * 2, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.save"), ignored -> {
+            ItemStack itemStack = itemSelector.getItemStack();
+            if (itemStack == null || itemStack.isEmpty() || itemStack.getItem() == Items.AIR) {
+                ShopToasts.warning(Component.translatable("shop.ui.toast.category_icon_item_empty"));
+                return;
+            }
+
+            if (shopScreen.updateDraftCategoryIcon(category, CatalogComponent.IconType.ITEM, itemStack, CatalogComponent.EMPTY_ICON_TEXTURE)) {
+                opened.close();
+                ShopToasts.success(Component.translatable("shop.ui.toast.category_icon_updated"));
+            }
+        });
+
+        opened.addWidget(cancel);
+        opened.addWidget(clear);
+        opened.addWidget(save);
+    }
+
+    public void openCategoryTextureIconModal(CatalogComponent category) {
+        if (!isEditorMode() || category == null) {
+            return;
+        }
+
+        ModalWidget modal = new ModalWidget(340, 280)
+                .setTitle(Component.translatable("shop.ui.category.icon.texture.title"))
+                .setCloseOnEsc(true)
+                .setCloseOnOutsideClick(false);
+        ModalWidget opened = ModalWidget.openNested(this, modal);
+        if (opened == null) {
+            return;
+        }
+
+        TextLabel label = new TextLabel(0, 4, opened.getContentWidth(), 20,
+                Component.translatable("shop.ui.category.icon.texture_label"));
+        label.setAutoSize(false)
+                .setAlignment(TextLabel.HorizontalAlignment.LEFT, TextLabel.VerticalAlignment.CENTER)
+                .setColor(0xFFAEB4C6);
+        opened.addWidget(label);
+
+        InputTextBox input = new InputTextBox(0, 28, opened.getContentWidth(), 20);
+        input.setResourceLocationOnly();
+        input.setMaxLength(256);
+        input.setCurrentStringSilently(category.hasTextureIcon() ? category.getIconTexture().toString() : "");
+        input.setPlaceholder(Component.translatable("shop.ui.category.icon.texture.placeholder"));
+        input.setClientSideWidget();
+        opened.addWidget(input);
+
+        TextLabel searchLabel = new TextLabel(0, 52, opened.getContentWidth(), 16,
+                Component.translatable("shop.ui.texture_selector.search_label"));
+        searchLabel.setAutoSize(false)
+                .setAlignment(TextLabel.HorizontalAlignment.LEFT, TextLabel.VerticalAlignment.CENTER)
+                .setColor(0xFFAEB4C6);
+        opened.addWidget(searchLabel);
+
+        InputTextBox search = new InputTextBox(0, 70, opened.getContentWidth(), 20);
+        search.setMaxLength(128);
+        search.setPlaceholder(Component.translatable("shop.ui.texture_selector.search.placeholder"));
+        search.setClientSideWidget();
+        opened.addWidget(search);
+
+        int buttonY = Math.max(58, opened.getContentHeight() - 24);
+        int gridY = 94;
+        int gridHeight = Math.max(1, buttonY - gridY - 6);
+        TexturePickerGrid grid = new TexturePickerGrid(0, gridY, opened.getContentWidth(), gridHeight, selected -> {
+            input.setCurrentStringSilently(selected.toString());
+            input.setFocus(false);
+            search.setFocus(false);
+        });
+        grid.setClientSideWidget();
+        opened.addWidget(grid);
+
+        List<ResourceLocation> allTextures = collectTextureIconResources();
+        final Runnable[] rebuildTextureGrid = new Runnable[1];
+        rebuildTextureGrid[0] = () -> rebuildTexturePickerGrid(grid, allTextures, search.getCurrentString());
+        search.setTextResponder(ignored -> rebuildTextureGrid[0].run());
+        rebuildTextureGrid[0].run();
+
+        int buttonWidth = Math.max(1, (opened.getContentWidth() - 12) / 3);
+        ButtonWidget cancel = createModalButton(0, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.cancel"), ignored -> opened.close());
+        ButtonWidget clear = createModalButton(buttonWidth + 6, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.clear"), ignored -> {
+            if (shopScreen.updateDraftCategoryIcon(category, CatalogComponent.IconType.NONE, ItemStack.EMPTY, CatalogComponent.EMPTY_ICON_TEXTURE)) {
+                opened.close();
+                ShopToasts.success(Component.translatable("shop.ui.toast.category_icon_cleared"));
+            }
+        });
+        ButtonWidget save = createModalButton((buttonWidth + 6) * 2, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.save"), ignored -> {
+            ResourceLocation texture = parseCategoryIconTexture(input.getCurrentString());
+            if (texture == null) {
+                ShopToasts.warning(Component.translatable("shop.ui.toast.invalid_category_icon_texture"));
+                return;
+            }
+
+            if (shopScreen.updateDraftCategoryIcon(category, CatalogComponent.IconType.TEXTURE, ItemStack.EMPTY, texture)) {
+                opened.close();
+                ShopToasts.success(Component.translatable("shop.ui.toast.category_icon_updated"));
+            }
+        });
+
+        opened.addWidget(cancel);
+        opened.addWidget(clear);
+        opened.addWidget(save);
+        if (allTextures.isEmpty()) {
+            input.setFocus(true);
+        } else {
+            search.setFocus(true);
+        }
     }
 
     public void openMoveCategoryModal(CatalogComponent category) {
@@ -544,6 +699,46 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
         return raw.contains(":") ? ResourceLocation.tryParse(raw) : ResourceLocation.tryBuild("sdm", raw);
     }
 
+    @Nullable
+    private ResourceLocation parseCategoryIconTexture(String value) {
+        String raw = value == null ? "" : value.trim();
+        if (raw.isEmpty()) {
+            return null;
+        }
+        return ResourceLocation.tryParse(raw);
+    }
+
+    private List<ResourceLocation> collectTextureIconResources() {
+        List<ResourceLocation> textures = new ArrayList<>();
+        try {
+            Map<ResourceLocation, ?> resources = Minecraft.getInstance().getResourceManager().listResources(
+                    "textures",
+                    location -> location.getPath().endsWith(".png")
+            );
+            textures.addAll(resources.keySet());
+        } catch (Exception ignored) {
+        }
+
+        textures.sort(Comparator.comparing(ResourceLocation::toString));
+        return textures;
+    }
+
+    private void rebuildTexturePickerGrid(TexturePickerGrid grid, List<ResourceLocation> allTextures, String query) {
+        String filter = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        List<ResourceLocation> filteredTextures = new ArrayList<>();
+        for (ResourceLocation texture : allTextures) {
+            if (texture == null) {
+                continue;
+            }
+
+            String id = texture.toString().toLowerCase(Locale.ROOT);
+            if (filter.isEmpty() || id.contains(filter)) {
+                filteredTextures.add(texture);
+            }
+        }
+        grid.setTextures(filteredTextures);
+    }
+
     private ButtonWidget createModalButton(int x, int y, int width, int height, Component text, java.util.function.Consumer<com.lowdragmc.lowdraglib.gui.util.ClickData> action) {
         ButtonWidget button = new ButtonWidget(x, y, width, height, text, action);
         button.setClientSideWidget();
@@ -577,6 +772,320 @@ public class ShopTabsPanelElement extends ShopWidgetGroup implements
         }
 
         return Objects.equals(first.getId(), second.getId());
+    }
+
+    private class TexturePickerGrid extends Widget {
+
+        private final List<ResourceLocation> textures = new ArrayList<>();
+        private final Consumer<ResourceLocation> onSelect;
+        private int scrollOffset;
+        private boolean draggingScrollThumb;
+        private double dragStartMouseY;
+        private int dragStartScrollOffset;
+
+        private TexturePickerGrid(int x, int y, int width, int height, Consumer<ResourceLocation> onSelect) {
+            super(x, y, width, height);
+            this.onSelect = onSelect;
+        }
+
+        private void setTextures(List<ResourceLocation> textureIds) {
+            textures.clear();
+            if (textureIds != null) {
+                textures.addAll(textureIds);
+            }
+
+            scrollOffset = 0;
+            draggingScrollThumb = false;
+            clampScrollOffset();
+        }
+
+        @Override
+        public void drawInBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+            int x = getPositionX();
+            int y = getPositionY();
+            int width = getSizeWidth();
+            int height = getSizeHeight();
+
+            graphics.fill(x, y, x + width, y + height, 0xFF14151C);
+            graphics.fill(x, y, x + width, y + 1, 0xFF3D3D4E);
+            graphics.fill(x, y + height - 1, x + width, y + height, 0xFF3D3D4E);
+            graphics.fill(x, y, x + 1, y + height, 0xFF3D3D4E);
+            graphics.fill(x + width - 1, y, x + width, y + height, 0xFF3D3D4E);
+
+            graphics.enableScissor(x + 1, y + 1, x + width - 1, y + height - 1);
+            try {
+                drawVisibleTextures(graphics, mouseX, mouseY);
+                if (textures.isEmpty()) {
+                    graphics.drawString(
+                            Minecraft.getInstance().font,
+                            Component.translatable("shop.ui.texture_selector.empty"),
+                            x + 6,
+                            y + 6,
+                            0xFFAAAAAA,
+                            false
+                    );
+                }
+            } finally {
+                graphics.disableScissor();
+            }
+
+            drawScrollBar(graphics, mouseX, mouseY);
+        }
+
+        @Override
+        public void drawInForeground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+            ResourceLocation hovered = getTextureAt(mouseX, mouseY);
+            if (hovered != null) {
+                graphics.renderTooltip(Minecraft.getInstance().font, Component.literal(hovered.toString()), mouseX, mouseY);
+            }
+        }
+
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            if (button != 0 || !isMouseOverElement(mouseX, mouseY)) {
+                return false;
+            }
+
+            if (isMouseOverScrollBar(mouseX, mouseY)) {
+                if (isMouseOverScrollThumb(mouseX, mouseY)) {
+                    draggingScrollThumb = true;
+                    dragStartMouseY = mouseY;
+                    dragStartScrollOffset = scrollOffset;
+                } else {
+                    scrollToMouse(mouseY);
+                }
+                return true;
+            }
+
+            ResourceLocation clicked = getTextureAt(mouseX, mouseY);
+            if (clicked != null) {
+                Widget.playButtonClickSound();
+                onSelect.accept(clicked);
+                return true;
+            }
+
+            return true;
+        }
+
+        @Override
+        public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+            if (!draggingScrollThumb || button != 0) {
+                return false;
+            }
+
+            int maxScroll = getMaxScrollOffset();
+            if (maxScroll <= 0) {
+                scrollOffset = 0;
+                return true;
+            }
+
+            int trackHeight = getScrollTrackHeight();
+            int thumbHeight = getScrollThumbHeight();
+            int movable = Math.max(1, trackHeight - thumbHeight);
+            scrollOffset = dragStartScrollOffset + (int) Math.round((mouseY - dragStartMouseY) * maxScroll / (double) movable);
+            clampScrollOffset();
+            return true;
+        }
+
+        @Override
+        public boolean mouseReleased(double mouseX, double mouseY, int button) {
+            if (button == 0 && draggingScrollThumb) {
+                draggingScrollThumb = false;
+                return true;
+            }
+            return false;
+        }
+
+        @Override
+        public boolean mouseWheelMove(double mouseX, double mouseY, double wheelDelta) {
+            if (!isMouseOverElement(mouseX, mouseY) || getMaxScrollOffset() <= 0) {
+                return false;
+            }
+
+            scrollOffset += wheelDelta < 0 ? rowPitch() * 2 : -rowPitch() * 2;
+            clampScrollOffset();
+            return true;
+        }
+
+        private void drawVisibleTextures(GuiGraphics graphics, int mouseX, int mouseY) {
+            if (textures.isEmpty()) {
+                return;
+            }
+
+            int columns = getColumns();
+            int pitch = rowPitch();
+            int firstRow = Math.max(0, scrollOffset / pitch);
+            int lastRow = Math.min(getRows() - 1, (scrollOffset + getSizeHeight() + pitch - 1) / pitch);
+            int startX = getGridStartX(columns);
+            int baseX = getPositionX();
+            int baseY = getPositionY();
+
+            for (int row = firstRow; row <= lastRow; row++) {
+                int itemY = baseY + row * pitch - scrollOffset;
+                for (int col = 0; col < columns; col++) {
+                    int index = row * columns + col;
+                    if (index >= textures.size()) {
+                        return;
+                    }
+
+                    int itemX = baseX + startX + col * pitch;
+                    ResourceLocation texture = textures.get(index);
+                    boolean hovered = isMouseOverTexture(mouseX, mouseY, itemX, itemY);
+
+                    graphics.fill(itemX, itemY, itemX + TEXTURE_PICKER_GRID_ITEM_SIZE, itemY + TEXTURE_PICKER_GRID_ITEM_SIZE, hovered ? 0xFF34384A : 0xFF20222B);
+                    graphics.fill(itemX, itemY, itemX + TEXTURE_PICKER_GRID_ITEM_SIZE, itemY + 1, hovered ? 0xFF7986CB : 0xFF3D3D4E);
+                    graphics.fill(itemX, itemY + TEXTURE_PICKER_GRID_ITEM_SIZE - 1, itemX + TEXTURE_PICKER_GRID_ITEM_SIZE, itemY + TEXTURE_PICKER_GRID_ITEM_SIZE, hovered ? 0xFF7986CB : 0xFF3D3D4E);
+                    graphics.fill(itemX, itemY, itemX + 1, itemY + TEXTURE_PICKER_GRID_ITEM_SIZE, hovered ? 0xFF7986CB : 0xFF3D3D4E);
+                    graphics.fill(itemX + TEXTURE_PICKER_GRID_ITEM_SIZE - 1, itemY, itemX + TEXTURE_PICKER_GRID_ITEM_SIZE, itemY + TEXTURE_PICKER_GRID_ITEM_SIZE, hovered ? 0xFF7986CB : 0xFF3D3D4E);
+                    new ResourceTexture(texture).draw(
+                            graphics,
+                            mouseX,
+                            mouseY,
+                            itemX + 2,
+                            itemY + 2,
+                            TEXTURE_PICKER_GRID_ITEM_SIZE - 4,
+                            TEXTURE_PICKER_GRID_ITEM_SIZE - 4
+                    );
+                }
+            }
+        }
+
+        private void drawScrollBar(GuiGraphics graphics, int mouseX, int mouseY) {
+            if (!hasScrollBar()) {
+                return;
+            }
+
+            int trackX = getScrollTrackX();
+            int trackY = getPositionY();
+            int trackHeight = getScrollTrackHeight();
+            int thumbY = getScrollThumbY();
+            int thumbHeight = getScrollThumbHeight();
+            int thumbColor = isMouseOverScrollThumb(mouseX, mouseY) || draggingScrollThumb ? 0xFFAAB2C5 : 0xFF6D7485;
+
+            graphics.fill(trackX, trackY, trackX + TEXTURE_PICKER_SCROLLBAR_WIDTH, trackY + trackHeight, 0x5530303A);
+            graphics.fill(trackX, thumbY, trackX + TEXTURE_PICKER_SCROLLBAR_WIDTH, thumbY + thumbHeight, thumbColor);
+        }
+
+        @Nullable
+        private ResourceLocation getTextureAt(double mouseX, double mouseY) {
+            if (!isMouseOverElement(mouseX, mouseY) || textures.isEmpty() || isMouseOverScrollBar(mouseX, mouseY)) {
+                return null;
+            }
+
+            int columns = getColumns();
+            int pitch = rowPitch();
+            int startX = getGridStartX(columns);
+            int localX = (int) Math.floor(mouseX - getPositionX() - startX);
+            int localY = (int) Math.floor(mouseY - getPositionY() + scrollOffset);
+            if (localX < 0 || localY < 0) {
+                return null;
+            }
+
+            int col = localX / pitch;
+            int row = localY / pitch;
+            if (col < 0 || col >= columns || localX % pitch >= TEXTURE_PICKER_GRID_ITEM_SIZE || localY % pitch >= TEXTURE_PICKER_GRID_ITEM_SIZE) {
+                return null;
+            }
+
+            int index = row * columns + col;
+            return index >= 0 && index < textures.size() ? textures.get(index) : null;
+        }
+
+        private boolean isMouseOverTexture(double mouseX, double mouseY, int itemX, int itemY) {
+            return mouseX >= itemX
+                    && mouseY >= itemY
+                    && mouseX < itemX + TEXTURE_PICKER_GRID_ITEM_SIZE
+                    && mouseY < itemY + TEXTURE_PICKER_GRID_ITEM_SIZE;
+        }
+
+        private void scrollToMouse(double mouseY) {
+            int maxScroll = getMaxScrollOffset();
+            int thumbHeight = getScrollThumbHeight();
+            int movable = Math.max(1, getScrollTrackHeight() - thumbHeight);
+            scrollOffset = (int) Math.round((mouseY - getPositionY() - thumbHeight / 2.0) * maxScroll / movable);
+            clampScrollOffset();
+        }
+
+        private int getColumns() {
+            int availableWidth = Math.max(1, getSizeWidth() - TEXTURE_PICKER_SCROLLBAR_WIDTH - TEXTURE_PICKER_SCROLLBAR_PADDING);
+            return Math.max(1, availableWidth / rowPitch());
+        }
+
+        private int getRows() {
+            int columns = getColumns();
+            return textures.isEmpty() ? 0 : (int) Math.ceil(textures.size() / (double) columns);
+        }
+
+        private int getContentHeight() {
+            int rows = getRows();
+            return rows <= 0 ? 0 : rows * rowPitch() - TEXTURE_PICKER_GRID_GAP;
+        }
+
+        private int getMaxScrollOffset() {
+            return Math.max(0, getContentHeight() - getSizeHeight());
+        }
+
+        private void clampScrollOffset() {
+            scrollOffset = Math.max(0, Math.min(scrollOffset, getMaxScrollOffset()));
+        }
+
+        private boolean hasScrollBar() {
+            return getMaxScrollOffset() > 0;
+        }
+
+        private int getGridStartX(int columns) {
+            int availableWidth = Math.max(1, getSizeWidth() - TEXTURE_PICKER_SCROLLBAR_WIDTH - TEXTURE_PICKER_SCROLLBAR_PADDING);
+            int contentWidth = columns * rowPitch() - TEXTURE_PICKER_GRID_GAP;
+            return Math.max(1, (availableWidth - contentWidth) / 2);
+        }
+
+        private int rowPitch() {
+            return TEXTURE_PICKER_GRID_ITEM_SIZE + TEXTURE_PICKER_GRID_GAP;
+        }
+
+        private int getScrollTrackX() {
+            return getPositionX() + getSizeWidth() - TEXTURE_PICKER_SCROLLBAR_WIDTH;
+        }
+
+        private int getScrollTrackHeight() {
+            return getSizeHeight();
+        }
+
+        private int getScrollThumbHeight() {
+            int contentHeight = Math.max(1, getContentHeight());
+            int trackHeight = getScrollTrackHeight();
+            return Math.max(12, Math.min(trackHeight, (int) Math.round(trackHeight * (trackHeight / (double) contentHeight))));
+        }
+
+        private int getScrollThumbY() {
+            int maxScroll = getMaxScrollOffset();
+            if (maxScroll <= 0) {
+                return getPositionY();
+            }
+
+            int movable = Math.max(1, getScrollTrackHeight() - getScrollThumbHeight());
+            return getPositionY() + (int) Math.round(scrollOffset * movable / (double) maxScroll);
+        }
+
+        private boolean isMouseOverScrollBar(double mouseX, double mouseY) {
+            return hasScrollBar()
+                    && mouseX >= getScrollTrackX()
+                    && mouseY >= getPositionY()
+                    && mouseX < getScrollTrackX() + TEXTURE_PICKER_SCROLLBAR_WIDTH
+                    && mouseY < getPositionY() + getScrollTrackHeight();
+        }
+
+        private boolean isMouseOverScrollThumb(double mouseX, double mouseY) {
+            if (!hasScrollBar()) {
+                return false;
+            }
+
+            int thumbY = getScrollThumbY();
+            return mouseX >= getScrollTrackX()
+                    && mouseY >= thumbY
+                    && mouseX < getScrollTrackX() + TEXTURE_PICKER_SCROLLBAR_WIDTH
+                    && mouseY < thumbY + getScrollThumbHeight();
+        }
     }
 
     @Override

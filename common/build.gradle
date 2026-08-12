@@ -30,6 +30,9 @@ dependencies {
     minecraftLibraries("com.github.ben-manes.caffeine:caffeine:3.2.3")
     minecraftLibraries("org.mongodb:mongodb-driver-sync:5.6.5")
 
+    modCompileOnly "dev.ftb.mods:ftb-quests:2001.4.22"
+    modCompileOnly "dev.ftb.mods:ftb-library:2001.2.13"
+
     testImplementation("org.mongodb:mongodb-driver-sync:5.6.5")
 
     compileOnly("org.yaml:snakeyaml:2.2")
