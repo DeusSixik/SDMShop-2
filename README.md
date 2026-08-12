@@ -1,13 +1,13 @@
 # SDM Shop 2
 
 **SDM Shop 2** is a full rewrite of the original SDM Shop mod for Minecraft 1.20.1.
-The project is currently in **1.0.0-beta**: the core shop flow is usable, but the mod should still be treated as a beta while dedicated-server and cross-loader testing continues.
+The project is currently in **Beta**: the core shop flow is usable, but the mod should still be treated as a beta while dedicated-server and cross-loader testing continues.
 
 SDM Shop 2 is built around an Entity Component System (ECS): shops and offers are small entities composed from reusable components such as costs, rewards, conditions, limits, categories, promos and render flags.
 
 ## Current Status
 
-- **Version:** 1.0.0-beta
+- **Version:** Beta
 - **Minecraft:** 1.20.1
 - **Loaders:** Fabric and Forge through Architectury
 - **UI:** LDLib-based custom shop UI
