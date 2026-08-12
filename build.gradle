@@ -80,14 +80,19 @@ subprojects {
         maven {
             url "https://cursemaven.com"
         }
+        maven {
+            name "ftbMavenReleases"
+            url "https://maven.ftb.dev/releases"
+        }
+
     }
 
     dependencies {
         minecraft "net.minecraft:minecraft:$rootProject.minecraft_version"
         mappings loom.officialMojangMappings()
 
-        compileOnly 'org.projectlombok:lombok:1.18.24'
-        annotationProcessor 'org.projectlombok:lombok:1.18.24'
+        compileOnly 'org.projectlombok:lombok:1.18.38'
+        annotationProcessor 'org.projectlombok:lombok:1.18.38'
         compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
 
         testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'

@@ -12,6 +12,8 @@ import net.minecraft.nbt.TagParser;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.SharedConstants;
+import net.minecraft.server.Bootstrap;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -24,6 +26,11 @@ import java.util.*;
  * Набор готовых кодеков для часто используемых типов полей.
  */
 public final class FieldCodecs {
+
+    static {
+        SharedConstants.tryDetectVersion();
+        Bootstrap.bootStrap();
+    }
 
     private static final ResourceLocation EMPTY_TAG_LOCATION = new ResourceLocation("minecraft", "air");
 

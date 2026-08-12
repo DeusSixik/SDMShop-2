@@ -116,6 +116,8 @@ public class SDMEconomyPlatform {
         SDMEconomyNetwork.init();
         PlayerEvent.PLAYER_JOIN.register(SDMEconomyPlatform::onPlayerJoin);
         PlayerEvent.PLAYER_QUIT.register(SDMEconomyPlatform::onPlayerLeft);
+
+        SDMEconomyIntegrations.init();
     }
 
     public static SDMEconomyDataStorageConfig getDataStorageConfig() {
