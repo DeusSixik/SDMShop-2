@@ -15,7 +15,7 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.textures.ColorRectAndBorderTexture
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentRegistry;
-import dev.sixik.sdmshop2.utils.ShopUtils;
+import dev.sixik.sdmshop2.utils.ShopClientUtils;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.Util;
@@ -348,7 +348,7 @@ public class ComponentSelectionMenu {
             Иконка
          */
         final CurrencyIcon componentIcon = type.getIcon();
-        final IGuiTexture iconTexture = ShopUtils.getCurrencyTexture(componentIcon);
+        final IGuiTexture iconTexture = ShopClientUtils.getCurrencyTexture(componentIcon);
 
         final ImageWidget icon = new ImageWidget((w - 24) / 2, 5, 24, 24, iconTexture);
         if (hasTooltip)

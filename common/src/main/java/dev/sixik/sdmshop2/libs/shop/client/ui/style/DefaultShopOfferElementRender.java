@@ -34,7 +34,7 @@ import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.HorizontalContainer;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.VerticalContainer;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.table.ScrollableInteractionTable;
-import dev.sixik.sdmshop2.utils.ShopUtils;
+import dev.sixik.sdmshop2.utils.ShopClientUtils;
 import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.language.I18n;
@@ -648,7 +648,7 @@ public class DefaultShopOfferElementRender implements WidgetRender {
         if (moneyId != null) {
             ICurrency currency = SDMEconomyServiceClient.getCurrency(moneyId);
             if (currency != null) {
-                TransformTexture texture = ShopUtils.getCurrencyTexture(currency);
+                TransformTexture texture = ShopClientUtils.getCurrencyTexture(currency);
                 if (texture != null) {
                     badge.setLeadingTexture(texture, 8, 8);
                 }

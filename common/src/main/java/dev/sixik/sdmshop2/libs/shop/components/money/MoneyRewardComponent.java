@@ -13,7 +13,7 @@ import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentNumberRan
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
 import dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs;
-import dev.sixik.sdmshop2.utils.ShopUtils;
+import dev.sixik.sdmshop2.utils.ShopClientUtils;
 import lombok.Getter;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -78,7 +78,7 @@ public class MoneyRewardComponent extends RewardComponent {
         }
 
         final ShopEmptyWidget widget = new ShopEmptyWidget();
-        final TransformTexture texture = ShopUtils.getCurrencyTexture(money, amount);
+        final TransformTexture texture = ShopClientUtils.getCurrencyTexture(money, amount);
 
         if(texture != null) {
             widget.setBackground(texture).setHoverTexture(texture);

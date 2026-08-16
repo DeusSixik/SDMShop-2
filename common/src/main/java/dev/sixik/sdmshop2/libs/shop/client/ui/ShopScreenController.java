@@ -11,7 +11,7 @@ import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ModalWidget;
-import dev.sixik.sdmshop2.utils.ShopUtils;
+import dev.sixik.sdmshop2.utils.ShopClientUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -22,7 +22,7 @@ import java.util.UUID;
 public final class ShopScreenController {
 
     public static void openShop() {
-        ShopUtils.openWidget(defaultGui());
+        ShopClientUtils.openWidget(defaultGui());
     }
 
     public static void openShopEditor() {
@@ -32,7 +32,7 @@ public final class ShopScreenController {
     public static void openShopEditor(@Nullable Widget owner) {
         ShopInstance shop = SDMShopClient.Shop;
         if (shop == null || shop.isNull()) {
-            ShopUtils.openWidget(defaultGui());
+            ShopClientUtils.openWidget(defaultGui());
             return;
         }
 
@@ -67,7 +67,7 @@ public final class ShopScreenController {
     }
 
     private static void openEditor(ShopEditSession session, ResourceLocation shopId) {
-        ShopUtils.openWidget(new ShopScreenElement(session, shopId));
+        ShopClientUtils.openWidget(new ShopScreenElement(session, shopId));
     }
 
     private static void openSessionConflictModal(Widget owner, PersistentEditSession persisted, ShopInstance currentShop) {

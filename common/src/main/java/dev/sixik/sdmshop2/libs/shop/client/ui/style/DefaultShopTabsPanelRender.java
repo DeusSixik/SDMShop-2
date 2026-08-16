@@ -23,7 +23,7 @@ import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ContextMenuWidget;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.HorizontalContainer;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.VerticalContainer;
-import dev.sixik.sdmshop2.utils.ShopUtils;
+import dev.sixik.sdmshop2.utils.ShopClientUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
@@ -139,7 +139,7 @@ public class DefaultShopTabsPanelRender implements WidgetRender {
             final HorizontalContainer hBox = panel.isEditorMode()
                     ? new CurrencyRow(panel, id, value)
                     : new HorizontalContainer();
-            final TransformTexture texture = ShopUtils.getCurrencyTexture(value);
+            final TransformTexture texture = ShopClientUtils.getCurrencyTexture(value);
 
             hBox.alignBottom();
             if (!panel.isEditorMode()) {
