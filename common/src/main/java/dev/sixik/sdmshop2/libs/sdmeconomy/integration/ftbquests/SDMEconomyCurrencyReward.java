@@ -7,8 +7,8 @@ import dev.ftb.mods.ftbquests.net.DisplayRewardToastMessage;
 import dev.ftb.mods.ftbquests.quest.Quest;
 import dev.ftb.mods.ftbquests.quest.reward.Reward;
 import dev.ftb.mods.ftbquests.quest.reward.RewardType;
-import dev.sixik.sdmeconomy.api.EconomyApi;
 import dev.sixik.sdmshop2.libs.sdmeconomy.IExternalCurrency;
+import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -155,7 +155,7 @@ public class SDMEconomyCurrencyReward extends Reward {
     }
 
     private Icon getToastIcon() {
-        final IExternalCurrency currency = EconomyApi.getCurrencies(true).get(currencyId);
+        final IExternalCurrency currency = SDMEconomyServiceClient.getAllExternalCurrencies().get(currencyId);
         if(currency == null)
             return SDMEconomyFTBQuestsIntegration.defaultIcon();
 

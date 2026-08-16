@@ -9,8 +9,8 @@ import dev.ftb.mods.ftbquests.quest.TeamData;
 import dev.ftb.mods.ftbquests.quest.task.ISingleLongValueTask;
 import dev.ftb.mods.ftbquests.quest.task.Task;
 import dev.ftb.mods.ftbquests.quest.task.TaskType;
-import dev.sixik.sdmeconomy.api.EconomyApi;
 import dev.sixik.sdmshop2.libs.sdmeconomy.IExternalCurrency;
+import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -117,7 +117,7 @@ public class SDMEconomyCurrencyTask extends Task implements ISingleLongValueTask
     @Override
     @Environment(EnvType.CLIENT)
     public Icon getAltIcon() {
-        final IExternalCurrency currency = EconomyApi.getCurrencies(true).get(currencyId);
+        final IExternalCurrency currency = SDMEconomyServiceClient.getAllExternalCurrencies().get(currencyId);
         if(currency == null)
             return SDMEconomyFTBQuestsIntegration.defaultIcon();
 

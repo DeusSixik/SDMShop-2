@@ -9,7 +9,7 @@ import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
 import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopScreenElement;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
-import dev.sixik.sdmshop2.utils.ShopUtils;
+import dev.sixik.sdmshop2.utils.ShopClientUtils;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -83,7 +83,7 @@ public final class ComponentConfigOptionProviders {
                     ICurrency currency = entry.getValue();
                     Component label = currency.getDisplayName().copy()
                             .append(Component.literal(" §8(" + id + ")"));
-                    options.add(new Option(id, label, ShopUtils.getCurrencyTexture(currency)));
+                    options.add(new Option(id, label, ShopClientUtils.getCurrencyTexture(currency)));
                 });
         return options;
     }

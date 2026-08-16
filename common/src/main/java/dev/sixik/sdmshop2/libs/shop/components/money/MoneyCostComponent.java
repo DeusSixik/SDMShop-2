@@ -10,7 +10,7 @@ import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfigOpt
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentNumberRange;
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
-import dev.sixik.sdmshop2.utils.ShopUtils;
+import dev.sixik.sdmshop2.utils.ShopClientUtils;
 import lombok.Getter;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -146,7 +146,7 @@ public class MoneyCostComponent extends CostComponent {
             return null;
         }
 
-        return ShopUtils.getCurrencyTexture(money);
+        return ShopClientUtils.getCurrencyTexture(money);
     }
 
     @Override

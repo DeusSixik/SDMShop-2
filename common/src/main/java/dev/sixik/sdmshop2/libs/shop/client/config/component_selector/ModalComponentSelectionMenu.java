@@ -23,7 +23,7 @@ import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.InputTextBox;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.DropDownBox;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ModalWidget;
-import dev.sixik.sdmshop2.utils.ShopUtils;
+import dev.sixik.sdmshop2.utils.ShopClientUtils;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.Util;
@@ -384,7 +384,7 @@ public final class ModalComponentSelectionMenu {
         }
 
         final CurrencyIcon componentIcon = type.getIcon();
-        IGuiTexture iconTexture = ShopUtils.getCurrencyTexture(componentIcon);
+        IGuiTexture iconTexture = ShopClientUtils.getCurrencyTexture(componentIcon);
         if (iconTexture == null) {
             iconTexture = new ColorRectTexture(0x00000000);
         }

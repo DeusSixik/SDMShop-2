@@ -14,7 +14,7 @@ import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.*;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.*;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.table.IconsTable;
 import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.table.InteractionTable;
-import dev.sixik.sdmshop2.utils.ShopUtils;
+import dev.sixik.sdmshop2.utils.ShopClientUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -42,7 +42,7 @@ public final class ShopRenderLibExtension {
     private static final int HOVER_BORDER = 0xFFFFFFFF;
 
     public static void openUi() {
-        ShopUtils.openWidget(debug());
+        ShopClientUtils.openWidget(debug());
     }
 
     private static WidgetGroup debug() {
