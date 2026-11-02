@@ -1,6 +1,6 @@
 package dev.sixik.sdmshop2.libs.shop.components.api;
 
-import com.lowdragmc.lowdraglib.gui.texture.TransformTexture;
+import dev.sixik.unigui.api.widget.Widget;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import lombok.Getter;
@@ -73,7 +73,7 @@ public abstract class CostComponent extends ShopComponent {
 
     @Environment(EnvType.CLIENT)
     @Nullable
-    public abstract TransformTexture getRenderIcon();
+    public abstract Widget getRenderIcon();
 
     public Component getDisplayName() {
         return Component.empty();

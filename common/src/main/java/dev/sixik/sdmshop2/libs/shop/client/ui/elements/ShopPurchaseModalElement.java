@@ -1,6 +1,5 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.elements;
 
-import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
@@ -9,7 +8,6 @@ import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
 import dev.sixik.sdmshop2.libs.shop.client.sound.ShopClientSounds;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.*;
 import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
-import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopPurchaseModalRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.toast.ShopToasts;
 import dev.sixik.sdmshop2.libs.shop.components.ItemCostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.ItemTagCostComponent;
@@ -19,8 +17,16 @@ import dev.sixik.sdmshop2.libs.shop.components.money.MoneyCostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.utils.ShopComponentsUtils;
 import dev.sixik.sdmshop2.libs.shop.limiter.ShopLimiters;
 import dev.sixik.sdmshop2.libs.shop.network.ShopNetworkManager;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ModalWidget;
 import dev.sixik.sdmshop2.utils.ShopItemHelper;
+import dev.sixik.unigui.api.layout.EdgeInsets;
+import dev.sixik.unigui.api.widget.Widget;
+import dev.sixik.unigui.widgets.containers.HBox;
+import dev.sixik.unigui.widgets.containers.VBox;
+import dev.sixik.unigui.widgets.display.Label;
+import dev.sixik.unigui.widgets.feedback.OverlayLayer;
+import dev.sixik.unigui.widgets.feedback.WindowWidget;
+import dev.sixik.unigui.widgets.interaction.Button;
+import dev.sixik.unigui.widgets.interaction.TextField;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -35,7 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-public class ShopPurchaseModalElement extends ModalWidget implements
+public class ShopPurchaseModalElement extends WindowWidget implements
         ShopUiElement,
         WidgetContextRender,
         UIDisposable {
@@ -47,7 +53,6 @@ public class ShopPurchaseModalElement extends ModalWidget implements
     private ShopOffer offer;
     private final String moneyGroup;
     private List<CostComponent> costs;
-    private final WidgetRender render;
     private final UIEventScope eventScope = new UIEventScope();
 
     private int quantity = 1;
@@ -69,7 +74,12 @@ public class ShopPurchaseModalElement extends ModalWidget implements
         }
 
         ShopPurchaseModalElement modal = new ShopPurchaseModalElement(offer, moneyGroup);
-        return ModalWidget.openNested(owner, modal);
+        OverlayLayer overlay = findOverlay(owner);
+        if (overlay == null && ShopScreenElement.Instance != null) overlay = ShopScreenElement.Instance.getOverlay();
+        if (overlay == null) return null;
+        overlay.windows().register(modal);
+        modal.openModal();
+        return modal;
     }
 
     public ShopPurchaseModalElement(ShopOffer offer, String moneyGroup) {
@@ -81,15 +91,16 @@ public class ShopPurchaseModalElement extends ModalWidget implements
     }
 
     public ShopPurchaseModalElement(ShopOffer offer, String moneyGroup, WidgetRender render) {
-        super(DEFAULT_WIDTH, DEFAULT_HEIGHT);
+        super(Component.translatable("shop.ui.purchase.title").getString(), new VBox());
         this.offer = Objects.requireNonNull(offer, "offer");
         this.moneyGroup = moneyGroup == null ? "" : moneyGroup;
-        this.render = Objects.requireNonNull(render, "render");
         this.costs = resolveCosts(offer);
+
+        modal(true).fixedModal(true).resizable(false).closeOnOutsideClick(false);
+        layout(style -> style.fixed(DEFAULT_WIDTH, DEFAULT_HEIGHT));
 
         recomputeMaxQuantity();
 
-        this.render.constructor(this);
         registerDefaultHandlers();
         refresh(false);
         refreshRenderState();
@@ -167,34 +178,48 @@ public class ShopPurchaseModalElement extends ModalWidget implements
         return offer.getComponent(CatalogComponent.class).orElse(null);
     }
 
-    @Override
-    public void alightWidget() {
-        render.alightWidgets(this);
-    }
+    @Override public void alightWidget() { invalidate(dev.sixik.unigui.api.core.InvalidationFlags.LAYOUT); }
 
     public ShopPurchaseModalElement refresh() {
         return refresh(true);
     }
 
     public ShopPurchaseModalElement refresh(boolean relayout) {
-        ShopUIUtils.disposeChildren(getContent());
-        clearContent();
+        VBox body = new VBox();
+        body.spacing(6.0f);
+        body.layout(style -> style.fill().padding(EdgeInsets.all(8.0f)));
+        for (CostComponent cost : costs) body.addChild(new Label(getCostLine(cost).getString()).wrap(true));
+        body.addChild(new Label(getAvailabilityText().getString()));
 
-        render.addWidgets(this);
-
-        if (relayout) {
-            alightWidget();
-        }
-
+        HBox quantityRow = new HBox();
+        quantityRow.spacing(5.0f);
+        Button minimum = new Button("Min");
+        minimum.onClick(event -> setQuantity(1));
+        Button minus = new Button("−");
+        minus.onClick(event -> setQuantity(quantity - 1));
+        TextField amount = new TextField(String.valueOf(quantity));
+        amount.onTextChanged(event -> setQuantityFromInput(event.newText()));
+        amount.layout(style -> style.expand());
+        Button plus = new Button("+");
+        plus.onClick(event -> setQuantity(quantity + 1));
+        Button maximum = new Button("Max");
+        maximum.onClick(event -> setQuantity(maxQuantity));
+        quantityRow.addChild(minimum); quantityRow.addChild(minus); quantityRow.addChild(amount); quantityRow.addChild(plus); quantityRow.addChild(maximum);
+        body.addChild(quantityRow);
+        body.addChild(new Label(getTotalText().getString()).wrap(true));
+        Component status = getStatusText();
+        if (!status.getString().isBlank()) body.addChild(new Label(status.getString()).wrap(true));
+        Button confirm = new Button(Component.translatable("shop.ui.purchase.confirm").getString());
+        confirm.enabled(!purchasing && quantity > 0 && quantity <= maxQuantity);
+        confirm.onClick(event -> confirmPurchase());
+        body.addChild(confirm);
+        content(body);
+        if (relayout) alightWidget();
         return this;
     }
 
     public void refreshRenderState() {
-        if (render instanceof DefaultShopPurchaseModalRender purchaseRender) {
-            purchaseRender.refreshState(this);
-        } else {
-            refresh(true);
-        }
+        refresh(true);
     }
 
     public void setQuantity(int quantity) {
@@ -581,6 +606,15 @@ public class ShopPurchaseModalElement extends ModalWidget implements
         return eventScope;
     }
 
+    private static @Nullable OverlayLayer findOverlay(Widget owner) {
+        Widget current = owner;
+        while (current != null) {
+            if (current instanceof OverlayLayer layer) return layer;
+            current = current.parent();
+        }
+        return null;
+    }
+
     @Override
     public ShopPurchaseModalElement close() {
         dispose();
@@ -596,6 +630,6 @@ public class ShopPurchaseModalElement extends ModalWidget implements
 
         disposed = true;
         eventScope.close();
-        ShopUIUtils.disposeChildren(getContent());
+        super.dispose();
     }
 }

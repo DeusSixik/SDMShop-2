@@ -1,6 +1,5 @@
 package dev.sixik.sdmshop2.libs.shop.components.money;
 
-import com.lowdragmc.lowdraglib.gui.texture.TransformTexture;
 import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.sdmeconomy.*;
 import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
@@ -11,6 +10,8 @@ import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentNumberRan
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
 import dev.sixik.sdmshop2.utils.ShopClientUtils;
+import dev.sixik.unigui.api.widget.Widget;
+import dev.sixik.unigui.widgets.display.Label;
 import lombok.Getter;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -139,14 +140,14 @@ public class MoneyCostComponent extends CostComponent {
 
     @Override
     @Environment(EnvType.CLIENT)
-    public TransformTexture getRenderIcon() {
+    public Widget getRenderIcon() {
         final ICurrency money = SDMEconomyServiceClient.getCurrency(moneyId);
         if(money == null) {
             SDMShop2.LOGGER.error("Can't find money with id '{}' and can't create render widget", moneyId);
             return null;
         }
 
-        return ShopClientUtils.getCurrencyTexture(money);
+        return new Label(money.getDisplayName().getString());
     }
 
     @Override

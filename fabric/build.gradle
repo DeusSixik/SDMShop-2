@@ -45,7 +45,6 @@ dependencies {
     common(project(path: ':common', configuration: 'namedElements')) { transitive false }
     shadowBundle project(path: ':common', configuration: 'transformProductionFabric')
 
-    modImplementation("com.lowdragmc.ldlib:ldlib-fabric-${minecraft_version}:${ldlib_version}") { transitive = false }
     modImplementation("dev.latvian.mods:kubejs-fabric:${kjs_version}")
     modImplementation('com.blamejared.crafttweaker:CraftTweaker-fabric-1.20.1:14.0.60')
 

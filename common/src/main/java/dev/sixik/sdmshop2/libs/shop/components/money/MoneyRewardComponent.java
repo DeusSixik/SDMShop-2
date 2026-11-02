@@ -1,10 +1,9 @@
 package dev.sixik.sdmshop2.libs.shop.components.money;
 
-import com.lowdragmc.lowdraglib.gui.texture.TransformTexture;
-import com.lowdragmc.lowdraglib.gui.widget.Widget;
+import dev.sixik.unigui.api.widget.Widget;
+import dev.sixik.unigui.widgets.display.Label;
 import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.sdmeconomy.*;
-import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopEmptyWidget;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
@@ -77,18 +76,9 @@ public class MoneyRewardComponent extends RewardComponent {
             return null;
         }
 
-        final ShopEmptyWidget widget = new ShopEmptyWidget();
-        final TransformTexture texture = ShopClientUtils.getCurrencyTexture(money, amount);
-
-        if(texture != null) {
-            widget.setBackground(texture).setHoverTexture(texture);
-        }
-
-        return widget.setHoverTooltips(Component.translatable(
-                "shop.component.reward.money.render.tooltip",
-                money.getDisplayName(),
-                money.format(BigDecimal.valueOf(amount))
-        ));
+        return new Label(Component.translatable(
+                "shop.component.reward.money.render.tooltip", money.getDisplayName(),
+                money.format(BigDecimal.valueOf(amount))).getString());
     }
 
     private static class Type extends SerializedComponentType<MoneyRewardComponent> {

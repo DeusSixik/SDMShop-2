@@ -10,7 +10,7 @@ SDM Shop 2 is built around an Entity Component System (ECS): shops and offers ar
 - **Version:** Beta
 - **Minecraft:** 1.20.1
 - **Loaders:** Fabric and Forge through Architectury
-- **UI:** LDLib-based custom shop UI
+- **UI:** UniGUI-based custom shop UI
 - **Storage:** JSON by default, with MongoDB and custom repository support available through config
 
 ## Key Features
@@ -123,7 +123,7 @@ Development-only debug commands are registered only in a development environment
 ## Tech Stack
 
 - [Architectury](https://architectury.dev/) — common Fabric/Forge architecture.
-- [LDLib](https://www.curseforge.com/minecraft/mc-mods/ldlib) — UI framework and rendering base.
+- [UniGUI](https://github.com/DeusSixik/UniGui) — retained-mode UI framework and rendering base.
 - [Caffeine](https://github.com/ben-manes/caffeine) — high-performance caching utilities.
 - [Yaml Config](https://github.com/Tuinity/YamlConfig) — config serialization.
 - MongoDB Java Driver — optional MongoDB-backed storage.
@@ -144,7 +144,7 @@ This rewrite is already usable for testing and early server setups, but it shoul
 
 ## Why the Rewrite?
 
-The original SDM Shop existed for years and accumulated a lot of legacy code. SDM Shop 2 replaces that foundation with a component-based architecture, cleaner serialization, a modern LDLib UI and a more controlled server-side transaction pipeline.
+The original SDM Shop existed for years and accumulated a lot of legacy code. SDM Shop 2 replaces that foundation with a component-based architecture, cleaner serialization, a modern UniGUI UI and a more controlled server-side transaction pipeline.
 
 ---
 

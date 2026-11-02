@@ -1,11 +1,9 @@
 package dev.sixik.sdmshop2.libs.shop.components;
 
-import com.lowdragmc.lowdraglib.gui.texture.ItemStackTexture;
-import com.lowdragmc.lowdraglib.gui.util.DrawerHelper;
-import com.lowdragmc.lowdraglib.gui.widget.Widget;
+import dev.sixik.unigui.api.widget.Widget;
+import dev.sixik.unigui.widgets.display.Label;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.IconType;
-import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopEmptyWidget;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
@@ -65,9 +63,7 @@ public class ItemRewardComponent extends RewardComponent {
     @Environment(EnvType.CLIENT)
     public @Nullable Widget createRender() {
         final ItemStack item = rewardItem.copyWithCount(amount);
-        return new ShopEmptyWidget().setBackground(
-                new ItemStackTexture(item)
-        ).setHoverTooltips(DrawerHelper.getItemToolTip(item));
+        return new Label(item.getHoverName().getString() + " ×" + Math.max(1, amount));
     }
 
     @Override

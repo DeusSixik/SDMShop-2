@@ -33,3 +33,10 @@ mandatory = true
 versionRange = "[9.2.14,)"
 ordering = "AFTER"
 side = "BOTH"
+
+[[dependencies.sdmshop2]]
+modId = "unigui"
+mandatory = true
+versionRange = "[1.6.2,)"
+ordering = "AFTER"
+side = "BOTH"

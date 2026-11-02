@@ -1,48 +1,22 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.widgets.base;
 
-import com.lowdragmc.lowdraglib.gui.widget.DraggableScrollableWidgetGroup;
-import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUiElement;
+import dev.sixik.unigui.api.core.InvalidationFlags;
+import dev.sixik.unigui.api.widget.Widget;
+import dev.sixik.unigui.widgets.containers.ScrollView;
+import dev.sixik.unigui.widgets.containers.VBox;
 
-public class ShopDraggableScrollableWidgetGroup extends DraggableScrollableWidgetGroup implements ShopUiElement {
+/** UniGUI vertical scrolling host used by offer lists. */
+public class ShopDraggableScrollableWidgetGroup extends ScrollView implements ShopUiElement {
+    private final VBox contentBox = new VBox();
 
-    @Override
-    public void initWidget() {
-        alightWidget();
-        customInitWidget();
-        alightWidgets();
+    public ShopDraggableScrollableWidgetGroup() {
+        content(contentBox);
+        overlayScrollBars(true);
     }
 
-    protected final void customInitWidget() {
-        initialized = true;
-        isClientSideWidget = true;
-        for (int i = 0; i < widgets.size(); i++) {
-            Widget widget = widgets.get(i);
-            if (widget.getGui() != gui) {
-                widget.setGui(gui);
-            }
-            widget.setClientSideWidget();
-            widget.initWidget();
-        }
-
-        alightWidgets();
-    }
-
-    @Override
-    public void alightWidget() {
-        invokeAlightWidgets();
-    }
-
-    protected void alightWidgets() {
-
-    }
-
-    public final void invokeAlightWidgets() {
-        if(!initialized) return;
-
-        for (int i = 0; i < widgets.size(); i++) {
-            if(widgets.get(i) instanceof ShopUiElement element)
-                element.alightWidget();
-        }
-    }
+    public VBox contentBox() { return contentBox; }
+    public void addWidget(Widget widget) { contentBox.addChild(widget); }
+    public void clearWidgets() { contentBox.clearChildren(); }
+    @Override public void alightWidget() { invalidate(InvalidationFlags.LAYOUT); }
 }

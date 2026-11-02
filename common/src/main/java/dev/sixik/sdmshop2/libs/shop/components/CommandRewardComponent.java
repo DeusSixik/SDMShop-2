@@ -1,10 +1,9 @@
 package dev.sixik.sdmshop2.libs.shop.components;
 
-import com.lowdragmc.lowdraglib.gui.texture.ItemStackTexture;
-import com.lowdragmc.lowdraglib.gui.widget.Widget;
+import dev.sixik.unigui.api.widget.Widget;
+import dev.sixik.unigui.widgets.display.Label;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.IconType;
-import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopEmptyWidget;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
@@ -26,8 +25,6 @@ public class CommandRewardComponent extends RewardComponent {
     public static final String DEFAULT_COMMAND = "/time set day";
 
     public static final IComponentType<CommandRewardComponent> TYPE = new Type();
-
-    protected static final ItemStackTexture DEFAULT_TEXTURE = new ItemStackTexture(Items.COMMAND_BLOCK);
 
     @Getter
     @ComponentConfig(translationKey = "shop.component.reward.command.display_name")
@@ -66,8 +63,7 @@ public class CommandRewardComponent extends RewardComponent {
     @Override
     @Environment(EnvType.CLIENT)
     public @Nullable Widget createRender() {
-        return new ShopEmptyWidget().setBackground(DEFAULT_TEXTURE)
-                .setHoverTooltips(Component.translatable("shop.ui.offer_element.component.reward.command", command));
+        return new Label(Component.translatable("shop.ui.offer_element.component.reward.command", command).getString());
     }
 
     private static class Type extends SerializedComponentType<CommandRewardComponent> {

@@ -1,465 +1,225 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.elements;
 
-import com.lowdragmc.lowdraglib.gui.widget.Widget;
-import com.lowdragmc.lowdraglib.utils.Size;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.DODEventBus;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventPtr;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventSubscription;
+import dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency;
+import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.cache.ShopClientCache;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.*;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUIUtils;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIDisposable;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIEventScope;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
-import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopOffersPanelRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.base.ShopDraggableScrollableWidgetGroup;
 import dev.sixik.sdmshop2.libs.shop.components.api.ConditionComponent;
+import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
+import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
+import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentCategory;
 import dev.sixik.sdmshop2.libs.shop.components.conditions.CooldownConditionComponent;
 import dev.sixik.sdmshop2.libs.shop.components.limiter.LimiterComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
+import dev.sixik.sdmshop2.libs.shop.components.misc.NameComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.RenderHideComponent;
+import dev.sixik.sdmshop2.libs.shop.components.misc.ShopOffersContainerComponent;
+import dev.sixik.sdmshop2.libs.shop.components.money.MoneyCostComponent;
+import dev.sixik.sdmshop2.libs.shop.components.utils.ShopComponentsUtils;
 import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
 import dev.sixik.sdmshop2.libs.shop.network.ShopNetworkManager;
+import dev.sixik.unigui.api.core.FrameContext;
+import dev.sixik.unigui.api.layout.EdgeInsets;
+import dev.sixik.unigui.api.widget.Widget;
+import it.unimi.dsi.fastutil.objects.ObjectList;
 import lombok.Getter;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.language.I18n;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
-public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup implements
-        ShopUiElement, WidgetContextRender, UIDisposable {
-
+/** Filtered, scrollable UniGUI offer list. */
+public class ShopOffersPanelElement extends ShopDraggableScrollableWidgetGroup implements WidgetContextRender, UIDisposable {
     private static final long CONDITION_REFRESH_THROTTLE_MS = 250L;
 
-    @Getter
-    protected final @NotNull ShopScreenElement shopScreen;
-    protected final WidgetRender render;
-    protected final UIEventScope eventScope = new UIEventScope();
-    protected boolean defaultHandlersRegistered;
-    @Getter
-    protected String searchText = "";
-    @Getter
-    protected Set<ResourceLocation> selectedCurrencyFilters = Set.of();
-    @Getter
-    protected @Nullable CatalogComponent selectedCategory;
-    protected final Map<UUID, Map<ConditionComponent, Boolean>> serverConditionCache = new HashMap<>();
-    protected final Set<UUID> pendingConditionRequests = new HashSet<>();
-    protected long nextConditionRefreshAtMs = Long.MAX_VALUE;
-    protected long lastConditionAutoRefreshMs;
+    @Getter private final @NotNull ShopScreenElement shopScreen;
+    private final UIEventScope eventScope = new UIEventScope();
+    @Getter private String searchText = "";
+    @Getter private Set<ResourceLocation> selectedCurrencyFilters = Set.of();
+    @Getter private @Nullable CatalogComponent selectedCategory;
+    private final Map<UUID, Map<ConditionComponent, Boolean>> serverConditionCache = new HashMap<>();
+    private final Set<UUID> pendingConditionRequests = new HashSet<>();
+    private long nextConditionRefreshAtMs = Long.MAX_VALUE;
+    private long lastConditionAutoRefreshMs;
 
     public ShopOffersPanelElement(@NotNull ShopScreenElement shopScreen) {
-        this(shopScreen, StyleApi.getDefaultStyle(StyleApi.Category.OffersPanel).get());
-    }
-
-    public ShopOffersPanelElement(@NotNull ShopScreenElement shopScreen, WidgetRender render) {
         this.shopScreen = shopScreen;
-        this.render = Objects.requireNonNull(render, "render");
-
-        this.render.constructor(this);
-        if (shopScreen.getTabsPanel() != null) {
-            this.selectedCategory = shopScreen.getTabsPanel().getSelectedCategory();
-        }
-        registerDefaultHandlers();
+        contentBox().spacing(6.0f);
+        contentBox().layout(style -> style.padding(EdgeInsets.all(6.0f)));
+        registerHandlers();
         refresh(false);
     }
 
-    protected void registerDefaultHandlers() {
-        if (defaultHandlersRegistered) {
-            return;
-        }
-
-        defaultHandlersRegistered = true;
+    private void registerHandlers() {
         listenScreen(ShopUIEvents.SEARCH_UPDATE, event -> setSearchText(event.text()));
         listenScreen(ShopUIEvents.CURRENCY_FILTER_UPDATE, event -> setSelectedCurrencyFilters(event.currencies()));
-        listenScreen(ShopUIEvents.FAVORITES_CHANGED, event -> refresh(initialized));
+        listenScreen(ShopUIEvents.FAVORITES_CHANGED, event -> refresh(false));
         listenScreen(ShopUIEvents.SELECT_CATEGORY, event -> setSelectedCategory(event.selected()));
-        listenScreen(ShopUIEvents.REFRESH_UI, event -> {
-            if (shouldRefreshFor(event)) {
-                refresh(initialized && event.relayout());
-            }
-        });
+        listenScreen(ShopUIEvents.REFRESH_UI, event -> { if (shouldRefreshFor(event)) refresh(event.relayout()); });
         listenScreen(ShopUIEvents.SORT_SHOP_OFFERS, event -> {
-            if (event.panel() != this) {
-                return;
-            }
-
-            event.sort((first, second) -> Boolean.compare(
-                    !ShopClientCache.isFavorite(first.getUUID()),
-                    !ShopClientCache.isFavorite(second.getUUID())
-            ));
+            if (event.panel() == this) event.sort(Comparator.comparing(offer -> !ShopClientCache.isFavorite(offer.getUUID())));
         });
     }
 
-    @Override
-    public void initWidget() {
-        super.initWidget();
+    public void rebuildOffers() { refresh(true); }
+    public void setSearchText(String value) { String safe = value == null ? "" : value.trim(); if (!searchText.equals(safe)) { searchText = safe; refresh(false); } }
+    public void setSelectedCategory(@Nullable CatalogComponent value) { if (!sameCategory(selectedCategory, value)) { selectedCategory = value; refresh(false); } }
+    public void setSelectedCurrencyFilters(Set<ResourceLocation> value) {
+        Set<ResourceLocation> safe = value == null || value.isEmpty() ? Set.of() : Set.copyOf(value);
+        if (!selectedCurrencyFilters.equals(safe)) { selectedCurrencyFilters = safe; refresh(false); }
     }
-
-    @Override
-    public void alightWidget() {
-        if (!initialized) return;
-        render.alightWidgets(this);
-    }
-
-    @Override
-    protected void alightWidgets() {
-        alightWidget();
-    }
-
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (!isInsideOffersViewport(mouseX, mouseY)) {
-            return false;
-        }
-
-        if (render.mouseClicked(this, mouseX, mouseY, button)) {
-            return true;
-        }
-
-        return super.mouseClicked(mouseX, mouseY, button);
-    }
-
-    @Override
-    public Widget getHoverElement(double mouseX, double mouseY) {
-        return isInsideOffersViewport(mouseX, mouseY) ? super.getHoverElement(mouseX, mouseY) : null;
-    }
-
-    @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        return isInsideOffersViewport(mouseX, mouseY) && super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
-    }
-
-    @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        return isInsideOffersViewport(mouseX, mouseY) && super.mouseReleased(mouseX, mouseY, button);
-    }
-
-    @Override
-    public boolean mouseWheelMove(double mouseX, double mouseY, double wheelDelta) {
-        return isInsideOffersViewport(mouseX, mouseY) && super.mouseWheelMove(mouseX, mouseY, wheelDelta);
-    }
-
-    protected boolean isInsideOffersViewport(double mouseX, double mouseY) {
-        return mouseX >= getPositionX()
-                && mouseY >= getPositionY()
-                && mouseX < getPositionX() + getSizeWidth()
-                && mouseY < getPositionY() + getSizeHeight();
-    }
-
-    @Override
-    public void setSize(Size size) {
-        super.setSize(size);
-        if (!getContainedWidgets(true).isEmpty()) {
-            alightWidget();
-        }
-    }
-
-    public void rebuildOffers() {
-        refresh(true);
-    }
-
-    public void setSearchText(String searchText) {
-        String safeSearchText = searchText == null ? "" : searchText.trim();
-        if (this.searchText.equals(safeSearchText)) {
-            return;
-        }
-
-        this.searchText = safeSearchText;
-        refresh(initialized);
-    }
-
-    public void setSelectedCategory(@Nullable CatalogComponent selectedCategory) {
-        if (sameCategory(this.selectedCategory, selectedCategory)) {
-            return;
-        }
-
-        this.selectedCategory = selectedCategory;
-        refresh(initialized);
-    }
-
-    public void setSelectedCurrencyFilters(Set<ResourceLocation> selectedCurrencyFilters) {
-        Set<ResourceLocation> safeFilters = selectedCurrencyFilters == null || selectedCurrencyFilters.isEmpty()
-                ? Set.of()
-                : Set.copyOf(selectedCurrencyFilters);
-        if (this.selectedCurrencyFilters.equals(safeFilters)) {
-            return;
-        }
-
-        this.selectedCurrencyFilters = safeFilters;
-        refresh(initialized);
-    }
-
-    public boolean isSelectedCategory(@Nullable CatalogComponent category) {
-        return sameCategory(selectedCategory, category);
-    }
-
-    public boolean isEditorMode() {
-        return shopScreen.isEditorMode();
-    }
+    public boolean isSelectedCategory(@Nullable CatalogComponent category) { return sameCategory(selectedCategory, category); }
+    public boolean isEditorMode() { return shopScreen.isEditorMode(); }
 
     public void createDraftOffer() {
         ShopOffer offer = shopScreen.createDraftOffer(selectedCategory);
-        if (offer != null) {
-            ShopUIUtils.createEditMenu(this, getEditSession(), offer, this::rebuildOffers);
-        }
+        if (offer != null) ShopUIUtils.createEditMenu(this, getEditSession(), offer, this::rebuildOffers);
     }
 
     public void duplicateDraftOffer(ShopOffer offer) {
-        if (offer == null) {
-            return;
-        }
-
-        ShopOffer duplicate = render instanceof DefaultShopOffersPanelRender offersRender
-                ? offersRender.duplicateOffer(this, offer)
-                : shopScreen.duplicateDraftOffer(offer.getUUID());
-        if (duplicate != null) {
-            rebuildOffers();
-        }
+        if (offer != null && shopScreen.duplicateDraftOffer(offer.getUUID()) != null) rebuildOffers();
     }
 
     public void requestServerConditions(Collection<ShopOffer> offers) {
-        if (offers == null || offers.isEmpty() || isEditorMode()) {
-            return;
-        }
-
-        List<ShopOffer> requestOffers = offers.stream()
-                .filter(Objects::nonNull)
+        if (offers == null || offers.isEmpty() || isEditorMode()) return;
+        List<ShopOffer> request = offers.stream().filter(Objects::nonNull)
                 .filter(offer -> offer.getComponents(ConditionComponent.class).stream().anyMatch(condition -> !condition.verifiedOnClient()))
                 .filter(offer -> !serverConditionCache.containsKey(offer.getUUID()))
-                .filter(offer -> pendingConditionRequests.add(offer.getUUID()))
-                .toList();
-        if (requestOffers.isEmpty()) {
-            return;
-        }
-
-        ShopNetworkManager.fetchServerConditions(requestOffers).whenComplete((conditions, throwable) -> Minecraft.getInstance().execute(() -> {
-            requestOffers.forEach(offer -> pendingConditionRequests.remove(offer.getUUID()));
-            if (throwable != null || conditions == null) {
-                return;
-            }
-
-            serverConditionCache.putAll(conditions);
-            refresh(initialized);
+                .filter(offer -> pendingConditionRequests.add(offer.getUUID())).toList();
+        if (request.isEmpty()) return;
+        ShopNetworkManager.fetchServerConditions(request).whenComplete((conditions, error) -> Minecraft.getInstance().execute(() -> {
+            request.forEach(offer -> pendingConditionRequests.remove(offer.getUUID()));
+            if (error == null && conditions != null) { serverConditionCache.putAll(conditions); refresh(false); }
         }));
     }
 
     public void scheduleConditionRefresh(Collection<ShopOffer> offers) {
-        if (offers == null || offers.isEmpty() || isEditorMode()) {
-            nextConditionRefreshAtMs = Long.MAX_VALUE;
-            return;
-        }
-
-        if (Minecraft.getInstance().player == null) {
-            nextConditionRefreshAtMs = Long.MAX_VALUE;
-            return;
-        }
-
+        if (offers == null || offers.isEmpty() || isEditorMode() || Minecraft.getInstance().player == null) { nextConditionRefreshAtMs = Long.MAX_VALUE; return; }
         long now = System.currentTimeMillis();
-        long nextRefreshAtMs = Long.MAX_VALUE;
+        long next = Long.MAX_VALUE;
         for (ShopOffer offer : offers) {
-            if (offer == null || !offer.hasComponent(RenderHideComponent.class)) {
-                continue;
+            if (offer == null || !offer.hasComponent(RenderHideComponent.class)) continue;
+            for (CooldownConditionComponent condition : offer.getComponents(CooldownConditionComponent.class)) {
+                try { long at = condition.getAvailableAtMs(Minecraft.getInstance().player); if (at > now) next = Math.min(next, at); } catch (Exception ignored) { }
             }
-
-            nextRefreshAtMs = Math.min(nextRefreshAtMs, findNextCooldownRefreshAtMs(offer, now));
-            nextRefreshAtMs = Math.min(nextRefreshAtMs, findNextLimiterRefreshAtMs(offer, now));
+            for (LimiterComponent limiter : offer.getComponents(LimiterComponent.class)) {
+                try { long at = limiter.getAvailableAtMs(Minecraft.getInstance().player); if (at > now) next = Math.min(next, at); } catch (Exception ignored) { }
+            }
         }
-
-        nextConditionRefreshAtMs = nextRefreshAtMs;
+        nextConditionRefreshAtMs = next;
     }
 
-    public boolean shouldRenderOffer(ShopOffer offer) {
-        if (offer == null || isEditorMode() || !offer.hasComponent(RenderHideComponent.class)) {
-            return true;
-        }
-
-        return isOfferAvailable(offer);
-    }
-
+    public boolean shouldRenderOffer(ShopOffer offer) { return offer == null || isEditorMode() || !offer.hasComponent(RenderHideComponent.class) || isOfferAvailable(offer); }
     public boolean isOfferAvailable(ShopOffer offer) {
-        if (offer == null) {
-            return false;
-        }
-
+        if (offer == null) return false;
         for (ConditionComponent condition : offer.getComponents(ConditionComponent.class)) {
             if (condition.verifiedOnClient()) {
-                if (!isClientConditionChecked(condition)) {
-                    return false;
-                }
-                continue;
-            }
-
-            Map<ConditionComponent, Boolean> serverConditions = serverConditionCache.get(offer.getUUID());
-            if (serverConditions != null && Boolean.FALSE.equals(serverConditions.get(condition))) {
-                return false;
+                try { if (Minecraft.getInstance().player == null || !condition.isChecked(Minecraft.getInstance().player)) return false; }
+                catch (Exception ignored) { return false; }
+            } else {
+                Map<ConditionComponent, Boolean> result = serverConditionCache.get(offer.getUUID());
+                if (result != null && Boolean.FALSE.equals(result.get(condition))) return false;
             }
         }
-
         return true;
     }
 
-    private boolean isClientConditionChecked(ConditionComponent condition) {
-        if (Minecraft.getInstance().player == null) {
-            return false;
-        }
-
-        try {
-            return condition.isChecked(Minecraft.getInstance().player);
-        } catch (Exception ignored) {
-            return false;
-        }
+    public List<ShopOffer> applyCustomSort(List<ShopOffer> offers) { ShopUIEvents.invokeSortShopOffers(this, offers, searchText); return offers; }
+    public ShopOffersPanelElement refresh() { return refresh(true); }
+    public ShopOffersPanelElement refresh(boolean relayout) {
+        clearWidgets();
+        ShopOffersContainerComponent entries = shopScreen.getEntriesContainer();
+        if (entries == null) return this;
+        List<ShopOffer> source = new ArrayList<>(entries.getEntryMap().values());
+        requestServerConditions(source);
+        scheduleConditionRefresh(source);
+        String query = normalize(searchText);
+        List<ShopOffer> visible = source.stream().map(OfferView::from)
+                .filter(view -> shouldRenderOffer(view.offer()))
+                .filter(view -> selectedCategory == null || isInCategory(view.offer(), selectedCategory))
+                .filter(view -> selectedCurrencyFilters.isEmpty() || view.hasAnyCurrency(selectedCurrencyFilters))
+                .filter(view -> query.isEmpty() || view.searchTitle().contains(query))
+                .sorted(Comparator.comparing(OfferView::sortMoneyId).thenComparing(OfferView::sortTitle).thenComparing(view -> view.offer().getUUID()))
+                .map(OfferView::offer).collect(Collectors.toCollection(ArrayList::new));
+        applyCustomSort(visible);
+        for (ShopOffer offer : visible) addWidget(new ShopOfferElement(getEditSession(), offer));
+        if (isEditorMode()) addWidget(ShopOfferElement.editorAction(getEditSession(), Component.translatable("shop.ui.offers.button.add_offer"), this::createDraftOffer));
+        return this;
     }
 
-    private long findNextCooldownRefreshAtMs(ShopOffer offer, long now) {
-        long nextRefreshAtMs = Long.MAX_VALUE;
-        for (CooldownConditionComponent condition : offer.getComponents(CooldownConditionComponent.class)) {
-            try {
-                long availableAtMs = condition.getAvailableAtMs(Minecraft.getInstance().player);
-                if (availableAtMs > now) {
-                    nextRefreshAtMs = Math.min(nextRefreshAtMs, availableAtMs);
-                }
-            } catch (Exception ignored) {
-            }
+    @Override public void tick(FrameContext context) {
+        super.tick(context);
+        long now = System.currentTimeMillis();
+        if (nextConditionRefreshAtMs != Long.MAX_VALUE && now >= nextConditionRefreshAtMs && now - lastConditionAutoRefreshMs >= CONDITION_REFRESH_THROTTLE_MS) {
+            lastConditionAutoRefreshMs = now; nextConditionRefreshAtMs = Long.MAX_VALUE; refresh(false);
         }
-
-        return nextRefreshAtMs;
-    }
-
-    private long findNextLimiterRefreshAtMs(ShopOffer offer, long now) {
-        long nextRefreshAtMs = Long.MAX_VALUE;
-        for (LimiterComponent limiter : offer.getComponents(LimiterComponent.class)) {
-            try {
-                long availableAtMs = limiter.getAvailableAtMs(Minecraft.getInstance().player);
-                if (availableAtMs > now) {
-                    nextRefreshAtMs = Math.min(nextRefreshAtMs, availableAtMs);
-                }
-            } catch (Exception ignored) {
-            }
-        }
-
-        return nextRefreshAtMs;
     }
 
     protected boolean shouldRefreshFor(ShopUIEvents.RefreshUI event) {
-        if (!event.affectsOffers()) {
-            return false;
-        }
-
-        if (event.target() == ShopUIEvents.RefreshTarget.CATEGORY) {
-            return selectedCategory == null || event.affectsCategory(selectedCategory);
-        }
-
-        return true;
+        return event.affectsOffers() && (event.target() != ShopUIEvents.RefreshTarget.CATEGORY || selectedCategory == null || event.affectsCategory(selectedCategory));
     }
 
     protected static boolean sameCategory(@Nullable CatalogComponent first, @Nullable CatalogComponent second) {
-        if (first == second) {
-            return true;
-        }
-        if (first == null || second == null) {
-            return false;
-        }
-        if (first.getUuid() != null && second.getUuid() != null) {
-            return first.getUuid().equals(second.getUuid());
-        }
-
+        if (first == second) return true;
+        if (first == null || second == null) return false;
+        if (first.getUuid() != null && second.getUuid() != null) return first.getUuid().equals(second.getUuid());
         return Objects.equals(first.getId(), second.getId());
     }
 
-    public List<ShopOffer> applyCustomSort(List<ShopOffer> offers) {
-        ShopUIEvents.invokeSortShopOffers(this, offers, searchText);
-        return offers;
+    private static boolean isInCategory(ShopOffer offer, CatalogComponent selected) {
+        return offer.getComponent(CatalogComponent.class).map(category -> sameCategory(category, selected)).orElse(false);
     }
-
-    public ShopOffersPanelElement refresh() {
-        return refresh(true);
+    private static String normalize(String value) { return value == null ? "" : value.trim().toLowerCase(Locale.ROOT); }
+    private static String resolveTitle(ShopOffer offer) {
+        return offer.getComponent(NameComponent.class).map(NameComponent::getName).filter(name -> !name.isBlank())
+                .map(name -> I18n.exists(name) ? Component.translatable(name).getString() : name).orElseGet(() -> resolveRewardTitle(offer));
     }
-
-    public ShopOffersPanelElement refresh(boolean relayout) {
-        int previousScrollY = getScrollYOffset();
-        eventScope.clear();
-        ShopUIUtils.disposeChildren(this);
-        clearAllWidgets();
-        render.addWidgets(this);
-
-        if (relayout) {
-            alightWidget();
-            restoreScrollY(previousScrollY);
+    private static String resolveRewardTitle(ShopOffer offer) {
+        Map<ShopComponentCategory, ObjectList<ShopComponent>> grouped = ShopComponentsUtils.getComponentsByCategory(offer);
+        ObjectList<ShopComponent> rewards = grouped.get(ShopComponentCategory.REWARD);
+        if (rewards != null && !rewards.isEmpty() && rewards.get(0) instanceof RewardComponent reward) {
+            Component title = reward.getDisplayTitle(); if (title != null && !title.getString().isBlank()) return title.getString();
         }
-
-        return this;
+        return offer.getUUID().toString();
+    }
+    private static String currencySearch(ShopOffer offer) {
+        return offer.getComponents(MoneyCostComponent.class).stream().map(MoneyCostComponent::getMoneyId).distinct().map(id -> {
+            ICurrency currency = SDMEconomyServiceClient.getCurrency(id);
+            return (id + " " + (currency == null ? "" : currency.getDisplayName().getString())).toLowerCase(Locale.ROOT);
+        }).collect(Collectors.joining(" "));
     }
 
-    @Override
-    public void updateScreen() {
-        super.updateScreen();
-
-        long nextRefreshAtMs = nextConditionRefreshAtMs;
-        if (nextRefreshAtMs == Long.MAX_VALUE) {
-            return;
+    private record OfferView(ShopOffer offer, String sortTitle, String searchTitle, String sortMoneyId, Set<ResourceLocation> moneyIds) {
+        static OfferView from(ShopOffer offer) {
+            String title = resolveTitle(offer).toLowerCase(Locale.ROOT);
+            Set<ResourceLocation> ids = offer.getComponents(MoneyCostComponent.class).stream().map(MoneyCostComponent::getMoneyId).collect(Collectors.toUnmodifiableSet());
+            String money = ids.stream().map(Object::toString).findFirst().orElse("~~~~");
+            return new OfferView(offer, title, title + " " + currencySearch(offer), money, ids);
         }
-
-        long now = System.currentTimeMillis();
-        if (now < nextRefreshAtMs || now - lastConditionAutoRefreshMs < CONDITION_REFRESH_THROTTLE_MS) {
-            return;
-        }
-
-        lastConditionAutoRefreshMs = now;
-        nextConditionRefreshAtMs = Long.MAX_VALUE;
-        refresh(initialized);
+        boolean hasAnyCurrency(Set<ResourceLocation> currencies) { return moneyIds.stream().anyMatch(currencies::contains); }
     }
 
-    protected void restoreScrollY(int previousScrollY) {
-        int maxScrollY = Math.max(0, computeContentHeight() - getSizeHeight());
-        setScrollYOffset(Math.min(Math.max(0, previousScrollY), maxScrollY));
-    }
-
-    protected int computeContentHeight() {
-        int height = 0;
-        for (Widget widget : widgets) {
-            height = Math.max(height, widget.getSelfPositionY() + widget.getSizeHeight());
-        }
-        return height;
-    }
-
-    public void alightOffers() {
-        alightWidget();
-    }
-
-    @Override
-    @Nullable
-    public ShopEntity getShopEntity() {
-        return null;
-    }
-
-    @Override
-    public Widget getOwner() {
-        return this;
-    }
-
-    @Override
-    public UIEventScope eventScope() {
-        return eventScope;
-    }
-
-    @Override
-    public UIEventScope screenEventScope() {
-        return shopScreen.screenEventScope();
-    }
-
-    @Override
-    public @Nullable ShopEditSession getEditSession() {
-        return shopScreen.getEditSession();
-    }
-
-    public <Event> EventSubscription listenScreen(EventPtr<Event> event, DODEventBus.EventListener<Event> listener) {
-        return shopScreen.listenScreen(event, listener);
-    }
-
-    @Override
-    public void dispose() {
-        eventScope.close();
-        ShopUIUtils.disposeChildren(this);
-    }
+    public void alightOffers() { alightWidget(); }
+    @Override public @Nullable ShopEntity getShopEntity() { return null; }
+    @Override public Widget getOwner() { return this; }
+    @Override public UIEventScope eventScope() { return eventScope; }
+    @Override public UIEventScope screenEventScope() { return shopScreen.screenEventScope(); }
+    @Override public @Nullable ShopEditSession getEditSession() { return shopScreen.getEditSession(); }
+    public <Event> EventSubscription listenScreen(EventPtr<Event> event, DODEventBus.EventListener<Event> listener) { return shopScreen.listenScreen(event, listener); }
+    @Override public void dispose() { eventScope.close(); super.dispose(); }
 }

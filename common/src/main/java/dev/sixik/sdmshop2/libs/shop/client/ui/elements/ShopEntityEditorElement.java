@@ -1,362 +1,219 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.elements;
 
-import com.lowdragmc.lowdraglib.gui.widget.Widget;
-import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
+import com.google.gson.JsonParser;
+import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.shop.base.ObjectIdGetter;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
-import dev.sixik.sdmshop2.libs.shop.client.config.constructors.ComponentConfigWidgetConstructor;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.*;
-import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultEditMenuRender;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIDisposable;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIEventScope;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.toast.ShopToasts;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
+import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentRegistry;
+import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.InputTextBox;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ModalWidget;
+import dev.sixik.unigui.api.layout.EdgeInsets;
+import dev.sixik.unigui.api.widget.Widget;
+import dev.sixik.unigui.widgets.containers.HBox;
+import dev.sixik.unigui.widgets.containers.VBox;
+import dev.sixik.unigui.widgets.display.Label;
+import dev.sixik.unigui.widgets.feedback.OverlayLayer;
+import dev.sixik.unigui.widgets.feedback.WindowWidget;
+import dev.sixik.unigui.widgets.interaction.Button;
+import dev.sixik.unigui.widgets.interaction.TextArea;
+import dev.sixik.unigui.widgets.interaction.TextField;
 import lombok.Getter;
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Objects;
+import java.util.Comparator;
 
-public class ShopEntityEditorElement extends ModalWidget implements WidgetContextRender, UIDisposable {
+/**
+ * Framework-neutral entity editor. The canonical component JSON remains
+ * editable, so every registered component is supported without legacy field
+ * widgets or per-component adapters.
+ */
+public class ShopEntityEditorElement extends WindowWidget implements WidgetContextRender, UIDisposable {
+    private final @Nullable ShopEntity shopEntity;
+    @Getter private final @Nullable ShopEditSession editSession;
+    private final UIEventScope eventScope = new UIEventScope();
+    private final @Nullable Runnable onEdit;
+    private final boolean allowComponentDelete;
+    private boolean callbackInvoked;
+    private TextArea jsonEditor;
 
-    @Nullable
-    @Getter
-    private final ShopEntity shopEntity;
-    @Nullable
-    @Getter
-    private final ShopEditSession editSession;
-
-    protected final WidgetRender render;
-    protected final UIEventScope eventScope = new UIEventScope();
-    @Nullable
-    protected final Runnable onEdit;
-    protected final boolean allowComponentDelete;
-    protected boolean editCallbackInvoked;
-
-    public static ShopEntityEditorElement open(Widget owner, @Nullable ShopEntity shopEntity) {
-        return open(owner, shopEntity, null);
+    public static ShopEntityEditorElement open(Widget owner, @Nullable ShopEntity entity) { return open(owner, null, entity, null, true); }
+    public static ShopEntityEditorElement open(Widget owner, @Nullable ShopEntity entity, @Nullable Runnable onEdit) { return open(owner, null, entity, onEdit, true); }
+    public static ShopEntityEditorElement open(Widget owner, @Nullable ShopEntity entity, @Nullable Runnable onEdit, boolean allowDelete) { return open(owner, null, entity, onEdit, allowDelete); }
+    public static ShopEntityEditorElement open(Widget owner, @Nullable ShopEditSession session, @Nullable ShopEntity entity) { return open(owner, session, entity, null, true); }
+    public static ShopEntityEditorElement open(Widget owner, @Nullable ShopEditSession session, @Nullable ShopEntity entity, @Nullable Runnable onEdit) { return open(owner, session, entity, onEdit, true); }
+    public static ShopEntityEditorElement open(Widget owner, @Nullable ShopEditSession session, @Nullable ShopEntity entity, @Nullable Runnable onEdit, boolean allowDelete) {
+        OverlayLayer overlay = findOverlay(owner);
+        if (overlay == null && ShopScreenElement.Instance != null) overlay = ShopScreenElement.Instance.getOverlay();
+        if (overlay == null) return null;
+        ShopEntityEditorElement editor = new ShopEntityEditorElement(session, entity, onEdit, allowDelete);
+        overlay.windows().register(editor);
+        editor.openModal();
+        return editor;
     }
 
-    public static ShopEntityEditorElement open(Widget owner, @Nullable ShopEntity shopEntity, @Nullable Runnable onEdit) {
-        return ModalWidget.open(owner, new ShopEntityEditorElement(owner, shopEntity, onEdit));
-    }
-
-    public static ShopEntityEditorElement open(Widget owner, @Nullable ShopEntity shopEntity, @Nullable Runnable onEdit, boolean allowComponentDelete) {
-        return ModalWidget.open(owner, new ShopEntityEditorElement(owner, shopEntity, onEdit, allowComponentDelete));
-    }
-
-    public static ShopEntityEditorElement open(Widget owner, @Nullable ShopEditSession editSession, @Nullable ShopEntity shopEntity) {
-        return open(owner, editSession, shopEntity, null);
-    }
-
-    public static ShopEntityEditorElement open(Widget owner, @Nullable ShopEditSession editSession, @Nullable ShopEntity shopEntity, @Nullable Runnable onEdit) {
-        return ModalWidget.open(owner, new ShopEntityEditorElement(owner, editSession, shopEntity, onEdit));
-    }
-
-    public static ShopEntityEditorElement open(Widget owner, @Nullable ShopEditSession editSession, @Nullable ShopEntity shopEntity, @Nullable Runnable onEdit, boolean allowComponentDelete) {
-        return ModalWidget.open(owner, new ShopEntityEditorElement(owner, editSession, shopEntity, onEdit, allowComponentDelete));
-    }
-
-    protected ShopEntityEditorElement(Widget owner, @Nullable ShopEntity shopEntity) {
-        this(owner, shopEntity, (Runnable) null);
-    }
-
-    protected ShopEntityEditorElement(Widget owner, @Nullable ShopEntity shopEntity, @Nullable Runnable onEdit) {
-        this(owner, null, shopEntity, StyleApi.getDefaultStyle(StyleApi.Category.Editor).get(), onEdit);
-    }
-
-    protected ShopEntityEditorElement(Widget owner, @Nullable ShopEntity shopEntity, @Nullable Runnable onEdit, boolean allowComponentDelete) {
-        this(owner, null, shopEntity, StyleApi.getDefaultStyle(StyleApi.Category.Editor).get(), onEdit, allowComponentDelete);
-    }
-
-    protected ShopEntityEditorElement(Widget owner, @Nullable ShopEditSession editSession, @Nullable ShopEntity shopEntity, @Nullable Runnable onEdit) {
-        this(owner, editSession, shopEntity, StyleApi.getDefaultStyle(StyleApi.Category.Editor).get(), onEdit);
-    }
-
-    protected ShopEntityEditorElement(Widget owner, @Nullable ShopEditSession editSession, @Nullable ShopEntity shopEntity, @Nullable Runnable onEdit, boolean allowComponentDelete) {
-        this(owner, editSession, shopEntity, StyleApi.getDefaultStyle(StyleApi.Category.Editor).get(), onEdit, allowComponentDelete);
-    }
-
-    protected ShopEntityEditorElement(Widget owner, @Nullable ShopEntity shopEntity, WidgetRender render) {
-        this(owner, null, shopEntity, render, null);
-    }
-
-    protected ShopEntityEditorElement(Widget owner, @Nullable ShopEntity shopEntity, WidgetRender render, @Nullable Runnable onEdit) {
-        this(owner, null, shopEntity, render, onEdit);
-    }
-
-    protected ShopEntityEditorElement(Widget owner, @Nullable ShopEditSession editSession, @Nullable ShopEntity shopEntity, WidgetRender render, @Nullable Runnable onEdit) {
-        this(owner, editSession, shopEntity, render, onEdit, true);
-    }
-
-    protected ShopEntityEditorElement(Widget owner, @Nullable ShopEditSession editSession, @Nullable ShopEntity shopEntity, WidgetRender render, @Nullable Runnable onEdit, boolean allowComponentDelete) {
-        this.shopEntity = shopEntity;
-        this.editSession = editSession;
+    private ShopEntityEditorElement(@Nullable ShopEditSession session, @Nullable ShopEntity entity, @Nullable Runnable onEdit, boolean allowDelete) {
+        super(Component.translatable("shop.ui.editor.title").getString(), new VBox());
+        this.editSession = session;
+        this.shopEntity = entity;
         this.onEdit = onEdit;
-        this.allowComponentDelete = allowComponentDelete;
-
-        this.render = Objects.requireNonNull(render, "render");
-        this.render.constructor(this);
-        this.render.addWidgets(this);
-
-        Widget root = owner;
-        while (root.getParent() != null) {
-            root = root.getParent();
-        }
-
-        if (root instanceof WidgetGroup mainGroup) {
-            attachedParent = mainGroup;
-        } else
-            throw new IllegalArgumentException("Owner widget its not a WidgetGroup");
-
-        onSizeUpdate();
-    }
-
-    @Override
-    public ShopEntityEditorElement close() {
-        final boolean shouldInvokeCallback = !editCallbackInvoked && onEdit != null && (getParent() != null || attachedParent != null);
-        dispose();
-        super.close();
-
-        if (shouldInvokeCallback) {
-            editCallbackInvoked = true;
-            onEdit.run();
-        }
-
-        return this;
-    }
-
-    @Override
-    public UIEventScope eventScope() {
-        return eventScope;
-    }
-
-    @Override
-    public void dispose() {
-        eventScope.close();
-        ShopUIUtils.disposeChildren(this);
-    }
-
-    @Override
-    public void onSizeUpdate() {
-        calculateSize();
-        super.onSizeUpdate();
-    }
-
-    @Override
-    protected void recomputeLayout() {
-        super.recomputeLayout();
-
-        if(render == null) return;
-        render.alightWidgets(this);
-    }
-
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (render.mouseClicked(this, mouseX, mouseY, button)) {
-            return true;
-        }
-
-        return super.mouseClicked(mouseX, mouseY, button);
-    }
-
-    public int getComponentCount() {
-        return shopEntity == null ? 0 : shopEntity.getComponents().size();
-    }
-
-    public boolean canMoveComponent(@Nullable ShopComponent component, int offset) {
-        if (!canEditComponent(component) || offset == 0) {
-            return false;
-        }
-
-        int index = shopEntity.indexOfComponent(component);
-        int target = index + offset;
-        return index >= 0 && target >= 0 && target < getComponentCount();
-    }
-
-    public void moveComponent(@Nullable ShopComponent component, int offset) {
-        if (!canEditComponent(component) || offset == 0) {
-            return;
-        }
-
-        moveComponentTo(component, shopEntity.indexOfComponent(component) + offset);
-    }
-
-    public boolean duplicateComponent(@Nullable ShopComponent component) {
-        if (!canEditComponent(component)) {
-            return false;
-        }
-
-        if (render instanceof DefaultEditMenuRender editMenuRender && editMenuRender.duplicateComponent(this, component)) {
-            ShopToasts.success(Component.translatable("shop.ui.toast.component_duplicated"));
-            return true;
-        }
-
-        return false;
-    }
-
-    public boolean canDeleteComponent(@Nullable ShopComponent component) {
-        return canEditComponent(component)
-                && allowComponentDelete
-                && !isRequiredComponent(component);
-    }
-
-    public boolean removeComponent(@Nullable ShopComponent component) {
-        if (!canDeleteComponent(component)) {
-            ShopToasts.warning(Component.translatable("shop.ui.toast.component_delete_protected"));
-            return false;
-        }
-
-        if (editSession != null && !editSession.closed()) {
-            editSession.recordHistory(
-                    "component.delete",
-                    shopEntity.getClass().getSimpleName(),
-                    shopEntity instanceof ObjectIdGetter idGetter ? idGetter.getUUID() : null,
-                    component.getType().getId(),
-                    "Deleted component " + component.getType().getId()
-            );
-        }
-
-        boolean removed = shopEntity.removeComponent(component);
-        if (removed) {
-            refreshEditorContent();
-        }
-
-        return removed;
-    }
-
-    public boolean moveComponentTo(@Nullable ShopComponent component, int targetIndex) {
-        if (!canEditComponent(component)) {
-            return false;
-        }
-
-        int currentIndex = shopEntity.indexOfComponent(component);
-        if (currentIndex < 0) {
-            return false;
-        }
-
-        int clampedTarget = Math.max(0, Math.min(targetIndex, getComponentCount() - 1));
-        if (!shopEntity.moveComponentToIndex(component, clampedTarget)) {
-            return false;
-        }
-
-        if (editSession != null && !editSession.closed()) {
-            editSession.recordHistory(
-                    "component.move",
-                    shopEntity.getClass().getSimpleName(),
-                    shopEntity instanceof ObjectIdGetter idGetter ? idGetter.getUUID() : null,
-                    component.getType().getId(),
-                    "Moved component " + component.getType().getId() + " from " + (currentIndex + 1) + " to " + (clampedTarget + 1)
-            );
-        }
-
-        ComponentConfigWidgetConstructor.invokeUpdate(component, false);
+        this.allowComponentDelete = allowDelete;
+        modal(true).fixedModal(true).resizable(true).minWindowSize(420, 300);
+        layout(style -> style.fixed(620, 480));
         refreshEditorContent();
-        ShopToasts.success(Component.translatable("shop.ui.toast.component_moved"));
-        return true;
-    }
-
-    public void openMoveComponentModal(@Nullable ShopComponent component) {
-        if (!canEditComponent(component) || getComponentCount() <= 1) {
-            return;
-        }
-
-        int currentIndex = shopEntity.indexOfComponent(component);
-        if (currentIndex < 0) {
-            return;
-        }
-
-        ModalWidget modal = new ModalWidget(260, 116)
-                .setTitle(Component.translatable("shop.ui.component.move.title"))
-                .setCloseOnEsc(true)
-                .setCloseOnOutsideClick(false);
-        ModalWidget opened = ModalWidget.openNested(this, modal);
-        if (opened == null) {
-            return;
-        }
-
-        TextLabel label = new TextLabel(0, 4, opened.getContentWidth(), 20,
-                Component.translatable("shop.ui.common.target_position", getComponentCount()));
-        label.setAutoSize(false)
-                .setAlignment(TextLabel.HorizontalAlignment.LEFT, TextLabel.VerticalAlignment.CENTER)
-                .setColor(0xFFAEB4C6);
-        opened.addWidget(label);
-
-        InputTextBox input = new InputTextBox(0, 28, opened.getContentWidth(), 20);
-        input.setNumbersOnly(1, getComponentCount());
-        input.setCurrentStringSilently(currentIndex + 1);
-        input.setPlaceholder(Component.translatable("shop.ui.common.position"));
-        input.setClientSideWidget();
-        opened.addWidget(input);
-
-        int buttonY = Math.max(56, opened.getContentHeight() - 24);
-        int buttonWidth = Math.max(1, opened.getContentWidth() / 2 - 4);
-        ButtonWidget cancel = createModalButton(0, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.cancel"), ignored -> opened.close());
-        ButtonWidget move = createModalButton(buttonWidth + 8, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.move"), ignored -> {
-            int position;
-            try {
-                position = Integer.parseInt(input.getCurrentString().trim());
-            } catch (Exception e) {
-                ShopToasts.warning(Component.translatable("shop.ui.toast.invalid_position"));
-                return;
-            }
-
-            if (moveComponentTo(component, position - 1)) {
-                opened.close();
-            }
-        });
-
-        opened.addWidget(cancel);
-        opened.addWidget(move);
-        input.setFocus(true);
     }
 
     public void refreshEditorContent() {
-        if (render instanceof DefaultEditMenuRender editMenuRender) {
-            editMenuRender.refreshContent(this);
-            return;
+        VBox body = new VBox();
+        body.spacing(7.0f);
+        body.layout(style -> style.fill().padding(EdgeInsets.all(8.0f)));
+        body.addChild(new Label(Component.translatable("shop.ui.editor.components").getString()));
+        if (shopEntity != null) {
+            for (ShopComponent component : shopEntity.getComponents()) {
+                HBox row = new HBox();
+                row.spacing(4.0f);
+                Label name = new Label(component.getType().getTranslation().getString());
+                name.layout(style -> style.expand());
+                row.addChild(name);
+                Button up = new Button("↑"); up.enabled(canMoveComponent(component, -1)); up.onClick(event -> moveComponent(component, -1));
+                Button down = new Button("↓"); down.enabled(canMoveComponent(component, 1)); down.onClick(event -> moveComponent(component, 1));
+                Button duplicate = new Button("⧉"); duplicate.enabled(canEditComponent(component)); duplicate.onClick(event -> duplicateComponent(component));
+                Button remove = new Button("×"); remove.enabled(canDeleteComponent(component)); remove.onClick(event -> removeComponent(component));
+                row.addChild(up); row.addChild(down); row.addChild(duplicate); row.addChild(remove);
+                body.addChild(row);
+            }
+            Button add = new Button(Component.translatable("shop.ui.editor.add_component").getString());
+            add.enabled(editSession != null && !editSession.closed());
+            add.onClick(event -> openAddComponentModal());
+            body.addChild(add);
         }
+        body.addChild(new Label(Component.translatable("shop.ui.editor.json_hint").getString()).wrap(true));
+        jsonEditor = new TextArea(shopEntity == null ? "[]" : SDMShop2.GSON.toJson(shopEntity.serialize()));
+        jsonEditor.layout(style -> style.expand());
+        body.addChild(jsonEditor);
 
-        render.alightWidgets(this);
+        HBox actions = new HBox();
+        actions.spacing(6.0f);
+        Button copy = new Button(Component.translatable("shop.ui.offer_element.context_menu.copy").getString());
+        copy.onClick(event -> net.minecraft.client.Minecraft.getInstance().keyboardHandler.setClipboard(jsonEditor.text()));
+        Button apply = new Button(Component.translatable("shop.ui.common.save").getString());
+        apply.onClick(event -> applyJson());
+        actions.addChild(copy); actions.addChild(apply);
+        body.addChild(actions);
+        content(body);
     }
 
+    private void openAddComponentModal() {
+        if (shopEntity == null || editSession == null || editSession.closed()) return;
+        VBox rows = new VBox();
+        rows.spacing(4.0f);
+        WindowWidget dialog = new WindowWidget(Component.translatable("shop.ui.editor.add_component").getString(), rows)
+                .modal(true).fixedModal(true).resizable(true).minWindowSize(320, 240);
+        dialog.layout(style -> style.fixed(420, 360));
+        ShopComponentRegistry.getTypes().values().stream()
+                .filter(IComponentType::showInEditor)
+                .sorted(Comparator.comparing(type -> type.getId().toString()))
+                .forEach(type -> {
+                    Button button = new Button(type.getTranslation().getString());
+                    button.onClick(event -> {
+                        ShopComponent component = type.createDefault();
+                        shopEntity.addComponent(component);
+                        record("component.add", component, "Added component " + type.getId());
+                        dialog.close();
+                        refreshEditorContent();
+                    });
+                    rows.addChild(button);
+                });
+        OverlayLayer overlay = findOverlay(this);
+        if (overlay != null) { overlay.windows().register(dialog); dialog.openModal(); }
+    }
+
+    private void applyJson() {
+        if (shopEntity == null || editSession == null || editSession.closed()) return;
+        try {
+            shopEntity.deserialize(JsonParser.parseString(jsonEditor.text()));
+            editSession.recordHistory("entity.json_edit", shopEntity.getClass().getSimpleName(),
+                    shopEntity instanceof ObjectIdGetter getter ? getter.getUUID() : null, null, "Edited entity component JSON");
+            ShopToasts.success(Component.translatable("shop.ui.toast.component_updated"));
+            if (onEdit != null) onEdit.run();
+            callbackInvoked = true;
+            refreshEditorContent();
+        } catch (Exception exception) {
+            ShopToasts.error(Component.literal(exception.getMessage() == null ? "Invalid component JSON" : exception.getMessage()));
+        }
+    }
+
+    public int getComponentCount() { return shopEntity == null ? 0 : shopEntity.getComponents().size(); }
+    public boolean canMoveComponent(@Nullable ShopComponent component, int offset) {
+        if (!canEditComponent(component) || offset == 0) return false;
+        int index = shopEntity.indexOfComponent(component), target = index + offset;
+        return index >= 0 && target >= 0 && target < getComponentCount();
+    }
+    public void moveComponent(@Nullable ShopComponent component, int offset) { if (canMoveComponent(component, offset)) moveComponentTo(component, shopEntity.indexOfComponent(component) + offset); }
+    public boolean duplicateComponent(@Nullable ShopComponent component) {
+        if (!canEditComponent(component)) return false;
+        ShopComponent copy = ShopComponentRegistry.fromJson(ShopComponentRegistry.toJson(component).deepCopy());
+        shopEntity.addComponent(copy);
+        shopEntity.moveComponentToIndex(copy, shopEntity.indexOfComponent(component) + 1);
+        record("component.duplicate", component, "Duplicated component " + component.getType().getId());
+        refreshEditorContent();
+        return true;
+    }
+    public boolean canDeleteComponent(@Nullable ShopComponent component) { return canEditComponent(component) && allowComponentDelete && !(component instanceof CatalogComponent); }
+    public boolean removeComponent(@Nullable ShopComponent component) {
+        if (!canDeleteComponent(component)) { ShopToasts.warning(Component.translatable("shop.ui.toast.component_delete_protected")); return false; }
+        record("component.delete", component, "Deleted component " + component.getType().getId());
+        boolean removed = shopEntity.removeComponent(component);
+        if (removed) refreshEditorContent();
+        return removed;
+    }
+    public boolean moveComponentTo(@Nullable ShopComponent component, int targetIndex) {
+        if (!canEditComponent(component)) return false;
+        int current = shopEntity.indexOfComponent(component);
+        int target = Math.max(0, Math.min(targetIndex, getComponentCount() - 1));
+        if (!shopEntity.moveComponentToIndex(component, target)) return false;
+        record("component.move", component, "Moved component from " + (current + 1) + " to " + (target + 1));
+        refreshEditorContent();
+        return true;
+    }
+    public void openMoveComponentModal(@Nullable ShopComponent component) {
+        if (!canEditComponent(component)) return;
+        VBox body = new VBox(); body.spacing(5.0f);
+        TextField target = new TextField(String.valueOf(shopEntity.indexOfComponent(component) + 1));
+        Button move = new Button(Component.translatable("shop.ui.common.move").getString());
+        WindowWidget dialog = new WindowWidget(Component.translatable("shop.ui.component.move.title").getString(), body).modal(true).fixedModal(true).resizable(false);
+        dialog.layout(style -> style.fixed(260, 120));
+        move.onClick(event -> { try { if (moveComponentTo(component, Integer.parseInt(target.text()) - 1)) dialog.close(); } catch (NumberFormatException ignored) { } });
+        body.addChild(target); body.addChild(move);
+        OverlayLayer overlay = findOverlay(this); if (overlay != null) { overlay.windows().register(dialog); dialog.openModal(); }
+    }
+
+    private void record(String action, ShopComponent component, String summary) {
+        if (editSession != null && !editSession.closed()) editSession.recordHistory(action, shopEntity.getClass().getSimpleName(),
+                shopEntity instanceof ObjectIdGetter getter ? getter.getUUID() : null, component.getType().getId(), summary);
+    }
     protected boolean canEditComponent(@Nullable ShopComponent component) {
-        return component != null
-                && shopEntity != null
-                && shopEntity.indexOfComponent(component) >= 0
-                && editSession != null
-                && !editSession.closed();
+        return component != null && shopEntity != null && shopEntity.indexOfComponent(component) >= 0 && editSession != null && !editSession.closed();
     }
 
-    protected boolean isRequiredComponent(@Nullable ShopComponent component) {
-        return component instanceof CatalogComponent;
+    @Override public ShopEntityEditorElement close() {
+        if (!callbackInvoked && onEdit != null) { callbackInvoked = true; onEdit.run(); }
+        return (ShopEntityEditorElement) super.close();
     }
+    @Override public @Nullable ShopEntity getShopEntity() { return shopEntity; }
+    @Override public Widget getOwner() { return this; }
+    @Override public UIEventScope eventScope() { return eventScope; }
+    @Override public void dispose() { eventScope.close(); super.dispose(); }
 
-    private ButtonWidget createModalButton(int x, int y, int width, int height, Component text, java.util.function.Consumer<com.lowdragmc.lowdraglib.gui.util.ClickData> action) {
-        ButtonWidget button = new ButtonWidget(x, y, width, height, text, action);
-        button.setClientSideWidget();
-        button.setTextPadding(4);
-        button.setMinTextScale(0.35f);
-        return button;
-    }
-
-    protected void calculateSize() {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft == null || minecraft.getWindow() == null) return;
-
-        int screenWidth = Math.max(1, minecraft.getWindow().getGuiScaledWidth());
-        int screenHeight = Math.max(1, minecraft.getWindow().getGuiScaledHeight());
-
-        setPanelSize(screenWidth * 4/8, screenHeight * 4/5);
-    }
-
-    @Override
-    public Widget getOwner() {
-        return this;
+    private static @Nullable OverlayLayer findOverlay(Widget owner) {
+        Widget current = owner;
+        while (current != null) { if (current instanceof OverlayLayer layer) return layer; current = current.parent(); }
+        return null;
     }
 }

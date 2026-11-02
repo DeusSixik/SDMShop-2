@@ -1,8 +1,5 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.elements;
 
-import com.lowdragmc.lowdraglib.gui.widget.Widget;
-import com.lowdragmc.lowdraglib.utils.Size;
-import com.mojang.blaze3d.platform.Window;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.DODEventBus;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventPtr;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventSubscription;
@@ -26,6 +23,10 @@ import dev.sixik.sdmshop2.libs.shop.components.misc.ShopOffersContainerComponent
 import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
 import dev.sixik.sdmshop2.libs.shop.editor.ShopEditTargets;
 import dev.sixik.sdmshop2.libs.shop.network.ShopNetworkManager;
+import dev.sixik.unigui.api.layout.EdgeInsets;
+import dev.sixik.unigui.widgets.containers.HBox;
+import dev.sixik.unigui.widgets.containers.VBox;
+import dev.sixik.unigui.widgets.feedback.OverlayLayer;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import lombok.Getter;
@@ -47,9 +48,6 @@ public class ShopScreenElement extends ShopWidgetGroup implements UIDisposable {
     private final Minecraft minecraft;
 
     @Getter
-    private final Window window;
-
-    @Getter
     private ShopTabsPanelElement tabsPanel;
 
     @Getter
@@ -57,6 +55,9 @@ public class ShopScreenElement extends ShopWidgetGroup implements UIDisposable {
 
     @Getter
     private ShopToolPanelElement toolPanel;
+
+    @Getter
+    private OverlayLayer overlay;
 
     @Getter
     @Nullable
@@ -81,7 +82,6 @@ public class ShopScreenElement extends ShopWidgetGroup implements UIDisposable {
         this.editSession = editSession;
         this.editShopId = editShopId;
         this.minecraft = Minecraft.getInstance();
-        this.window = minecraft.getWindow();
         Instance = this;
 
         if (editSession != null) {
@@ -95,24 +95,39 @@ public class ShopScreenElement extends ShopWidgetGroup implements UIDisposable {
                 }
             });
         }
+
+        buildUi();
     }
 
-    @Override
-    public void initWidget() {
-//        setBackground(new ColorRectAndBorderTexture());
-
+    private void buildUi() {
         reloadShopData();
         listenScreen(ShopUIEvents.REFRESH_UI, this::handleRefresh);
 
-        alightWidget();
-        addWidget(toolPanel = new ShopToolPanelElement(this));
-        addWidget(tabsPanel = new ShopTabsPanelElement(this));
-        addWidget(shopOffersPanel = new ShopOffersPanelElement(this));
+        layout(style -> style.fill());
+        VBox shell = new VBox();
+        shell.spacing(6.0f);
+        shell.layout(style -> style.fill().padding(EdgeInsets.all(6.0f)));
+        toolPanel = new ShopToolPanelElement(this);
+        toolPanel.layout(style -> style.height(30.0f).flexNone());
+        shell.addChild(toolPanel);
+
+        HBox body = new HBox();
+        body.spacing(6.0f);
+        body.layout(style -> style.expand());
+        tabsPanel = new ShopTabsPanelElement(this);
+        tabsPanel.layout(style -> style.width(220.0f).flexNone());
+        shopOffersPanel = new ShopOffersPanelElement(this);
+        shopOffersPanel.layout(style -> style.expand());
+        body.addChild(tabsPanel);
+        body.addChild(shopOffersPanel);
+        shell.addChild(body);
+        overlay = new OverlayLayer(shell);
+        overlay.layout(style -> style.fill());
+        addChild(overlay);
         ShopToasts.attachTo(this);
         if (!isEditorMode()) {
             listenScreen(ShopUIEvents.BUY_SHOP_ENTITY, event -> ShopPurchaseModalElement.open(this, event.entity(), event.money_group()));
         }
-        customInitWidget();
     }
 
     protected void handleRefresh(ShopUIEvents.RefreshUI event) {
@@ -747,73 +762,6 @@ public class ShopScreenElement extends ShopWidgetGroup implements UIDisposable {
         }
 
         return java.util.Objects.equals(first.getId(), second.getId());
-    }
-
-    @Override
-    public void alightWidget() {
-        setSize(window.getGuiScaledWidth(), window.getGuiScaledHeight());
-    }
-
-    protected void alightWidgets() {
-       /*
-            cur_* = текущий N
-            tsw_*  = виджет вкладок
-        */
-        final Size cur_size = getSize();
-        final int cur_w     = cur_size.width;
-        final int cur_h     = cur_size.height;
-        final int x_w_space = 4;
-        final int y_h_space = 4;
-
-        toolPanel.setSize(
-                cur_w - x_w_space * 2,
-                25
-        );
-        toolPanel.setSelfPosition(
-                x_w_space,
-                y_h_space / 2
-        );
-
-        final int tsw_w         = cur_w  / 4;
-        final int tsw_h_offset  = (cur_h / 4);
-        final int tsw_h         = cur_h - tsw_h_offset * 2;
-
-        final var sp_widgets    = toolPanel.getWidgets();
-        final var sp_size       = toolPanel.getSize();
-        for (int i = 0; i < sp_widgets.size(); i++) {
-            final Widget sp_widget = sp_widgets.get(i);
-            sp_widget.setSelfPositionY(
-                    (sp_size.height - sp_widget.getSize().height) / 2
-            );
-        }
-
-        /*
-            ep_* = панель товаров
-         */
-        shopOffersPanel.setSize(
-                cur_w  - tsw_w          - x_w_space  * 2,
-                cur_h - sp_size.height - y_h_space  * 2
-        );
-        shopOffersPanel.setSelfPosition(
-                tsw_w          + x_w_space,
-                sp_size.height + y_h_space
-        );
-
-        final int tsw_x = 4;
-        final int tsw_y = tsw_h_offset;
-        tabsPanel.setSelfPosition(tsw_x, shopOffersPanel.getSelfPositionY());
-        tabsPanel.setSize(
-                tsw_w - 2,
-                shopOffersPanel.getSizeHeight()
-        );
-    }
-
-    @Override
-    public void onScreenSizeUpdate(int screenWidth, int screenHeight) {
-        super.onScreenSizeUpdate(screenWidth, screenHeight);
-        alightWidget();
-        alightWidgets();
-        invokeAlightWidgets();
     }
 
     @Nullable

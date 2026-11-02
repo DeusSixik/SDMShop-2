@@ -1,7 +1,5 @@
 package dev.sixik.sdmshop2.libs.shop.components;
 
-import com.lowdragmc.lowdraglib.gui.texture.ItemStackTexture;
-import com.lowdragmc.lowdraglib.gui.texture.TransformTexture;
 import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.IconType;
@@ -13,6 +11,8 @@ import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
 import dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs;
 import dev.sixik.sdmshop2.utils.ShopItemHelper;
+import dev.sixik.unigui.api.widget.Widget;
+import dev.sixik.unigui.widgets.display.Label;
 import lombok.Getter;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -113,9 +113,10 @@ public class ItemTagCostComponent extends CostComponent {
 
     @Override
     @Environment(EnvType.CLIENT)
-    public @Nullable TransformTexture getRenderIcon() {
+    public @Nullable Widget getRenderIcon() {
         ItemStack[] stacks = tagItems();
-        return stacks.length == 0 ? new ItemStackTexture(Items.NAME_TAG) : new ItemStackTexture(stacks);
+        ItemStack stack = stacks.length == 0 ? Items.NAME_TAG.getDefaultInstance() : stacks[0];
+        return new Label("#" + tagKey.location() + " ×" + Math.max(1, amount));
     }
 
     @Override

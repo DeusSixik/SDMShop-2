@@ -1,1185 +1,330 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.elements;
 
-import com.lowdragmc.lowdraglib.gui.texture.ResourceTexture;
-import com.lowdragmc.lowdraglib.gui.widget.Widget;
-import com.lowdragmc.lowdraglib.utils.Size;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.DODEventBus;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventPtr;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventSubscription;
 import dev.sixik.sdmshop2.libs.sdmeconomy.CurrencyDraft;
 import dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.*;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIDisposable;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.UIEventScope;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.WidgetContextRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
-import dev.sixik.sdmshop2.libs.shop.client.ui.style.DefaultShopTabsPanelRender;
 import dev.sixik.sdmshop2.libs.shop.client.ui.toast.ShopToasts;
-import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.SDMItemStackSelectorWidget;
 import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.base.ShopWidgetGroup;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.InputTextBox;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ModalWidget;
+import dev.sixik.unigui.api.layout.EdgeInsets;
+import dev.sixik.unigui.api.math.MutableColor;
+import dev.sixik.unigui.api.widget.Widget;
+import dev.sixik.unigui.widgets.containers.HBox;
+import dev.sixik.unigui.widgets.containers.ScrollView;
+import dev.sixik.unigui.widgets.containers.VBox;
+import dev.sixik.unigui.widgets.display.Label;
+import dev.sixik.unigui.widgets.feedback.WindowWidget;
+import dev.sixik.unigui.widgets.interaction.Button;
+import dev.sixik.unigui.widgets.interaction.TextField;
+import dev.sixik.unigui.widgets.interaction.ToggleButton;
 import lombok.Getter;
-import lombok.Setter;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
+import java.util.Set;
 import java.util.function.Consumer;
 
-public class ShopTabsPanelElement extends ShopWidgetGroup implements
-        ShopUiElement, WidgetContextRender, UIDisposable {
-    private static final int TEXTURE_PICKER_GRID_ITEM_SIZE = 24;
-    private static final int TEXTURE_PICKER_GRID_GAP = 3;
-    private static final int TEXTURE_PICKER_SCROLLBAR_WIDTH = 4;
-    private static final int TEXTURE_PICKER_SCROLLBAR_PADDING = 2;
-
-
-    @Getter
-    @Setter
-    public int widgetSpace = 4;
-
-    @Getter
-    protected final @NotNull ShopScreenElement shopScreen;
-
-    protected final WidgetRender render;
-    protected final UIEventScope eventScope = new UIEventScope();
-    protected boolean defaultHandlersRegistered;
-    @Getter
-    protected @Nullable CatalogComponent selectedCategory;
+/** Category and currency navigation implemented with UniGUI. */
+public class ShopTabsPanelElement extends ShopWidgetGroup implements WidgetContextRender, UIDisposable {
+    @Getter private final @NotNull ShopScreenElement screen;
+    @Getter private @Nullable CatalogComponent selectedCategory;
+    private final UIEventScope eventScope = new UIEventScope();
+    private final VBox categoryRows = new VBox();
+    private final VBox currencyRows = new VBox();
+    private final Set<ResourceLocation> currencyFilters = new LinkedHashSet<>();
 
     public ShopTabsPanelElement(@NotNull ShopScreenElement screen) {
-        this(screen, StyleApi.getDefaultStyle(StyleApi.Category.TabsPanel).get());
+        this.screen = screen;
+        background(MutableColor.fromArgb(0xE51B1D24));
+        border(MutableColor.fromArgb(0xFF444A58));
+        radius(5.0f);
+        buildUi();
+        listenScreen(ShopUIEvents.REFRESH_UI, event -> {
+            if (event.affectsCategories() || event.affectsCurrencies()) refresh(false);
+        });
+        listenScreen(ShopUIEvents.SELECT_CATEGORY, event -> {
+            selectedCategory = event.selected();
+            refresh(false);
+        });
     }
 
-    public ShopTabsPanelElement(@NotNull ShopScreenElement screen, WidgetRender render) {
-        this.shopScreen = screen;
-        this.render = Objects.requireNonNull(render, "render");
+    private void buildUi() {
+        VBox root = new VBox();
+        root.spacing(5.0f);
+        root.layout(style -> style.fill().padding(EdgeInsets.all(5.0f)));
+        root.addChild(new Label(Component.translatable("shop.ui.tabs.categories").getString()));
 
-        this.render.constructor(this);
-        registerDefaultHandlers();
+        categoryRows.spacing(3.0f);
+        ScrollView categoryScroll = new ScrollView(categoryRows).overlayScrollBars(true);
+        categoryScroll.layout(style -> style.expand());
+        root.addChild(categoryScroll);
+
+        root.addChild(new Label(Component.translatable("shop.ui.tabs.currencies").getString()));
+        currencyRows.spacing(3.0f);
+        ScrollView currencyScroll = new ScrollView(currencyRows).overlayScrollBars(true);
+        currencyScroll.layout(style -> style.height(150.0f).flexNone());
+        root.addChild(currencyScroll);
+        addChild(root);
         refresh(false);
     }
 
-    protected void registerDefaultHandlers() {
-        if (defaultHandlersRegistered) {
-            return;
-        }
-
-        defaultHandlersRegistered = true;
-        listenScreen(ShopUIEvents.REFRESH_UI, event -> {
-            if (event.affectsCategories()) {
-                refresh(initialized && event.relayout());
-                return;
-            }
-
-            if (event.affectsCurrencies()) {
-                if (render instanceof DefaultShopTabsPanelRender tabsRender && tabsRender.refreshCurrencies()) {
-                    return;
-                }
-
-                refresh(initialized && event.relayout());
-            }
-        });
-        listenScreen(ShopUIEvents.SELECT_CATEGORY, event -> {
-            if (!setSelectedCategory(event.selected())) {
-                return;
-            }
-
-            if (render instanceof DefaultShopTabsPanelRender tabsRender) {
-                tabsRender.updateSelectedTabs(this);
-            } else {
-                refresh(initialized);
-            }
-        });
-    }
-
-    public boolean setSelectedCategory(@Nullable CatalogComponent selectedCategory) {
-        if (sameCategory(this.selectedCategory, selectedCategory)) {
-            return false;
-        }
-
-        this.selectedCategory = selectedCategory;
+    public boolean setSelectedCategory(@Nullable CatalogComponent category) {
+        if (sameCategory(selectedCategory, category)) return false;
+        selectedCategory = category;
+        ShopUIEvents.invokeSelectCategory(category);
+        refresh(false);
         return true;
     }
 
-    public boolean isSelectedCategory(@Nullable CatalogComponent category) {
-        return sameCategory(selectedCategory, category);
-    }
-
-    public boolean isEditorMode() {
-        return shopScreen.isEditorMode();
-    }
+    public boolean isSelectedCategory(@Nullable CatalogComponent category) { return sameCategory(selectedCategory, category); }
+    public boolean isEditorMode() { return screen.isEditorMode(); }
+    public int getCategoryCount() { return screen.getOrderedCategories().size(); }
 
     public void createDraftCategory() {
-        shopScreen.createDraftCategory();
-    }
-
-    public int getCategoryCount() {
-        return shopScreen.getOrderedCategories().size();
+        CatalogComponent created = screen.createDraftCategory();
+        setSelectedCategory(created);
+        openRenameCategoryModal(created);
     }
 
     public boolean canMoveCategory(CatalogComponent category, int offset) {
-        List<CatalogComponent> categories = shopScreen.getOrderedCategories();
+        List<CatalogComponent> categories = screen.getOrderedCategories();
         int index = indexOfCategory(categories, category);
-        int target = index + offset;
-        return index >= 0 && target >= 0 && target < categories.size();
+        return index >= 0 && index + offset >= 0 && index + offset < categories.size();
     }
 
     public void moveCategory(CatalogComponent category, int offset) {
-        if (shopScreen.moveDraftCategory(category, offset)) {
-            ShopToasts.success(Component.translatable("shop.ui.toast.category_moved"));
-        }
+        if (screen.moveDraftCategory(category, offset)) refresh(false);
     }
 
     public void openRenameCategoryModal(CatalogComponent category) {
-        if (!isEditorMode() || category == null) {
-            return;
-        }
-
-        ModalWidget modal = new ModalWidget(280, 116)
-                .setTitle(Component.translatable("shop.ui.category.rename.title"))
-                .setCloseOnEsc(true)
-                .setCloseOnOutsideClick(false);
-        ModalWidget opened = ModalWidget.openNested(this, modal);
-        if (opened == null) {
-            return;
-        }
-
-        TextLabel label = new TextLabel(0, 4, opened.getContentWidth(), 20,
-                Component.translatable("shop.ui.category.rename.name_label"));
-        label.setAutoSize(false)
-                .setAlignment(TextLabel.HorizontalAlignment.LEFT, TextLabel.VerticalAlignment.CENTER)
-                .setColor(0xFFAEB4C6);
-        opened.addWidget(label);
-
-        InputTextBox input = new InputTextBox(0, 28, opened.getContentWidth(), 20);
-        input.setCurrentStringSilently(category.getId());
-        input.setPlaceholder(Component.translatable("shop.ui.category.rename.placeholder"));
-        input.setMaxLength(128);
-        input.setClientSideWidget();
-        opened.addWidget(input);
-
-        int buttonY = Math.max(56, opened.getContentHeight() - 24);
-        int buttonWidth = Math.max(1, opened.getContentWidth() / 2 - 4);
-        ButtonWidget cancel = createModalButton(0, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.cancel"), ignored -> opened.close());
-        ButtonWidget rename = createModalButton(buttonWidth + 8, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.rename"), ignored -> {
-            String value = input.getCurrentString() == null ? "" : input.getCurrentString().trim();
-            if (value.isEmpty()) {
-                ShopToasts.warning(Component.translatable("shop.ui.toast.category_name_empty"));
-                return;
+        openTextDialog(Component.translatable("shop.ui.category.rename.title").getString(), category.getId(), value -> {
+            if (!screen.renameDraftCategory(category, value)) {
+                ShopToasts.error(Component.translatable("shop.ui.toast.category_rename_failed"));
             }
-
-            if (shopScreen.renameDraftCategory(category, value)) {
-                opened.close();
-                ShopToasts.success(Component.translatable("shop.ui.toast.category_renamed"));
-            }
+            refresh(false);
         });
-
-        opened.addWidget(cancel);
-        opened.addWidget(rename);
-        input.setFocus(true);
     }
 
     public void openCategoryItemIconModal(CatalogComponent category) {
-        if (!isEditorMode() || category == null) {
-            return;
-        }
-
-        ModalWidget modal = new ModalWidget(300, 118)
-                .setTitle(Component.translatable("shop.ui.category.icon.item.title"))
-                .setCloseOnEsc(true)
-                .setCloseOnOutsideClick(false);
-        ModalWidget opened = ModalWidget.openNested(this, modal);
-        if (opened == null) {
-            return;
-        }
-
-        TextLabel label = new TextLabel(0, 4, opened.getContentWidth(), 20,
-                Component.translatable("shop.ui.category.icon.item_label"));
-        label.setAutoSize(false)
-                .setAlignment(TextLabel.HorizontalAlignment.LEFT, TextLabel.VerticalAlignment.CENTER)
-                .setColor(0xFFAEB4C6);
-        opened.addWidget(label);
-
-        SDMItemStackSelectorWidget itemSelector = new SDMItemStackSelectorWidget(0, 28, opened.getContentWidth(), false);
-        itemSelector.setItemStack(category.hasItemIcon() ? category.getIconItem() : ItemStack.EMPTY);
-        opened.addWidget(itemSelector);
-
-        int buttonY = Math.max(58, opened.getContentHeight() - 24);
-        int buttonWidth = Math.max(1, (opened.getContentWidth() - 12) / 3);
-        ButtonWidget cancel = createModalButton(0, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.cancel"), ignored -> opened.close());
-        ButtonWidget clear = createModalButton(buttonWidth + 6, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.clear"), ignored -> {
-            if (shopScreen.updateDraftCategoryIcon(category, CatalogComponent.IconType.NONE, ItemStack.EMPTY, CatalogComponent.EMPTY_ICON_TEXTURE)) {
-                opened.close();
-                ShopToasts.success(Component.translatable("shop.ui.toast.category_icon_cleared"));
-            }
+        String current = category.hasItemIcon()
+                ? BuiltInRegistries.ITEM.getKey(category.getIconItem().getItem()).toString() : "minecraft:diamond";
+        openTextDialog(Component.translatable("shop.ui.category.icon.item.title").getString(), current, value -> {
+            ResourceLocation id = ResourceLocation.tryParse(value.trim());
+            Item item = id == null ? Items.AIR : BuiltInRegistries.ITEM.get(id);
+            if (item != Items.AIR) screen.updateDraftCategoryIcon(category, CatalogComponent.IconType.ITEM, item.getDefaultInstance(), null);
+            else ShopToasts.error(Component.literal("Unknown item: " + value));
+            refresh(false);
         });
-        ButtonWidget save = createModalButton((buttonWidth + 6) * 2, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.save"), ignored -> {
-            ItemStack itemStack = itemSelector.getItemStack();
-            if (itemStack == null || itemStack.isEmpty() || itemStack.getItem() == Items.AIR) {
-                ShopToasts.warning(Component.translatable("shop.ui.toast.category_icon_item_empty"));
-                return;
-            }
-
-            if (shopScreen.updateDraftCategoryIcon(category, CatalogComponent.IconType.ITEM, itemStack, CatalogComponent.EMPTY_ICON_TEXTURE)) {
-                opened.close();
-                ShopToasts.success(Component.translatable("shop.ui.toast.category_icon_updated"));
-            }
-        });
-
-        opened.addWidget(cancel);
-        opened.addWidget(clear);
-        opened.addWidget(save);
     }
 
     public void openCategoryTextureIconModal(CatalogComponent category) {
-        if (!isEditorMode() || category == null) {
-            return;
-        }
-
-        ModalWidget modal = new ModalWidget(340, 280)
-                .setTitle(Component.translatable("shop.ui.category.icon.texture.title"))
-                .setCloseOnEsc(true)
-                .setCloseOnOutsideClick(false);
-        ModalWidget opened = ModalWidget.openNested(this, modal);
-        if (opened == null) {
-            return;
-        }
-
-        TextLabel label = new TextLabel(0, 4, opened.getContentWidth(), 20,
-                Component.translatable("shop.ui.category.icon.texture_label"));
-        label.setAutoSize(false)
-                .setAlignment(TextLabel.HorizontalAlignment.LEFT, TextLabel.VerticalAlignment.CENTER)
-                .setColor(0xFFAEB4C6);
-        opened.addWidget(label);
-
-        InputTextBox input = new InputTextBox(0, 28, opened.getContentWidth(), 20);
-        input.setResourceLocationOnly();
-        input.setMaxLength(256);
-        input.setCurrentStringSilently(category.hasTextureIcon() ? category.getIconTexture().toString() : "");
-        input.setPlaceholder(Component.translatable("shop.ui.category.icon.texture.placeholder"));
-        input.setClientSideWidget();
-        opened.addWidget(input);
-
-        TextLabel searchLabel = new TextLabel(0, 52, opened.getContentWidth(), 16,
-                Component.translatable("shop.ui.texture_selector.search_label"));
-        searchLabel.setAutoSize(false)
-                .setAlignment(TextLabel.HorizontalAlignment.LEFT, TextLabel.VerticalAlignment.CENTER)
-                .setColor(0xFFAEB4C6);
-        opened.addWidget(searchLabel);
-
-        InputTextBox search = new InputTextBox(0, 70, opened.getContentWidth(), 20);
-        search.setMaxLength(128);
-        search.setPlaceholder(Component.translatable("shop.ui.texture_selector.search.placeholder"));
-        search.setClientSideWidget();
-        opened.addWidget(search);
-
-        int buttonY = Math.max(58, opened.getContentHeight() - 24);
-        int gridY = 94;
-        int gridHeight = Math.max(1, buttonY - gridY - 6);
-        TexturePickerGrid grid = new TexturePickerGrid(0, gridY, opened.getContentWidth(), gridHeight, selected -> {
-            input.setCurrentStringSilently(selected.toString());
-            input.setFocus(false);
-            search.setFocus(false);
+        String current = category.hasTextureIcon() ? category.getIconTexture().toString() : "";
+        openTextDialog(Component.translatable("shop.ui.category.icon.texture.title").getString(), current, value -> {
+            ResourceLocation id = ResourceLocation.tryParse(value);
+            if (id != null) screen.updateDraftCategoryIcon(category, CatalogComponent.IconType.TEXTURE, null, id);
+            refresh(false);
         });
-        grid.setClientSideWidget();
-        opened.addWidget(grid);
-
-        List<ResourceLocation> allTextures = collectTextureIconResources();
-        final Runnable[] rebuildTextureGrid = new Runnable[1];
-        rebuildTextureGrid[0] = () -> rebuildTexturePickerGrid(grid, allTextures, search.getCurrentString());
-        search.setTextResponder(ignored -> rebuildTextureGrid[0].run());
-        rebuildTextureGrid[0].run();
-
-        int buttonWidth = Math.max(1, (opened.getContentWidth() - 12) / 3);
-        ButtonWidget cancel = createModalButton(0, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.cancel"), ignored -> opened.close());
-        ButtonWidget clear = createModalButton(buttonWidth + 6, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.clear"), ignored -> {
-            if (shopScreen.updateDraftCategoryIcon(category, CatalogComponent.IconType.NONE, ItemStack.EMPTY, CatalogComponent.EMPTY_ICON_TEXTURE)) {
-                opened.close();
-                ShopToasts.success(Component.translatable("shop.ui.toast.category_icon_cleared"));
-            }
-        });
-        ButtonWidget save = createModalButton((buttonWidth + 6) * 2, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.save"), ignored -> {
-            ResourceLocation texture = parseCategoryIconTexture(input.getCurrentString());
-            if (texture == null) {
-                ShopToasts.warning(Component.translatable("shop.ui.toast.invalid_category_icon_texture"));
-                return;
-            }
-
-            if (shopScreen.updateDraftCategoryIcon(category, CatalogComponent.IconType.TEXTURE, ItemStack.EMPTY, texture)) {
-                opened.close();
-                ShopToasts.success(Component.translatable("shop.ui.toast.category_icon_updated"));
-            }
-        });
-
-        opened.addWidget(cancel);
-        opened.addWidget(clear);
-        opened.addWidget(save);
-        if (allTextures.isEmpty()) {
-            input.setFocus(true);
-        } else {
-            search.setFocus(true);
-        }
     }
 
     public void openMoveCategoryModal(CatalogComponent category) {
-        if (!isEditorMode() || category == null) {
-            return;
+        List<CatalogComponent> categories = screen.getMoveTargetCategories(category);
+        VBox rows = new VBox();
+        rows.spacing(4.0f);
+        WindowWidget window = modal(Component.translatable("shop.ui.category.move.title").getString(), rows, 280, 220);
+        for (CatalogComponent target : categories) {
+            Button button = new Button(target.getId());
+            button.onClick(event -> {
+                screen.moveDraftCategoryTo(category, indexOfCategory(screen.getOrderedCategories(), target));
+                window.close();
+                refresh(false);
+            });
+            rows.addChild(button);
         }
-
-        List<CatalogComponent> categories = shopScreen.getOrderedCategories();
-        int currentIndex = indexOfCategory(categories, category);
-        if (currentIndex < 0 || categories.size() <= 1) {
-            return;
-        }
-
-        ModalWidget modal = new ModalWidget(260, 116)
-                .setTitle(Component.translatable("shop.ui.category.move.title"))
-                .setCloseOnEsc(true)
-                .setCloseOnOutsideClick(false);
-        ModalWidget opened = ModalWidget.openNested(this, modal);
-        if (opened == null) {
-            return;
-        }
-
-        TextLabel label = new TextLabel(0, 4, opened.getContentWidth(), 20,
-                Component.translatable("shop.ui.common.target_position", categories.size()));
-        label.setAutoSize(false)
-                .setAlignment(TextLabel.HorizontalAlignment.LEFT, TextLabel.VerticalAlignment.CENTER)
-                .setColor(0xFFAEB4C6);
-        opened.addWidget(label);
-
-        InputTextBox input = new InputTextBox(0, 28, opened.getContentWidth(), 20);
-        input.setNumbersOnly(1, categories.size());
-        input.setCurrentStringSilently(currentIndex + 1);
-        input.setPlaceholder(Component.translatable("shop.ui.common.position"));
-        input.setClientSideWidget();
-        opened.addWidget(input);
-
-        int buttonY = Math.max(56, opened.getContentHeight() - 24);
-        int buttonWidth = Math.max(1, opened.getContentWidth() / 2 - 4);
-        ButtonWidget cancel = createModalButton(0, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.cancel"), ignored -> opened.close());
-        ButtonWidget move = createModalButton(buttonWidth + 8, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.move"), ignored -> {
-            int position;
-            try {
-                position = Integer.parseInt(input.getCurrentString().trim());
-            } catch (Exception e) {
-                ShopToasts.warning(Component.translatable("shop.ui.toast.invalid_position"));
-                return;
-            }
-
-            if (shopScreen.moveDraftCategoryTo(category, position - 1)) {
-                opened.close();
-                ShopToasts.success(Component.translatable("shop.ui.toast.category_moved"));
-            }
-        });
-
-        opened.addWidget(cancel);
-        opened.addWidget(move);
-        input.setFocus(true);
     }
 
     public void openDeleteCategoryModal(CatalogComponent category) {
-        if (!isEditorMode() || category == null) {
-            return;
-        }
-
-        int offerCount = shopScreen.countOffersInCategory(category);
-        List<CatalogComponent> moveTargets = shopScreen.getMoveTargetCategories(category);
-        int height = offerCount > 0
-                ? Math.min(260, 116 + moveTargets.size() * 22)
-                : 112;
-
-        ModalWidget modal = new ModalWidget(310, height)
-                .setTitle(Component.translatable("shop.ui.category.delete.title"))
-                .setCloseOnEsc(true)
-                .setCloseOnOutsideClick(false);
-        ModalWidget opened = ModalWidget.openNested(this, modal);
-        if (opened == null) {
-            return;
-        }
-
-        TextLabel warning = new TextLabel(0, 4, opened.getContentWidth(), offerCount > 0 ? 42 : 28,
-                offerCount > 0
-                        ? Component.translatable("shop.ui.category.delete.warning_with_offers", offerCount)
-                        : Component.translatable("shop.ui.category.delete.warning_empty"));
-        warning.setAutoSize(false)
-                .setWrapText(true)
-                .setColor(0xFFFFC95A)
-                .setAlignment(TextLabel.HorizontalAlignment.CENTER, TextLabel.VerticalAlignment.CENTER);
-        opened.addWidget(warning);
-
-        if (offerCount > 0) {
-            int y = 50;
-            for (CatalogComponent target : moveTargets) {
-                if (y + 20 > opened.getContentHeight() - 28) {
-                    break;
-                }
-
-                ButtonWidget moveButton = createModalButton(0, y, opened.getContentWidth(), 20,
-                        Component.translatable("shop.ui.category.delete.move_to", target.getId()), ignored -> {
-                            if (shopScreen.deleteDraftCategory(category, target)) {
-                                opened.close();
-                                ShopToasts.success(Component.translatable("shop.ui.toast.category_deleted_offers_moved"));
-                            }
-                        });
-                opened.addWidget(moveButton);
-                y += 22;
-            }
-        }
-
-        int buttonY = Math.max(offerCount > 0 ? 72 : 48, opened.getContentHeight() - 24);
-        int buttonWidth = Math.max(1, opened.getContentWidth() / 2 - 4);
-        ButtonWidget cancel = createModalButton(0, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.cancel"), ignored -> opened.close());
-        ButtonWidget delete = createModalButton(buttonWidth + 8, buttonY, buttonWidth, 20,
-                Component.translatable(offerCount > 0 ? "shop.ui.common.delete_all" : "shop.ui.common.delete"), ignored -> {
-                    if (shopScreen.deleteDraftCategory(category, null)) {
-                        opened.close();
-                        ShopToasts.success(Component.translatable("shop.ui.toast.category_deleted"));
-                    }
-                });
-
-        opened.addWidget(cancel);
-        opened.addWidget(delete);
+        VBox body = new VBox();
+        body.spacing(6.0f);
+        body.addChild(new Label(Component.translatable("shop.ui.category.delete.warning", screen.countOffersInCategory(category)).getString()).wrap(true));
+        WindowWidget window = modal(Component.translatable("shop.ui.category.delete.title").getString(), body, 300, 150);
+        Button delete = new Button(Component.translatable("shop.ui.common.delete").getString());
+        delete.onClick(event -> {
+            if (screen.deleteDraftCategory(category, null)) setSelectedCategory(null);
+            window.close();
+            refresh(false);
+        });
+        body.addChild(delete);
     }
 
     public void openCreateCurrencyModal() {
-        if (!isEditorMode()) {
-            return;
-        }
-
-        ModalWidget modal = new ModalWidget(260, 118)
-                .setTitle(Component.translatable("shop.ui.currency.add.title"))
-                .setCloseOnEsc(true)
-                .setCloseOnOutsideClick(false);
-        ModalWidget opened = ModalWidget.openNested(this, modal);
-        if (opened == null) {
-            return;
-        }
-
-        TextLabel label = new TextLabel(0, 4, opened.getContentWidth(), 22,
-                Component.translatable("shop.ui.currency.add.type_label"));
-        label.setAutoSize(false)
-                .setColor(0xFFAEB4C6)
-                .setAlignment(TextLabel.HorizontalAlignment.CENTER, TextLabel.VerticalAlignment.CENTER);
-        opened.addWidget(label);
-
-        int buttonY = Math.max(34, opened.getContentHeight() - 28);
-        int buttonWidth = Math.max(1, opened.getContentWidth() / 2 - 4);
-        ButtonWidget text = createModalButton(0, buttonY, buttonWidth, 22, Component.translatable("shop.ui.currency.type.text"), ignored -> {
-            opened.close();
-            openTextCurrencyModal(null, null);
-        });
-        ButtonWidget item = createModalButton(buttonWidth + 8, buttonY, buttonWidth, 22, Component.translatable("shop.ui.currency.type.item"), ignored -> {
-            opened.close();
-            openItemCurrencyModal(null, null);
-        });
-
-        opened.addWidget(text);
-        opened.addWidget(item);
+        VBox body = new VBox(); body.spacing(6.0f);
+        WindowWidget window = modal(Component.translatable("shop.ui.currency.add").getString(), body, 280, 140);
+        Button text = new Button("Text currency");
+        text.onClick(event -> { window.close(); openTextCurrencyModal(null, null); });
+        Button item = new Button("Item currency");
+        item.onClick(event -> { window.close(); openItemCurrencyModal(null, null); });
+        body.addChild(text); body.addChild(item);
     }
-
     public void openEditCurrencyModal(ResourceLocation id, ICurrency currency) {
-        if (!isEditorMode() || id == null || currency == null) {
-            return;
-        }
-
         CurrencyDraft draft = CurrencyDraft.fromCurrency(currency);
-        if (draft != null && draft.kind() == CurrencyDraft.Kind.ITEM) {
-            openItemCurrencyModal(id, draft);
-        } else {
-            openTextCurrencyModal(id, draft);
-        }
+        if (draft != null && draft.kind() == CurrencyDraft.Kind.ITEM) openItemCurrencyModal(id, draft);
+        else openTextCurrencyModal(id, draft);
     }
-
-    public boolean deleteCurrency(ResourceLocation id) {
-        if (!isEditorMode() || id == null || !shopScreen.canDeleteCurrency(id)) {
-            ShopToasts.warning(Component.translatable("shop.ui.toast.currency_delete_protected"));
-            return false;
-        }
-
-        boolean deleted = shopScreen.deleteDraftCurrency(id);
-        if (deleted) {
-            ShopToasts.success(Component.translatable("shop.ui.toast.currency_deleted"));
-        } else {
-            ShopToasts.error(Component.translatable("shop.ui.toast.currency_delete_failed"));
-        }
-        return deleted;
-    }
+    public boolean deleteCurrency(ResourceLocation id) { boolean changed = screen.deleteDraftCurrency(id); if (changed) refresh(false); return changed; }
 
     private void openTextCurrencyModal(@Nullable ResourceLocation existingId, @Nullable CurrencyDraft draft) {
-        boolean editing = existingId != null;
-        ModalWidget modal = new ModalWidget(300, editing ? 184 : 208)
-                .setTitle(Component.translatable(editing ? "shop.ui.currency.text.edit.title" : "shop.ui.currency.text.add.title"))
-                .setCloseOnEsc(true)
-                .setCloseOnOutsideClick(false);
-        ModalWidget opened = ModalWidget.openNested(this, modal);
-        if (opened == null) {
-            return;
-        }
-
-        int y = 4;
-        final InputTextBox idInput;
-        if (editing) {
-            TextLabel idLabel = new TextLabel(0, y, opened.getContentWidth(), 20,
-                    Component.translatable("shop.ui.currency.id_value", existingId));
-            idLabel.setAutoSize(false)
-                    .setColor(0xFFAEB4C6)
-                    .setAlignment(TextLabel.HorizontalAlignment.LEFT, TextLabel.VerticalAlignment.CENTER);
-            opened.addWidget(idLabel);
-            idInput = null;
-            y += 24;
-        } else {
-            TextLabel idLabel = new TextLabel(0, y, opened.getContentWidth(), 16, Component.translatable("shop.ui.currency.id_label"));
-            idLabel.setAutoSize(false).setColor(0xFFAEB4C6);
-            opened.addWidget(idLabel);
-            y += 18;
-            idInput = new InputTextBox(0, y, opened.getContentWidth(), 20);
-            idInput.setResourceLocationOnly();
-            idInput.setMaxLength(128);
-            idInput.setPlaceholder(Component.translatable("shop.ui.currency.text.id_placeholder"));
-            idInput.setClientSideWidget();
-            opened.addWidget(idInput);
-            y += 24;
-        }
-
-        TextLabel nameLabel = new TextLabel(0, y, opened.getContentWidth(), 16, Component.translatable("shop.ui.currency.display_name_label"));
-        nameLabel.setAutoSize(false).setColor(0xFFAEB4C6);
-        opened.addWidget(nameLabel);
-        y += 18;
-
-        InputTextBox nameInput = new InputTextBox(0, y, opened.getContentWidth(), 20);
-        nameInput.setMaxLength(128);
-        nameInput.setCurrentStringSilently(draft == null ? "" : draft.displayName());
-        nameInput.setPlaceholder(Component.translatable("shop.ui.currency.display_name_placeholder"));
-        nameInput.setClientSideWidget();
-        opened.addWidget(nameInput);
-        y += 24;
-
-        TextLabel iconLabel = new TextLabel(0, y, opened.getContentWidth(), 16, Component.translatable("shop.ui.currency.icon_label"));
-        iconLabel.setAutoSize(false).setColor(0xFFAEB4C6);
-        opened.addWidget(iconLabel);
-        y += 18;
-
-        InputTextBox iconInput = new InputTextBox(0, y, opened.getContentWidth(), 20);
-        iconInput.setMaxLength(128);
-        iconInput.setCurrentStringSilently(draft == null ? "$" : draft.iconText());
-        iconInput.setPlaceholder(Component.translatable("shop.ui.currency.icon_placeholder"));
-        iconInput.setClientSideWidget();
-        opened.addWidget(iconInput);
-
-        int buttonY = Math.max(y + 30, opened.getContentHeight() - 22);
-        int buttonWidth = Math.max(1, opened.getContentWidth() / 2 - 4);
-        ButtonWidget cancel = createModalButton(0, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.cancel"), ignored -> opened.close());
-        ButtonWidget save = createModalButton(buttonWidth + 8, buttonY, buttonWidth, 20,
-                Component.translatable(editing ? "shop.ui.common.save" : "shop.ui.common.add"), ignored -> {
-            ResourceLocation id = editing ? existingId : parseCurrencyId(idInput == null ? "" : idInput.getCurrentString());
-            if (id == null) {
-                ShopToasts.warning(Component.translatable("shop.ui.toast.invalid_currency_id"));
-                return;
-            }
-
-            String name = nameInput.getCurrentString() == null ? "" : nameInput.getCurrentString().trim();
-            if (name.isEmpty()) {
-                ShopToasts.warning(Component.translatable("shop.ui.toast.currency_name_empty"));
-                return;
-            }
-
-            if (shopScreen.upsertTextCurrency(id, name, iconInput.getCurrentString())) {
-                opened.close();
-                ShopToasts.success(Component.translatable(editing ? "shop.ui.toast.currency_updated" : "shop.ui.toast.currency_added"));
-            }
+        VBox body = new VBox();
+        body.spacing(5.0f);
+        TextField id = new TextField(existingId == null ? "sdm:currency" : existingId.toString());
+        TextField name = new TextField(draft == null ? "Currency" : draft.displayName());
+        TextField icon = new TextField(draft == null ? "$" : draft.iconText());
+        body.addChild(new Label("Id")); body.addChild(id);
+        body.addChild(new Label(Component.translatable("shop.ui.currency.name").getString())); body.addChild(name);
+        body.addChild(new Label(Component.translatable("shop.ui.currency.icon").getString())); body.addChild(icon);
+        WindowWidget window = modal(Component.translatable("shop.ui.currency.editor.title").getString(), body, 320, 220);
+        Button save = new Button(Component.translatable("shop.ui.common.save").getString());
+        save.onClick(event -> {
+            ResourceLocation parsed = ResourceLocation.tryParse(id.text().trim());
+            if (parsed != null && screen.upsertTextCurrency(parsed, name.text(), icon.text())) {
+                window.close();
+                refresh(false);
+            } else ShopToasts.error(Component.translatable("shop.ui.toast.currency_save_failed"));
         });
-
-        opened.addWidget(cancel);
-        opened.addWidget(save);
-        if (!editing && idInput != null) {
-            idInput.setFocus(true);
-        } else {
-            nameInput.setFocus(true);
-        }
+        body.addChild(save);
     }
 
     private void openItemCurrencyModal(@Nullable ResourceLocation existingId, @Nullable CurrencyDraft draft) {
-        boolean editing = existingId != null;
-        ModalWidget modal = new ModalWidget(300, editing ? 150 : 174)
-                .setTitle(Component.translatable(editing ? "shop.ui.currency.item.edit.title" : "shop.ui.currency.item.add.title"))
-                .setCloseOnEsc(true)
-                .setCloseOnOutsideClick(false);
-        ModalWidget opened = ModalWidget.openNested(this, modal);
-        if (opened == null) {
-            return;
-        }
-
-        int y = 4;
-        final InputTextBox idInput;
-        if (editing) {
-            TextLabel idLabel = new TextLabel(0, y, opened.getContentWidth(), 20,
-                    Component.translatable("shop.ui.currency.id_value", existingId));
-            idLabel.setAutoSize(false)
-                    .setColor(0xFFAEB4C6)
-                    .setAlignment(TextLabel.HorizontalAlignment.LEFT, TextLabel.VerticalAlignment.CENTER);
-            opened.addWidget(idLabel);
-            idInput = null;
-            y += 24;
-        } else {
-            TextLabel idLabel = new TextLabel(0, y, opened.getContentWidth(), 16, Component.translatable("shop.ui.currency.id_label"));
-            idLabel.setAutoSize(false).setColor(0xFFAEB4C6);
-            opened.addWidget(idLabel);
-            y += 18;
-            idInput = new InputTextBox(0, y, opened.getContentWidth(), 20);
-            idInput.setResourceLocationOnly();
-            idInput.setMaxLength(128);
-            idInput.setPlaceholder(Component.translatable("shop.ui.currency.item.id_placeholder"));
-            idInput.setClientSideWidget();
-            opened.addWidget(idInput);
-            y += 24;
-        }
-
-        TextLabel itemLabel = new TextLabel(0, y, opened.getContentWidth(), 16, Component.translatable("shop.ui.currency.item_label"));
-        itemLabel.setAutoSize(false).setColor(0xFFAEB4C6);
-        opened.addWidget(itemLabel);
-        y += 18;
-
-        SDMItemStackSelectorWidget itemSelector = new SDMItemStackSelectorWidget(0, y, opened.getContentWidth(), false);
-        ItemStack initialStack = draft == null ? ItemStack.EMPTY : draft.itemStack();
-        itemSelector.setItemStack(initialStack);
-        opened.addWidget(itemSelector);
-
-        int buttonY = Math.max(y + 30, opened.getContentHeight() - 22);
-        int buttonWidth = Math.max(1, opened.getContentWidth() / 2 - 4);
-        ButtonWidget cancel = createModalButton(0, buttonY, buttonWidth, 20, Component.translatable("shop.ui.common.cancel"), ignored -> opened.close());
-        ButtonWidget save = createModalButton(buttonWidth + 8, buttonY, buttonWidth, 20,
-                Component.translatable(editing ? "shop.ui.common.save" : "shop.ui.common.add"), ignored -> {
-            ResourceLocation id = editing ? existingId : parseCurrencyId(idInput == null ? "" : idInput.getCurrentString());
-            if (id == null) {
-                ShopToasts.warning(Component.translatable("shop.ui.toast.invalid_currency_id"));
-                return;
-            }
-
-            ItemStack itemStack = itemSelector.getItemStack();
-            if (itemStack == null || itemStack.isEmpty() || itemStack.getItem() == Items.AIR) {
-                ShopToasts.warning(Component.translatable("shop.ui.toast.currency_item_empty"));
-                return;
-            }
-
-            if (shopScreen.upsertItemCurrency(id, itemStack)) {
-                opened.close();
-                ShopToasts.success(Component.translatable(editing ? "shop.ui.toast.currency_updated" : "shop.ui.toast.currency_added"));
-            }
+        VBox body = new VBox(); body.spacing(5.0f);
+        TextField id = new TextField(existingId == null ? "sdm:item_currency" : existingId.toString());
+        String initialItem = draft != null && !draft.itemStack().isEmpty()
+                ? BuiltInRegistries.ITEM.getKey(draft.itemStack().getItem()).toString() : "minecraft:diamond";
+        TextField itemId = new TextField(initialItem);
+        body.addChild(new Label("Id")); body.addChild(id);
+        body.addChild(new Label("Item")); body.addChild(itemId);
+        WindowWidget window = modal(Component.translatable("shop.ui.currency.editor.title").getString(), body, 320, 180);
+        Button save = new Button(Component.translatable("shop.ui.common.save").getString());
+        save.onClick(event -> {
+            ResourceLocation currencyId = ResourceLocation.tryParse(id.text().trim());
+            ResourceLocation parsedItem = ResourceLocation.tryParse(itemId.text().trim());
+            Item item = parsedItem == null ? Items.AIR : BuiltInRegistries.ITEM.get(parsedItem);
+            if (currencyId != null && item != Items.AIR && screen.upsertItemCurrency(currencyId, item.getDefaultInstance())) {
+                window.close(); refresh(false);
+            } else ShopToasts.error(Component.translatable("shop.ui.toast.currency_save_failed"));
         });
-
-        opened.addWidget(cancel);
-        opened.addWidget(save);
-        if (!editing && idInput != null) {
-            idInput.setFocus(true);
-        }
+        body.addChild(save);
     }
 
-    @Nullable
-    private ResourceLocation parseCurrencyId(String value) {
-        String raw = value == null ? "" : value.trim();
-        if (raw.isEmpty()) {
-            return null;
-        }
-        return raw.contains(":") ? ResourceLocation.tryParse(raw) : ResourceLocation.tryBuild("sdm", raw);
-    }
-
-    @Nullable
-    private ResourceLocation parseCategoryIconTexture(String value) {
-        String raw = value == null ? "" : value.trim();
-        if (raw.isEmpty()) {
-            return null;
-        }
-        return ResourceLocation.tryParse(raw);
-    }
-
-    private List<ResourceLocation> collectTextureIconResources() {
-        List<ResourceLocation> textures = new ArrayList<>();
-        try {
-            Map<ResourceLocation, ?> resources = Minecraft.getInstance().getResourceManager().listResources(
-                    "textures",
-                    location -> location.getPath().endsWith(".png")
-            );
-            textures.addAll(resources.keySet());
-        } catch (Exception ignored) {
+    public ShopTabsPanelElement refresh() { return refresh(true); }
+    public ShopTabsPanelElement refresh(boolean relayout) {
+        categoryRows.clearChildren();
+        ToggleButton all = categoryButton(Component.translatable("shop.ui.tabs.all").getString(), null);
+        categoryRows.addChild(all);
+        for (CatalogComponent category : screen.getOrderedCategories()) categoryRows.addChild(categoryRow(category));
+        if (isEditorMode()) {
+            Button add = new Button(Component.translatable("shop.ui.category.add").getString());
+            add.onClick(event -> createDraftCategory());
+            categoryRows.addChild(add);
         }
 
-        textures.sort(Comparator.comparing(ResourceLocation::toString));
-        return textures;
-    }
-
-    private void rebuildTexturePickerGrid(TexturePickerGrid grid, List<ResourceLocation> allTextures, String query) {
-        String filter = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
-        List<ResourceLocation> filteredTextures = new ArrayList<>();
-        for (ResourceLocation texture : allTextures) {
-            if (texture == null) {
-                continue;
+        currencyRows.clearChildren();
+        for (ICurrency currency : screen.getEditorCurrencies().values()) {
+            HBox container = new HBox(); container.spacing(3.0f);
+            ToggleButton row = new ToggleButton(currency.getDisplayName().getString()).checked(currencyFilters.contains(currency.getId()));
+            row.layout(style -> style.expand());
+            row.onCheckedChanged(event -> {
+                if (event.newValue()) currencyFilters.add(currency.getId()); else currencyFilters.remove(currency.getId());
+                ShopUIEvents.invokeCurrencyFilterUpdate(currencyFilters);
+            });
+            container.addChild(row);
+            if (isEditorMode()) {
+                Button edit = new Button("✎"); edit.onClick(event -> openEditCurrencyModal(currency.getId(), currency));
+                Button delete = new Button("×"); delete.enabled(screen.canDeleteCurrency(currency.getId())); delete.onClick(event -> deleteCurrency(currency.getId()));
+                container.addChild(edit); container.addChild(delete);
             }
-
-            String id = texture.toString().toLowerCase(Locale.ROOT);
-            if (filter.isEmpty() || id.contains(filter)) {
-                filteredTextures.add(texture);
-            }
+            currencyRows.addChild(container);
         }
-        grid.setTextures(filteredTextures);
+        if (isEditorMode()) {
+            Button addCurrency = new Button(Component.translatable("shop.ui.currency.add").getString());
+            addCurrency.onClick(event -> openCreateCurrencyModal());
+            currencyRows.addChild(addCurrency);
+        }
+        return this;
     }
 
-    private ButtonWidget createModalButton(int x, int y, int width, int height, Component text, java.util.function.Consumer<com.lowdragmc.lowdraglib.gui.util.ClickData> action) {
-        ButtonWidget button = new ButtonWidget(x, y, width, height, text, action);
-        button.setClientSideWidget();
-        button.setTextPadding(4);
-        button.setMinTextScale(0.35f);
+    private ToggleButton categoryButton(String text, @Nullable CatalogComponent category) {
+        ToggleButton button = new ToggleButton(text).checked(isSelectedCategory(category));
+        button.onClick(event -> setSelectedCategory(category));
         return button;
     }
 
-    private int indexOfCategory(List<CatalogComponent> categories, CatalogComponent category) {
-        if (categories == null || category == null) {
-            return -1;
+    private Widget categoryRow(CatalogComponent category) {
+        HBox row = new HBox(); row.spacing(3.0f);
+        ToggleButton select = categoryButton(category.getId(), category);
+        select.layout(style -> style.expand());
+        row.addChild(select);
+        if (isEditorMode()) {
+            Button up = new Button("↑"); up.enabled(canMoveCategory(category, -1)); up.onClick(event -> moveCategory(category, -1));
+            Button down = new Button("↓"); down.enabled(canMoveCategory(category, 1)); down.onClick(event -> moveCategory(category, 1));
+            Button rename = new Button("✎"); rename.onClick(event -> openRenameCategoryModal(category));
+            Button item = new Button("I"); item.onClick(event -> openCategoryItemIconModal(category));
+            Button texture = new Button("T"); texture.onClick(event -> openCategoryTextureIconModal(category));
+            Button delete = new Button("×"); delete.onClick(event -> openDeleteCategoryModal(category));
+            row.addChild(up); row.addChild(down); row.addChild(rename); row.addChild(item); row.addChild(texture); row.addChild(delete);
         }
+        return row;
+    }
 
-        for (int i = 0; i < categories.size(); i++) {
-            if (sameCategory(categories.get(i), category)) {
-                return i;
-            }
-        }
+    private void openTextDialog(String title, String initial, Consumer<String> apply) {
+        VBox body = new VBox();
+        body.spacing(6.0f);
+        TextField value = new TextField(initial == null ? "" : initial);
+        body.addChild(value);
+        WindowWidget window = modal(title, body, 300, 130);
+        Button save = new Button(Component.translatable("shop.ui.common.save").getString());
+        save.onClick(event -> { apply.accept(value.text()); window.close(); });
+        body.addChild(save);
+    }
+
+    private WindowWidget modal(String title, Widget content, float width, float height) {
+        WindowWidget window = new WindowWidget(title, content).modal(true).fixedModal(true).resizable(false);
+        window.layout(style -> style.fixed(width, height));
+        screen.getOverlay().windows().register(window);
+        return window.openModal();
+    }
+
+    private int indexOfCategory(List<CatalogComponent> categories, CatalogComponent category) {
+        for (int i = 0; i < categories.size(); i++) if (sameCategory(categories.get(i), category)) return i;
         return -1;
     }
 
     protected static boolean sameCategory(@Nullable CatalogComponent first, @Nullable CatalogComponent second) {
-        if (first == second) {
-            return true;
-        }
-        if (first == null || second == null) {
-            return false;
-        }
-        if (first.getUuid() != null && second.getUuid() != null) {
-            return first.getUuid().equals(second.getUuid());
-        }
-
-        return Objects.equals(first.getId(), second.getId());
+        if (first == second) return true;
+        if (first == null || second == null) return false;
+        if (first.getUuid() != null && second.getUuid() != null) return first.getUuid().equals(second.getUuid());
+        return java.util.Objects.equals(first.getId(), second.getId());
     }
 
-    private class TexturePickerGrid extends Widget {
-
-        private final List<ResourceLocation> textures = new ArrayList<>();
-        private final Consumer<ResourceLocation> onSelect;
-        private int scrollOffset;
-        private boolean draggingScrollThumb;
-        private double dragStartMouseY;
-        private int dragStartScrollOffset;
-
-        private TexturePickerGrid(int x, int y, int width, int height, Consumer<ResourceLocation> onSelect) {
-            super(x, y, width, height);
-            this.onSelect = onSelect;
-        }
-
-        private void setTextures(List<ResourceLocation> textureIds) {
-            textures.clear();
-            if (textureIds != null) {
-                textures.addAll(textureIds);
-            }
-
-            scrollOffset = 0;
-            draggingScrollThumb = false;
-            clampScrollOffset();
-        }
-
-        @Override
-        public void drawInBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-            int x = getPositionX();
-            int y = getPositionY();
-            int width = getSizeWidth();
-            int height = getSizeHeight();
-
-            graphics.fill(x, y, x + width, y + height, 0xFF14151C);
-            graphics.fill(x, y, x + width, y + 1, 0xFF3D3D4E);
-            graphics.fill(x, y + height - 1, x + width, y + height, 0xFF3D3D4E);
-            graphics.fill(x, y, x + 1, y + height, 0xFF3D3D4E);
-            graphics.fill(x + width - 1, y, x + width, y + height, 0xFF3D3D4E);
-
-            graphics.enableScissor(x + 1, y + 1, x + width - 1, y + height - 1);
-            try {
-                drawVisibleTextures(graphics, mouseX, mouseY);
-                if (textures.isEmpty()) {
-                    graphics.drawString(
-                            Minecraft.getInstance().font,
-                            Component.translatable("shop.ui.texture_selector.empty"),
-                            x + 6,
-                            y + 6,
-                            0xFFAAAAAA,
-                            false
-                    );
-                }
-            } finally {
-                graphics.disableScissor();
-            }
-
-            drawScrollBar(graphics, mouseX, mouseY);
-        }
-
-        @Override
-        public void drawInForeground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-            ResourceLocation hovered = getTextureAt(mouseX, mouseY);
-            if (hovered != null) {
-                graphics.renderTooltip(Minecraft.getInstance().font, Component.literal(hovered.toString()), mouseX, mouseY);
-            }
-        }
-
-        @Override
-        public boolean mouseClicked(double mouseX, double mouseY, int button) {
-            if (button != 0 || !isMouseOverElement(mouseX, mouseY)) {
-                return false;
-            }
-
-            if (isMouseOverScrollBar(mouseX, mouseY)) {
-                if (isMouseOverScrollThumb(mouseX, mouseY)) {
-                    draggingScrollThumb = true;
-                    dragStartMouseY = mouseY;
-                    dragStartScrollOffset = scrollOffset;
-                } else {
-                    scrollToMouse(mouseY);
-                }
-                return true;
-            }
-
-            ResourceLocation clicked = getTextureAt(mouseX, mouseY);
-            if (clicked != null) {
-                Widget.playButtonClickSound();
-                onSelect.accept(clicked);
-                return true;
-            }
-
-            return true;
-        }
-
-        @Override
-        public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-            if (!draggingScrollThumb || button != 0) {
-                return false;
-            }
-
-            int maxScroll = getMaxScrollOffset();
-            if (maxScroll <= 0) {
-                scrollOffset = 0;
-                return true;
-            }
-
-            int trackHeight = getScrollTrackHeight();
-            int thumbHeight = getScrollThumbHeight();
-            int movable = Math.max(1, trackHeight - thumbHeight);
-            scrollOffset = dragStartScrollOffset + (int) Math.round((mouseY - dragStartMouseY) * maxScroll / (double) movable);
-            clampScrollOffset();
-            return true;
-        }
-
-        @Override
-        public boolean mouseReleased(double mouseX, double mouseY, int button) {
-            if (button == 0 && draggingScrollThumb) {
-                draggingScrollThumb = false;
-                return true;
-            }
-            return false;
-        }
-
-        @Override
-        public boolean mouseWheelMove(double mouseX, double mouseY, double wheelDelta) {
-            if (!isMouseOverElement(mouseX, mouseY) || getMaxScrollOffset() <= 0) {
-                return false;
-            }
-
-            scrollOffset += wheelDelta < 0 ? rowPitch() * 2 : -rowPitch() * 2;
-            clampScrollOffset();
-            return true;
-        }
-
-        private void drawVisibleTextures(GuiGraphics graphics, int mouseX, int mouseY) {
-            if (textures.isEmpty()) {
-                return;
-            }
-
-            int columns = getColumns();
-            int pitch = rowPitch();
-            int firstRow = Math.max(0, scrollOffset / pitch);
-            int lastRow = Math.min(getRows() - 1, (scrollOffset + getSizeHeight() + pitch - 1) / pitch);
-            int startX = getGridStartX(columns);
-            int baseX = getPositionX();
-            int baseY = getPositionY();
-
-            for (int row = firstRow; row <= lastRow; row++) {
-                int itemY = baseY + row * pitch - scrollOffset;
-                for (int col = 0; col < columns; col++) {
-                    int index = row * columns + col;
-                    if (index >= textures.size()) {
-                        return;
-                    }
-
-                    int itemX = baseX + startX + col * pitch;
-                    ResourceLocation texture = textures.get(index);
-                    boolean hovered = isMouseOverTexture(mouseX, mouseY, itemX, itemY);
-
-                    graphics.fill(itemX, itemY, itemX + TEXTURE_PICKER_GRID_ITEM_SIZE, itemY + TEXTURE_PICKER_GRID_ITEM_SIZE, hovered ? 0xFF34384A : 0xFF20222B);
-                    graphics.fill(itemX, itemY, itemX + TEXTURE_PICKER_GRID_ITEM_SIZE, itemY + 1, hovered ? 0xFF7986CB : 0xFF3D3D4E);
-                    graphics.fill(itemX, itemY + TEXTURE_PICKER_GRID_ITEM_SIZE - 1, itemX + TEXTURE_PICKER_GRID_ITEM_SIZE, itemY + TEXTURE_PICKER_GRID_ITEM_SIZE, hovered ? 0xFF7986CB : 0xFF3D3D4E);
-                    graphics.fill(itemX, itemY, itemX + 1, itemY + TEXTURE_PICKER_GRID_ITEM_SIZE, hovered ? 0xFF7986CB : 0xFF3D3D4E);
-                    graphics.fill(itemX + TEXTURE_PICKER_GRID_ITEM_SIZE - 1, itemY, itemX + TEXTURE_PICKER_GRID_ITEM_SIZE, itemY + TEXTURE_PICKER_GRID_ITEM_SIZE, hovered ? 0xFF7986CB : 0xFF3D3D4E);
-                    new ResourceTexture(texture).draw(
-                            graphics,
-                            mouseX,
-                            mouseY,
-                            itemX + 2,
-                            itemY + 2,
-                            TEXTURE_PICKER_GRID_ITEM_SIZE - 4,
-                            TEXTURE_PICKER_GRID_ITEM_SIZE - 4
-                    );
-                }
-            }
-        }
-
-        private void drawScrollBar(GuiGraphics graphics, int mouseX, int mouseY) {
-            if (!hasScrollBar()) {
-                return;
-            }
-
-            int trackX = getScrollTrackX();
-            int trackY = getPositionY();
-            int trackHeight = getScrollTrackHeight();
-            int thumbY = getScrollThumbY();
-            int thumbHeight = getScrollThumbHeight();
-            int thumbColor = isMouseOverScrollThumb(mouseX, mouseY) || draggingScrollThumb ? 0xFFAAB2C5 : 0xFF6D7485;
-
-            graphics.fill(trackX, trackY, trackX + TEXTURE_PICKER_SCROLLBAR_WIDTH, trackY + trackHeight, 0x5530303A);
-            graphics.fill(trackX, thumbY, trackX + TEXTURE_PICKER_SCROLLBAR_WIDTH, thumbY + thumbHeight, thumbColor);
-        }
-
-        @Nullable
-        private ResourceLocation getTextureAt(double mouseX, double mouseY) {
-            if (!isMouseOverElement(mouseX, mouseY) || textures.isEmpty() || isMouseOverScrollBar(mouseX, mouseY)) {
-                return null;
-            }
-
-            int columns = getColumns();
-            int pitch = rowPitch();
-            int startX = getGridStartX(columns);
-            int localX = (int) Math.floor(mouseX - getPositionX() - startX);
-            int localY = (int) Math.floor(mouseY - getPositionY() + scrollOffset);
-            if (localX < 0 || localY < 0) {
-                return null;
-            }
-
-            int col = localX / pitch;
-            int row = localY / pitch;
-            if (col < 0 || col >= columns || localX % pitch >= TEXTURE_PICKER_GRID_ITEM_SIZE || localY % pitch >= TEXTURE_PICKER_GRID_ITEM_SIZE) {
-                return null;
-            }
-
-            int index = row * columns + col;
-            return index >= 0 && index < textures.size() ? textures.get(index) : null;
-        }
-
-        private boolean isMouseOverTexture(double mouseX, double mouseY, int itemX, int itemY) {
-            return mouseX >= itemX
-                    && mouseY >= itemY
-                    && mouseX < itemX + TEXTURE_PICKER_GRID_ITEM_SIZE
-                    && mouseY < itemY + TEXTURE_PICKER_GRID_ITEM_SIZE;
-        }
-
-        private void scrollToMouse(double mouseY) {
-            int maxScroll = getMaxScrollOffset();
-            int thumbHeight = getScrollThumbHeight();
-            int movable = Math.max(1, getScrollTrackHeight() - thumbHeight);
-            scrollOffset = (int) Math.round((mouseY - getPositionY() - thumbHeight / 2.0) * maxScroll / movable);
-            clampScrollOffset();
-        }
-
-        private int getColumns() {
-            int availableWidth = Math.max(1, getSizeWidth() - TEXTURE_PICKER_SCROLLBAR_WIDTH - TEXTURE_PICKER_SCROLLBAR_PADDING);
-            return Math.max(1, availableWidth / rowPitch());
-        }
-
-        private int getRows() {
-            int columns = getColumns();
-            return textures.isEmpty() ? 0 : (int) Math.ceil(textures.size() / (double) columns);
-        }
-
-        private int getContentHeight() {
-            int rows = getRows();
-            return rows <= 0 ? 0 : rows * rowPitch() - TEXTURE_PICKER_GRID_GAP;
-        }
-
-        private int getMaxScrollOffset() {
-            return Math.max(0, getContentHeight() - getSizeHeight());
-        }
-
-        private void clampScrollOffset() {
-            scrollOffset = Math.max(0, Math.min(scrollOffset, getMaxScrollOffset()));
-        }
-
-        private boolean hasScrollBar() {
-            return getMaxScrollOffset() > 0;
-        }
-
-        private int getGridStartX(int columns) {
-            int availableWidth = Math.max(1, getSizeWidth() - TEXTURE_PICKER_SCROLLBAR_WIDTH - TEXTURE_PICKER_SCROLLBAR_PADDING);
-            int contentWidth = columns * rowPitch() - TEXTURE_PICKER_GRID_GAP;
-            return Math.max(1, (availableWidth - contentWidth) / 2);
-        }
-
-        private int rowPitch() {
-            return TEXTURE_PICKER_GRID_ITEM_SIZE + TEXTURE_PICKER_GRID_GAP;
-        }
-
-        private int getScrollTrackX() {
-            return getPositionX() + getSizeWidth() - TEXTURE_PICKER_SCROLLBAR_WIDTH;
-        }
-
-        private int getScrollTrackHeight() {
-            return getSizeHeight();
-        }
-
-        private int getScrollThumbHeight() {
-            int contentHeight = Math.max(1, getContentHeight());
-            int trackHeight = getScrollTrackHeight();
-            return Math.max(12, Math.min(trackHeight, (int) Math.round(trackHeight * (trackHeight / (double) contentHeight))));
-        }
-
-        private int getScrollThumbY() {
-            int maxScroll = getMaxScrollOffset();
-            if (maxScroll <= 0) {
-                return getPositionY();
-            }
-
-            int movable = Math.max(1, getScrollTrackHeight() - getScrollThumbHeight());
-            return getPositionY() + (int) Math.round(scrollOffset * movable / (double) maxScroll);
-        }
-
-        private boolean isMouseOverScrollBar(double mouseX, double mouseY) {
-            return hasScrollBar()
-                    && mouseX >= getScrollTrackX()
-                    && mouseY >= getPositionY()
-                    && mouseX < getScrollTrackX() + TEXTURE_PICKER_SCROLLBAR_WIDTH
-                    && mouseY < getPositionY() + getScrollTrackHeight();
-        }
-
-        private boolean isMouseOverScrollThumb(double mouseX, double mouseY) {
-            if (!hasScrollBar()) {
-                return false;
-            }
-
-            int thumbY = getScrollThumbY();
-            return mouseX >= getScrollTrackX()
-                    && mouseY >= thumbY
-                    && mouseX < getScrollTrackX() + TEXTURE_PICKER_SCROLLBAR_WIDTH
-                    && mouseY < thumbY + getScrollThumbHeight();
-        }
-    }
-
-    @Override
-    public void initWidget() {
-        super.initWidget();
-    }
-
-    @Override
-    public void alightWidget() {
-        if (!initialized) return;
-        render.alightWidgets(this);
-    }
-
-    @Override
-    protected void alightWidgets() {
-        alightWidget();
-    }
-
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (render.mouseClicked(this, mouseX, mouseY, button)) {
-            return true;
-        }
-
-        return super.mouseClicked(mouseX, mouseY, button);
-    }
-
-    @Override
-    public void setSize(Size size) {
-        super.setSize(size);
-        if (!getContainedWidgets(true).isEmpty()) {
-            alightWidget();
-        }
-    }
-
-    public ShopTabsPanelElement refresh() {
-        return refresh(true);
-    }
-
-    public ShopTabsPanelElement refresh(boolean relayout) {
-        int previousScrollY = render instanceof DefaultShopTabsPanelRender tabsRender
-                ? tabsRender.getTabsScrollY()
-                : 0;
-        int previousCurrenciesScrollY = render instanceof DefaultShopTabsPanelRender tabsRender
-                ? tabsRender.getCurrenciesScrollY()
-                : 0;
-        eventScope.clear();
-        ShopUIUtils.disposeChildren(this);
-        clearAllWidgets();
-        render.addWidgets(this);
-
-        if (relayout) {
-            alightWidget();
-            if (render instanceof DefaultShopTabsPanelRender tabsRender) {
-                tabsRender.restoreTabsScrollY(previousScrollY);
-                tabsRender.restoreCurrenciesScrollY(previousCurrenciesScrollY);
-            }
-        }
-
-        return this;
-    }
-
-    @Override
-    public @Nullable ShopEntity getShopEntity() {
-        return null;
-    }
-
-    @Override
-    public Widget getOwner() {
-        return this;
-    }
-
-    @Override
-    public UIEventScope eventScope() {
-        return eventScope;
-    }
-
-    @Override
-    public UIEventScope screenEventScope() {
-        return shopScreen.screenEventScope();
-    }
-
-    @Override
-    public @Nullable ShopEditSession getEditSession() {
-        return shopScreen.getEditSession();
-    }
-
-    public <Event> EventSubscription listenScreen(EventPtr<Event> event, DODEventBus.EventListener<Event> listener) {
-        return shopScreen.listenScreen(event, listener);
-    }
-
-    @Override
-    public void dispose() {
-        eventScope.close();
-        ShopUIUtils.disposeChildren(this);
-    }
+    @Override public @Nullable ShopEntity getShopEntity() { return null; }
+    @Override public Widget getOwner() { return this; }
+    @Override public UIEventScope eventScope() { return eventScope; }
+    @Override public UIEventScope screenEventScope() { return screen.screenEventScope(); }
+    @Override public @Nullable ShopEditSession getEditSession() { return screen.getEditSession(); }
+    public <Event> EventSubscription listenScreen(EventPtr<Event> event, DODEventBus.EventListener<Event> listener) { return screen.listenScreen(event, listener); }
+    @Override public void dispose() { eventScope.close(); super.dispose(); }
 }

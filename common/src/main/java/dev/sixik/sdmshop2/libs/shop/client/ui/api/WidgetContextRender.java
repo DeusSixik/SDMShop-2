@@ -1,50 +1,34 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.api;
 
-import com.lowdragmc.lowdraglib.gui.widget.Widget;
-import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.DODEventBus;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventPtr;
 import dev.sixik.sdmshop2.libs.platform.utils.eventbus.EventSubscription;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopScreenElement;
 import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
+import dev.sixik.unigui.api.widget.Widget;
+import dev.sixik.unigui.widgets.containers.PanelWidget;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Контекст для тем и отрисовки.
- */
+/** Context exposed to pluggable shop views. */
 public interface WidgetContextRender {
-
-    /**
-     * Возвращает {@link ShopEntity} который используется в элементе. Так же он может быть {@code null} это может означать
-     * что это {@code Admin} элемент.
-     */
-    @Nullable
-    ShopEntity getShopEntity();
-
-    @Nullable
-    default ShopEditSession getEditSession() {
-        return null;
-    }
-
-    /**
-     * Виджет у которого вызываеться этот контекст
-     */
+    @Nullable ShopEntity getShopEntity();
+    default @Nullable ShopEditSession getEditSession() { return null; }
     Widget getOwner();
 
-    /**
-     * Метод для добавления собственного виджета
-     */
-    WidgetGroup addWidget(Widget widget);
-
-    /**
-     * Метод для удаления собственного виджета
-     */
-    void removeWidget(Widget widget);
-
-    default UIEventScope eventScope() {
-        return UIEventScope.noop();
+    default void addWidget(Widget widget) {
+        if (getOwner() instanceof PanelWidget panel) {
+            panel.addChild(widget);
+            return;
+        }
+        throw new IllegalStateException("The render owner is not a UniGUI container");
     }
+
+    default void removeWidget(Widget widget) {
+        if (getOwner() instanceof PanelWidget panel) panel.removeChild(widget);
+    }
+
+    default UIEventScope eventScope() { return UIEventScope.noop(); }
 
     default <Event> EventSubscription listen(EventPtr<Event> event, DODEventBus.EventListener<Event> listener) {
         return eventScope().listen(event, listener);
@@ -53,17 +37,10 @@ public interface WidgetContextRender {
     default UIEventScope screenEventScope() {
         Widget owner = getOwner();
         while (owner != null) {
-            if (owner instanceof ShopScreenElement screen) {
-                return screen.screenEventScope();
-            }
-            owner = owner.getParent();
+            if (owner instanceof ShopScreenElement screen) return screen.screenEventScope();
+            owner = owner.parent();
         }
-
-        if (ShopScreenElement.Instance != null) {
-            return ShopScreenElement.Instance.screenEventScope();
-        }
-
-        return eventScope();
+        return ShopScreenElement.Instance == null ? eventScope() : ShopScreenElement.Instance.screenEventScope();
     }
 
     default <Event> EventSubscription listenScreen(EventPtr<Event> event, DODEventBus.EventListener<Event> listener) {
