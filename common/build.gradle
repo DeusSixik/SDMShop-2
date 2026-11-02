@@ -37,6 +37,9 @@ dependencies {
 
     compileOnly("org.yaml:snakeyaml:2.2")
     compileOnly("com.github.DeusSixik:YamlConfig:1.2.0")
+    compileOnly("com.github.DeusSixik.UniGui:unigui-common-${minecraft_version}:v${unigui_version}")
+    compileOnly("com.github.DeusSixik.UniGui:unigui-core:v${unigui_version}")
+    compileOnly("com.github.DeusSixik.UniGui:unigui-demo:v${unigui_version}")
 }
 
 tasks.register('generateLDLibDocsSafe') {

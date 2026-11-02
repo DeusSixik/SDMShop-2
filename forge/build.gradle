@@ -76,6 +76,8 @@ dependencies {
     include("org.mongodb:mongodb-driver-sync:5.6.5")
     include("org.yaml:snakeyaml:2.2")
     include("com.github.DeusSixik:YamlConfig:1.2.0")
+
+    modImplementation("com.github.DeusSixik.UniGui:unigui-forge-${minecraft_version}:${unigui_version}")
 }
 
 processResources {

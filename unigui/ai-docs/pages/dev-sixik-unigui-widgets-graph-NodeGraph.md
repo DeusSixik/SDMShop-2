@@ -1,0 +1,116 @@
+# `NodeGraph` (extends `WidgetBase`, implements `HitTestCoordinateMapper`, implements `RenderedBoundsMapper`)
+
+Interactive 2D node graph canvas supporting movable nodes, pin connections, pan, zoom, grid snapping, and selection.
+
+### API
+
+- `NodeGraph()` — Constructs a new NodeGraph instance with default viewport, grid, and themes.
+- `addConnection(NodeGraphConnection)` → NodeGraphConnection — Adds an existing connection instance to the graph.
+- `addConnection(String, NodeGraphPortRef, NodeGraphPortRef)` → NodeGraphConnection — Creates and adds a connection between port references.
+- `addConnection(String, String, String, String, String)` → NodeGraphConnection — Creates and adds a connection between specified item and port IDs.
+- `addItem(NodeGraphItem)` → NodeGraph — Adds an existing node item to the graph.
+- `addItem(String, Widget, float, float)` → NodeGraphItem — Creates and places a new node item with the given ID, content widget, and canvas coordinates.
+- `backgroundColor()` → MutableColor — Returns the background fill color of the canvas.
+- `bringToFrontOnSelect()` → boolean — Returns true if selecting an item moves it to the top of the z-order.
+- `bringToFrontOnSelect(boolean)` → NodeGraph (default: `true`) — Sets whether selecting an item moves it to the front.
+- `clearConnectionSelection()` → NodeGraph — Deselects all currently selected connections.
+- `clearItems()` → NodeGraph — Removes all items and connections from the graph.
+- `clearSelection()` → NodeGraph — Deselects all currently selected items.
+- `clippingEnabled()` → boolean — Returns true if canvas rendering is clipped to widget bounds.
+- `clippingEnabled(boolean)` → NodeGraph (default: `true`) — Sets whether canvas rendering is clipped to widget bounds.
+- `connection(String)` → NodeGraphConnection — Returns the connection with the given ID, or null if not found.
+- `connectionColor()` → MutableColor — Returns default line color for connections.
+- `connectionDragging()` → boolean — Returns true if a new connection is currently being dragged from a port.
+- `connectionPolicy()` → NodeGraphConnectionPolicy — Returns the active connection validation policy.
+- `connectionPolicy(NodeGraphConnectionPolicy)` → NodeGraph — Sets the connection validation policy.
+- `connectionPreviewColor()` → MutableColor — Returns preview line color for valid drag connections.
+- `connections()` → List<NodeGraphConnection> — Returns an unmodifiable list of all connections.
+- `consumeWheelWhileHovered()` → boolean — Returns true if mouse wheel events are consumed while hovering the canvas.
+- `consumeWheelWhileHovered(boolean)` → NodeGraph (default: `true`) — Sets whether mouse wheel events are consumed when hovered.
+- `draggingItemId()` → String — Returns the ID of the item currently being dragged, or empty string if none.
+- `gridColor()` → MutableColor — Returns the minor grid lines color.
+- `gridSize()` → float — Returns the grid cell step size in pixels.
+- `gridSize(float)` → NodeGraph (default: `24`) — Sets the grid cell step size in pixels.
+- `hasConnection(NodeGraphPortRef, NodeGraphPortRef)` → boolean — Returns true if a connection already exists between the given ports.
+- `hoveredConnectionId()` → String — Returns the ID of the currently hovered connection, or empty string if none.
+- `hoveredItemBorderColor()` → MutableColor — Returns hover border color for node items.
+- `hoveredItemId()` → String — Returns the ID of the currently hovered node item, or empty string if none.
+- `hoveredPort()` → NodeGraphPortRef — Returns reference to the currently hovered port, or null if none.
+- `hoveredPortColor()` → MutableColor — Returns hover fill color for pin ports.
+- `invalidConnectionPreviewColor()` → MutableColor — Returns preview line color for invalid drag connections.
+- `item(String)` → NodeGraphItem — Returns the item with the given ID, or null if not found.
+- `itemBorderColor()` → MutableColor — Returns default border color for node items.
+- `itemContentPadding()` → float — Returns inner padding around item content widgets.
+- `itemContentPadding(float)` → NodeGraph (default: `0`) — Sets inner padding around item content widgets.
+- `itemDraggingEnabled()` → boolean — Returns true if item dragging is enabled.
+- `itemDraggingEnabled(boolean)` → NodeGraph (default: `true`) — Sets whether item dragging is enabled.
+- `items()` → List<NodeGraphItem> — Returns an unmodifiable list of all node items.
+- `keyboardEditingEnabled()` → boolean — Returns true if keyboard shortcuts (Delete, arrows) are enabled.
+- `keyboardEditingEnabled(boolean)` → NodeGraph (default: `true`) — Sets whether keyboard editing shortcuts are enabled.
+- `lassoSelecting()` → boolean — Returns true if a rubber-band lasso selection box is actively being dragged.
+- `lassoSelectionEnabled()` → boolean — Returns true if rubber-band lasso box selection is enabled.
+- `lassoSelectionEnabled(boolean)` → NodeGraph (default: `true`) — Sets whether rubber-band lasso selection is enabled.
+- `majorGridColor()` → MutableColor — Returns the major grid lines color.
+- `maxZoom()` → float — Returns maximum zoom scale factor.
+- `minZoom()` → float — Returns minimum zoom scale factor.
+- `onConnectionCreated(EventListener<? super NodeGraphConnectionCreatedEvent>)` → EventSubscription — Registers a listener called when a new connection is created.
+- `onConnectionDragEnded(EventListener<? super NodeGraphConnectionDragEndedEvent>)` → EventSubscription — Registers a listener called when connection drag interaction completes or cancels.
+- `onConnectionDragStarted(EventListener<? super NodeGraphConnectionDragStartedEvent>)` → EventSubscription — Registers a listener called when a connection drag starts from a port.
+- `onConnectionRemoved(EventListener<? super NodeGraphConnectionRemovedEvent>)` → EventSubscription — Registers a listener called when a connection is deleted.
+- `onConnectionSelectionChanged(EventListener<? super NodeGraphConnectionSelectionChangedEvent>)` → EventSubscription — Registers a listener called when connection selection state changes.
+- `onItemMoveEnded(EventListener<? super NodeGraphItemMoveEndedEvent>)` → EventSubscription — Registers a listener called when item drag movement finishes.
+- `onItemMoveStarted(EventListener<? super NodeGraphItemMoveStartedEvent>)` → EventSubscription — Registers a listener called when item drag movement begins.
+- `onItemMoved(EventListener<? super NodeGraphItemMovedEvent>)` → EventSubscription — Registers a listener called as an item is dragged across the canvas.
+- `onItemRemoved(EventListener<? super NodeGraphItemRemovedEvent>)` → EventSubscription — Registers a listener called when a node item is removed.
+- `onItemResizeEnded(EventListener<? super NodeGraphItemResizeEndedEvent>)` → EventSubscription — Registers a listener called when item resizing ends.
+- `onItemResizeStarted(EventListener<? super NodeGraphItemResizeStartedEvent>)` → EventSubscription — Registers a listener called when item resizing begins.
+- `onItemResized(EventListener<? super NodeGraphItemResizedEvent>)` → EventSubscription — Registers a listener called as an item is being resized.
+- `onSelectionChanged(EventListener<? super NodeGraphItemSelectionChangedEvent>)` → EventSubscription — Registers a listener called when item selection changes.
+- `onViewportChanged(EventListener<? super NodeGraphViewportChangedEvent>)` → EventSubscription — Registers a listener called when viewport pan or zoom changes.
+- `panning()` → boolean — Returns true if the viewport canvas is currently being panned.
+- `panningEnabled()` → boolean — Returns true if canvas panning via mouse drag is enabled.
+- `panningEnabled(boolean)` → NodeGraph (default: `true`) — Sets whether canvas panning is enabled.
+- `port(NodeGraphPortRef)` → NodeGraphPort — Resolves a port reference to its corresponding port object.
+- `portColor()` → MutableColor — Returns default fill color for pin ports.
+- `preferredHeight()` → float — Returns the preferred height of this graph.
+- `preferredHeight(float)` → NodeGraph (default: `200`) — Sets the preferred height of this graph.
+- `preferredSize(float, float)` → NodeGraph — Sets both preferred width and height dimensions.
+- `preferredWidth()` → float — Returns the preferred width of this graph.
+- `preferredWidth(float)` → NodeGraph (default: `320`) — Sets the preferred width of this graph.
+- `removeConnection(NodeGraphConnection)` → NodeGraph — Removes the specified connection instance.
+- `removeConnection(String)` → NodeGraph — Removes the connection with the given ID.
+- `removeItem(NodeGraphItem)` → NodeGraph — Removes the specified node item and all its connected lines.
+- `removeItem(String)` → NodeGraph — Removes the node item with the specified ID.
+- `removeSelectedConnections()` → NodeGraph — Removes all currently selected connections.
+- `resizeEnabled()` → boolean — Returns true if interactive resizing of resizable items is enabled.
+- `resizeEnabled(boolean)` → NodeGraph (default: `true`) — Sets whether interactive item resizing is enabled.
+- `resizeHandleColor()` → MutableColor — Returns color of resize grip handles.
+- `restoreSnapshot(NodeGraphSnapshot, NodeGraphWidgetResolver)` → NodeGraph — Restores graph items, connections, and viewport from a serialized snapshot using a widget resolver.
+- `scaleContentWithZoom()` → boolean — Returns true if node item content widgets scale with zoom.
+- `scaleContentWithZoom(boolean)` → NodeGraph (default: `true`) — Sets whether node item content widgets scale with zoom.
+- `selectConnection(NodeGraphConnection)` → NodeGraph — Selects the specified connection.
+- `selectConnection(String)` → NodeGraph — Selects the connection with the given ID.
+- `selectItem(NodeGraphItem)` → NodeGraph — Selects the specified item exclusively.
+- `selectItem(NodeGraphItem, boolean)` → NodeGraph — Selects the item with optional additive toggle behaviour.
+- `selectItem(String)` → NodeGraph — Selects the item with the given ID exclusively.
+- `selectedConnectionColor()` → MutableColor — Returns highlight line color for selected connections.
+- `selectedConnectionIds()` → List<String> — Returns an unmodifiable list of IDs of currently selected connections.
+- `selectedItemBorderColor()` → MutableColor — Returns selected border color for node items.
+- `selectedItemIds()` → List<String> — Returns an unmodifiable list of IDs of currently selected items.
+- `selectionBoxBorderColor()` → MutableColor — Returns border color for rubber-band selection rectangles.
+- `selectionBoxFillColor()` → MutableColor — Returns fill color for rubber-band selection rectangles.
+- `selectionMode()` → NodeGraphSelectionMode — Returns current selection mode: NONE, SINGLE, or MULTIPLE.
+- `selectionMode(NodeGraphSelectionMode)` → NodeGraph (default: `single`) — Sets selection mode.
+- `snapshot()` → NodeGraphSnapshot — Captures a full serializable snapshot of the node graph.
+- `validateConnection(NodeGraphPortRef, NodeGraphPortRef)` → NodeGraphConnectionValidation — Validates whether a connection can be established according to the active connection policy.
+- `viewport()` → NodeGraphViewport — Returns current viewport pan position and zoom factor.
+- `viewport(float, float)` → NodeGraph — Sets viewport pan position without altering zoom.
+- `viewport(float, float, float)` → NodeGraph — Sets viewport pan position and zoom factor.
+- `wheelPanStep()` → float — Returns the pixel step distance per wheel tick during wheel panning.
+- `wheelPanStep(float)` → NodeGraph (default: `32`) — Sets the pixel step distance per wheel tick.
+- `wheelPanningEnabled()` → boolean — Returns true if mouse wheel pans instead of zooming.
+- `wheelPanningEnabled(boolean)` → NodeGraph (default: `true`) — Sets whether mouse wheel pans instead of zooming.
+- `zoomEnabled()` → boolean — Returns true if canvas zooming via mouse wheel is enabled.
+- `zoomEnabled(boolean)` → NodeGraph (default: `true`) — Sets whether canvas zooming is enabled.
+- `zoomRange(float, float)` → NodeGraph — Configures minimum and maximum allowed zoom levels.
+

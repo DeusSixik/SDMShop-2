@@ -64,6 +64,7 @@ dependencies {
     include("org.yaml:snakeyaml:2.2")
     include("com.github.DeusSixik:YamlConfig:1.2.0")
 
+    modImplementation("com.github.DeusSixik.UniGui:unigui-fabric-${minecraft_version}:${unigui_version}")
 }
 
 processResources {
