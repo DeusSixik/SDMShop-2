@@ -17,6 +17,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Items;
+import org.apache.commons.lang3.NotImplementedException;
 import org.jetbrains.annotations.Nullable;
 
 public class CommandRewardComponent extends RewardComponent {
@@ -63,7 +64,8 @@ public class CommandRewardComponent extends RewardComponent {
     @Override
     @Environment(EnvType.CLIENT)
     public @Nullable Widget createRender() {
-        return new Label(Component.translatable("shop.ui.offer_element.component.reward.command", command).getString());
+        throw new NotImplementedException();
+//        return ShopItemPreviewFactory.create("shop:command_reward", Items.COMMAND_BLOCK.getDefaultInstance());
     }
 
     private static class Type extends SerializedComponentType<CommandRewardComponent> {

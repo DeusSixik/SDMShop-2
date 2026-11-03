@@ -23,6 +23,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import org.apache.commons.lang3.NotImplementedException;
 import org.jetbrains.annotations.Nullable;
 
 public class ItemCostComponent extends CostComponent {
@@ -116,7 +117,8 @@ public class ItemCostComponent extends CostComponent {
     @Environment(EnvType.CLIENT)
     public @Nullable Widget getRenderIcon() {
         ItemStack stack = item.isEmpty() ? Items.BARRIER.getDefaultInstance() : item.copyWithCount(amount);
-        return new Label(stack.getHoverName().getString() + " ×" + Math.max(1, amount));
+//        return ShopItemPreviewFactory.create("shop:item_cost:" + getType().getId(), stack);
+        throw new NotImplementedException();
     }
 
     @Override

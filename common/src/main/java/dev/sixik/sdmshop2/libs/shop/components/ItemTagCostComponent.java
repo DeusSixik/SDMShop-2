@@ -26,6 +26,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import org.apache.commons.lang3.NotImplementedException;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Optional;
@@ -116,7 +117,8 @@ public class ItemTagCostComponent extends CostComponent {
     public @Nullable Widget getRenderIcon() {
         ItemStack[] stacks = tagItems();
         ItemStack stack = stacks.length == 0 ? Items.NAME_TAG.getDefaultInstance() : stacks[0];
-        return new Label("#" + tagKey.location() + " ×" + Math.max(1, amount));
+//        return ShopItemPreviewFactory.create("shop:item_tag_cost:" + tagKey.location(), stack);
+        throw new NotImplementedException();
     }
 
     @Override

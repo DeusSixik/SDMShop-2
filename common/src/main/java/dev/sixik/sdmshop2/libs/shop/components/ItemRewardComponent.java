@@ -21,6 +21,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import org.apache.commons.lang3.NotImplementedException;
 import org.jetbrains.annotations.Nullable;
 
 public class ItemRewardComponent extends RewardComponent {
@@ -63,7 +64,8 @@ public class ItemRewardComponent extends RewardComponent {
     @Environment(EnvType.CLIENT)
     public @Nullable Widget createRender() {
         final ItemStack item = rewardItem.copyWithCount(amount);
-        return new Label(item.getHoverName().getString() + " ×" + Math.max(1, amount));
+//        return ShopItemPreviewFactory.create("shop:item_reward:" + getType().getId(), item);
+        throw new NotImplementedException();
     }
 
     @Override

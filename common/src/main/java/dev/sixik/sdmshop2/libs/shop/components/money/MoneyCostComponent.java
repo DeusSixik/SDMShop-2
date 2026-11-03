@@ -3,6 +3,7 @@ package dev.sixik.sdmshop2.libs.shop.components.money;
 import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.sdmeconomy.*;
 import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
+import dev.sixik.sdmshop2.libs.sdmeconomy.icons.IconType;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfigOptions;
@@ -19,6 +20,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import org.apache.commons.lang3.NotImplementedException;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -59,7 +63,7 @@ public class MoneyCostComponent extends CostComponent {
                 SDMEconomyServiceClient.getAllExternalCurrencies()
                 : SDMEconomyCurrencyRegistry.getCurrenciesMap();
 
-        if(currencies.containsKey(moneyId))
+        if (currencies.containsKey(moneyId))
             /*
                 Проверяем, хватает ли баланса на актуальную цену (actualPrice), а не на базовую (amount)
              */
@@ -142,18 +146,25 @@ public class MoneyCostComponent extends CostComponent {
     @Environment(EnvType.CLIENT)
     public Widget getRenderIcon() {
         final ICurrency money = SDMEconomyServiceClient.getCurrency(moneyId);
-        if(money == null) {
+        if (money == null) {
             SDMShop2.LOGGER.error("Can't find money with id '{}' and can't create render widget", moneyId);
             return null;
         }
 
-        return new Label(money.getDisplayName().getString());
+        var icon = money.getIcon();
+//        if (icon != null && icon.type() == IconType.ITEM) {
+//            if (icon.icon() instanceof ItemStack stack) return ShopItemPreviewFactory.create("money:" + moneyId, stack);
+//            if (icon.icon() instanceof Item item)
+//                return ShopItemPreviewFactory.create("money:" + moneyId, item.getDefaultInstance());
+//        }
+//        return new Label(money.getDisplayName().getString().substring(0, Math.min(1, money.getDisplayName().getString().length())));
+        throw new NotImplementedException();
     }
 
     @Override
     public Component getDisplayName() {
         final ICurrency money = SDMEconomyServiceClient.getCurrency(moneyId);
-        if(money == null)
+        if (money == null)
             return Component.empty();
 
         return money.getDisplayName();
@@ -182,12 +193,12 @@ public class MoneyCostComponent extends CostComponent {
 
         @Override
         public MoneyCostComponent createFromBuilder(Object... args) {
-            if(args.length != 2 && args.length != 3)
+            if (args.length != 2 && args.length != 3)
                 throw new IllegalArgumentException("MoneyCostComponent.createFromBuilder() takes 2 or 3 arguments (String/ResourceLocation, double, (Optional) String)");
 
             Object obj = args[0];
             final var component = new MoneyCostComponent(obj instanceof ResourceLocation ? (ResourceLocation) obj : ResourceLocation.tryParse((String) obj), (double) args[1]);
-            if(args.length == 3)
+            if (args.length == 3)
                 component.setGroupId((String) args[2]);
 
             return component;

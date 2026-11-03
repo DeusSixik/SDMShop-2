@@ -22,4 +22,5 @@ dependencies {
     compileOnly("com.github.DeusSixik.UniGui:unigui-common-${minecraft_version}:v${unigui_version}")
     compileOnly("com.github.DeusSixik.UniGui:unigui-core:v${unigui_version}")
     testCompileOnly("com.github.DeusSixik.UniGui:unigui-core:v${unigui_version}")
+    testRuntimeOnly("com.github.DeusSixik.UniGui:unigui-core:v${unigui_version}")
 }

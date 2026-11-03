@@ -6,7 +6,7 @@ import dev.sixik.sdmshop2.libs.shop.base.ObjectIdGetter;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
-import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
+import dev.sixik.sdmshop2.libs.shop.client.ui.ShopScreenController;
 import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentCategory;
@@ -77,7 +77,7 @@ public final class ShopClientCache {
         }
 
         get().set(ClientCacheKeys.FAVORITES, ClientCacheCodecs.FAVORITES, current);
-        ShopUIEvents.invokeFavoritesChanged(offerId, favorite, new LinkedHashSet<>(current));
+        ShopScreenController.invokeFavoritesChanged(offerId, favorite, new LinkedHashSet<>(current));
         get().saveAsync();
         return favorite;
     }

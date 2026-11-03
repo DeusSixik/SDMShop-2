@@ -5,9 +5,7 @@ import dev.sixik.sdmshop2.libs.platform.utils.network.async.BlobTransfer;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
-import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopScreenElement;
-import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
-import dev.sixik.sdmshop2.libs.shop.client.ui.toast.ShopToasts;
+import dev.sixik.sdmshop2.libs.shop.client.ui.ShopScreenController;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentRegistry;
 import dev.sixik.sdmshop2.utils.ShopUtils;
@@ -16,6 +14,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import org.apache.commons.lang3.NotImplementedException;
 
 import java.util.UUID;
 
@@ -42,7 +41,7 @@ public class AsyncClientTasks {
             UUID updater = readOptionalUpdater(buf);
             warnExternalShopUpdate(previousShop, SDMShopClient.Shop, updater);
             ACCEPT_SHOP_EVENT.invoker().onAcceptShopEvent(SDMShopClient.Shop);
-            ShopUIEvents.invokeRefreshAll();
+            ShopScreenController.invokeRefreshAll();
             return null;
         });
 
@@ -56,7 +55,7 @@ public class AsyncClientTasks {
         AsyncBridge.registerHandler(AsyncServerTasks.SEND_SHOP_LIMITER_DATA, (buf, ctx) -> {
             ShopUtils.getLimiterTable(true).ifPresent(limiterTable -> {
                 limiterTable.fromNetwork(buf);
-                ShopUIEvents.invokeRefreshOffers();
+                ShopScreenController.invokeRefreshOffers();
             });
             return null;
         });
@@ -87,7 +86,7 @@ public class AsyncClientTasks {
             entity.addComponent(component);
             component.init();
             ACCEPT_NEW_COMPONENT_DATA_EVENT.invoker().onAcceptNewComponentDataEvent(shop, entity, component);
-            ShopUIEvents.invokeRefreshOffer(entityId);
+            ShopScreenController.invokeRefreshOffer(entityId);
 
             return null;
         });
@@ -104,18 +103,20 @@ public class AsyncClientTasks {
     }
 
     private static void warnExternalShopUpdate(ShopInstance previousShop, ShopInstance newShop, UUID updater) {
-        if (updater == null || previousShop == null || newShop == null || previousShop.getId() == null || newShop.getId() == null) {
-            return;
-        }
-        if (!previousShop.getId().equals(newShop.getId()) || ShopScreenElement.Instance == null) {
-            return;
-        }
-
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.player != null && updater.equals(minecraft.player.getUUID())) {
-            return;
-        }
-
-        ShopToasts.warning(Component.literal("Shop was updated by another editor. Your view has been refreshed."));
+        throw new NotImplementedException();
     }
+//        if (updater == null || previousShop == null || newShop == null || previousShop.getId() == null || newShop.getId() == null) {
+//            return;
+//        }
+//        if (!previousShop.getId().equals(newShop.getId()) || ShopScreenController.Instance == null) {
+//            return;
+//        }
+//
+//        Minecraft minecraft = Minecraft.getInstance();
+//        if (minecraft.player != null && updater.equals(minecraft.player.getUUID())) {
+//            return;
+//        }
+//
+//        ShopToasts.warning(Component.literal("Shop was updated by another editor. Your view has been refreshed."));
+//    }
 }

@@ -245,6 +245,7 @@
   "shop.ui.offers.button.add_offer" : "+ Товар",
 
   "shop.ui.tabs.button.all" : "Все",
+  "shop.ui.tabs.categories_title" : "Категории",
   "shop.ui.tabs.button.add_category" : "+ Категория",
   "shop.ui.tabs.button.add_currency" : "+ Валюта",
   "shop.ui.tabs.money_title" : "Ваши деньги",

@@ -245,6 +245,7 @@
   "shop.ui.offers.button.add_offer" : "+ Offer",
 
   "shop.ui.tabs.button.all" : "All",
+  "shop.ui.tabs.categories_title" : "Categories",
   "shop.ui.tabs.button.add_category" : "+ Category",
   "shop.ui.tabs.button.add_currency" : "+ Currency",
   "shop.ui.tabs.money_title" : "Your money",

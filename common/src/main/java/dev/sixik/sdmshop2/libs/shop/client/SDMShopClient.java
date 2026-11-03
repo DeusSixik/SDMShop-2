@@ -4,8 +4,7 @@ import dev.architectury.event.Event;
 import dev.architectury.event.EventFactory;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.client.ui.ShopScreenController;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
+import org.apache.commons.lang3.NotImplementedException;
 
 public class SDMShopClient {
 
@@ -47,7 +46,8 @@ public class SDMShopClient {
     }
 
     public static void openShopEditorGui() {
-        ShopScreenController.openShopEditor();
+        throw new NotImplementedException("Method openShopEditorGui() not implemented");
+//        ShopScreenController.openShopEditor();
     }
 
 }

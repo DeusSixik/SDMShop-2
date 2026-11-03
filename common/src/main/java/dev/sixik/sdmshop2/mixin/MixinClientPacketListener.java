@@ -1,7 +1,6 @@
 package dev.sixik.sdmshop2.mixin;
 
-import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopScreenElement;
-import dev.sixik.sdmshop2.libs.shop.client.ui.events.ShopUIEvents;
+import dev.sixik.sdmshop2.libs.shop.client.ui.ShopScreenController;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
 import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
@@ -30,8 +29,9 @@ public class MixinClientPacketListener {
     }
 
     private static void refreshShopInventoryCurrencies() {
-        if (ShopScreenElement.Instance != null) {
-            ShopUIEvents.invokeRefreshInventoryCurrencies();
-        }
+//        if (ShopScreenElement.Instance != null) {
+//            ShopUIEvents.invokeRefreshInventoryCurrencies();
+//        }
+        ShopScreenController.invokeRefreshCurrencies();
     }
 }
