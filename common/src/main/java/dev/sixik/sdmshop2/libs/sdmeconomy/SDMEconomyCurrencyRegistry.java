@@ -568,7 +568,8 @@ public class SDMEconomyCurrencyRegistry {
 
         String displayName = json.has(DISPLAY_NAME_FIELD) ? json.get(DISPLAY_NAME_FIELD).getAsString() : id.toString();
         String iconText = json.has(ICON_TEXT_FIELD) ? json.get(ICON_TEXT_FIELD).getAsString() : "$";
-        return new SimpleTextCurrency(id, displayName, iconText);
+        ResourceLocation iconTexture = json.has("icon_texture") ? ResourceLocation.tryParse(json.get("icon_texture").getAsString()) : null;
+        return new SimpleTextCurrency(id, displayName, iconText, iconTexture);
     }
 
     @Nullable
@@ -579,7 +580,8 @@ public class SDMEconomyCurrencyRegistry {
 
         String displayName = tag == null || !tag.contains(DISPLAY_NAME_FIELD) ? id.toString() : tag.getString(DISPLAY_NAME_FIELD);
         String iconText = tag == null || !tag.contains(ICON_TEXT_FIELD) ? "$" : tag.getString(ICON_TEXT_FIELD);
-        return new SimpleTextCurrency(id, displayName, iconText);
+        ResourceLocation iconTexture = tag != null && tag.contains("icon_texture") ? ResourceLocation.tryParse(tag.getString("icon_texture")) : null;
+        return new SimpleTextCurrency(id, displayName, iconText, iconTexture);
     }
 
     private static JsonObject serializeTextCurrencyJson(IStoredCurrency currency) {
@@ -588,6 +590,9 @@ public class SDMEconomyCurrencyRegistry {
         json.addProperty(TYPE_FIELD, TEXT_TYPE_ID.toString());
         json.addProperty(DISPLAY_NAME_FIELD, textCurrency.getDisplayNameValue());
         json.addProperty(ICON_TEXT_FIELD, textCurrency.getIconText());
+        if (textCurrency.getIconTexture() != null) {
+            json.addProperty("icon_texture", textCurrency.getIconTexture().toString());
+        }
         return json;
     }
 
@@ -596,6 +601,9 @@ public class SDMEconomyCurrencyRegistry {
         CompoundTag tag = new CompoundTag();
         tag.putString(DISPLAY_NAME_FIELD, textCurrency.getDisplayNameValue());
         tag.putString(ICON_TEXT_FIELD, textCurrency.getIconText());
+        if (textCurrency.getIconTexture() != null) {
+            tag.putString("icon_texture", textCurrency.getIconTexture().toString());
+        }
         return tag;
     }
 
@@ -608,12 +616,24 @@ public class SDMEconomyCurrencyRegistry {
                 ? currency.getId().toString()
                 : currency.getDisplayName().getString();
         String iconText = "$";
-        if (currency.getIcon() != null
-                && currency.getIcon().type() == dev.sixik.sdmshop2.libs.sdmeconomy.icons.IconType.TEXTURE
-                && currency.getIcon().icon() instanceof String text) {
-            iconText = text;
+        ResourceLocation iconTexture = null;
+        if (currency.getIcon() != null) {
+            if (currency.getIcon().type() == dev.sixik.sdmshop2.libs.sdmeconomy.icons.IconType.TEXTURE) {
+                if (currency.getIcon().icon() instanceof ResourceLocation loc) {
+                    iconTexture = loc;
+                } else if (currency.getIcon().icon() instanceof String text) {
+                    if (text.contains(":") || text.contains("/") || text.endsWith(".png")) {
+                        iconTexture = ResourceLocation.tryParse(text);
+                    } else {
+                        iconText = text;
+                    }
+                }
+            } else if (currency.getIcon().type() == dev.sixik.sdmshop2.libs.sdmeconomy.icons.IconType.TEXT
+                    && currency.getIcon().icon() instanceof String text) {
+                iconText = text;
+            }
         }
-        return new SimpleTextCurrency(currency.getId(), displayName, iconText);
+        return new SimpleTextCurrency(currency.getId(), displayName, iconText, iconTexture);
     }
 
     @Nullable

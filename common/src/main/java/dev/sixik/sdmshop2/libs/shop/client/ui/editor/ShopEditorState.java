@@ -637,6 +637,11 @@ public final class ShopEditorState {
 
     // --- Управление валютами (Currencies) ---
 
+    public List<CurrencyDraft> getCurrencyDrafts() {
+        if (session == null) return List.of();
+        return Collections.unmodifiableList(session.currencyDrafts());
+    }
+
     public boolean isDefaultCurrency(@Nullable ResourceLocation id) {
         if (id == null) return false;
         return "sdm".equals(id.getNamespace()) && "coin".equals(id.getPath());

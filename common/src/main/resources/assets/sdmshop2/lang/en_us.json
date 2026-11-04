@@ -231,6 +231,7 @@
   "shop.ui.editor.session_conflict.continue_old" : "Continue Old",
 
   "shop.ui.offer_element.button.buy" : "Buy",
+  "shop.ui.offer_element.or" : "or",
   "shop.ui.offer_element.button.sell" : "Sell",
   "shop.ui.offer_element.component.reward.command" : "Reward execute %s command",
   "shop.ui.offer_element.context_menu.edit" : "Edit",

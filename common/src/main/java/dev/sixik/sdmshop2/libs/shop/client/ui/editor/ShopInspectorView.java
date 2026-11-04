@@ -420,7 +420,7 @@ public class ShopInspectorView extends LinearBox {
                 if (newId != null && !newId.equals(currentId[0])) {
                     CurrencyDraft cur = ShopEditorState.get().findCurrencyDraft(currentId[0]);
                     if (cur != null) {
-                        CurrencyDraft updated = new CurrencyDraft(newId, cur.kind(), cur.displayName(), cur.iconText(), cur.itemStack());
+                        CurrencyDraft updated = new CurrencyDraft(newId, cur.kind(), cur.displayName(), cur.iconText(), cur.itemStack(), cur.iconTexture());
                         currentId[0] = newId;
                         selfUpdating = true;
                         try {
@@ -436,7 +436,7 @@ public class ShopInspectorView extends LinearBox {
         props.addChild(ShopPropertyRows.stringRow("Display Name", currency.displayName(), newName -> {
             CurrencyDraft cur = ShopEditorState.get().findCurrencyDraft(currentId[0]);
             if (cur != null) {
-                CurrencyDraft updated = new CurrencyDraft(cur.id(), cur.kind(), newName, cur.iconText(), cur.itemStack());
+                CurrencyDraft updated = new CurrencyDraft(cur.id(), cur.kind(), newName, cur.iconText(), cur.itemStack(), cur.iconTexture());
                 selfUpdating = true;
                 try {
                     ShopEditorState.get().updateCurrencyDraft(cur, updated);
@@ -452,16 +452,23 @@ public class ShopInspectorView extends LinearBox {
         typeRow.layout(style -> style.widthPercent(100.0f).height(ShopPropertyRows.ROW_HEIGHT).alignItems(Align.CENTER).flexGrow(0.0f).flexShrink(0.0f));
         typeRow.addChild(ShopPropertyRows.label("Type"));
         ComboBox combo = new ComboBox();
-        combo.items(List.of("TEXT", "ITEM"));
-        combo.selectedIndex(currency.kind() == CurrencyDraft.Kind.ITEM ? 1 : 0);
+        combo.items(List.of("TEXT", "ITEM", "TEXTURE"));
+        int selectedTypeIdx = 0;
+        if (currency.kind() == CurrencyDraft.Kind.ITEM) selectedTypeIdx = 1;
+        else if (currency.kind() == CurrencyDraft.Kind.TEXTURE) selectedTypeIdx = 2;
+        combo.selectedIndex(selectedTypeIdx);
         ShopPropertyRows.styleComboBox(combo);
         combo.layout(style -> style.height(ShopPropertyRows.ROW_HEIGHT).flexGrow(1.0f).flexShrink(1.0f).minWidth(0.0f));
         combo.onSelectionChanged(e -> {
             CurrencyDraft cur = ShopEditorState.get().findCurrencyDraft(currentId[0]);
             if (cur != null) {
-                CurrencyDraft.Kind newKind = combo.selectedIndex() == 1 ? CurrencyDraft.Kind.ITEM : CurrencyDraft.Kind.TEXT;
+                CurrencyDraft.Kind newKind = switch (combo.selectedIndex()) {
+                    case 1 -> CurrencyDraft.Kind.ITEM;
+                    case 2 -> CurrencyDraft.Kind.TEXTURE;
+                    default -> CurrencyDraft.Kind.TEXT;
+                };
                 if (newKind != cur.kind()) {
-                    CurrencyDraft updated = new CurrencyDraft(cur.id(), newKind, cur.displayName(), cur.iconText(), cur.itemStack());
+                    CurrencyDraft updated = new CurrencyDraft(cur.id(), newKind, cur.displayName(), cur.iconText(), cur.itemStack(), cur.iconTexture());
                     ShopEditorState.get().updateCurrencyDraft(cur, updated);
                     refreshInspector();
                 }
@@ -474,7 +481,21 @@ public class ShopInspectorView extends LinearBox {
             props.addChild(ShopPropertyRows.itemStackRow("Icon Item", currency.itemStack(), stack -> {
                 CurrencyDraft cur = ShopEditorState.get().findCurrencyDraft(currentId[0]);
                 if (cur != null) {
-                    CurrencyDraft updated = new CurrencyDraft(cur.id(), cur.kind(), cur.displayName(), cur.iconText(), stack);
+                    CurrencyDraft updated = new CurrencyDraft(cur.id(), cur.kind(), cur.displayName(), cur.iconText(), stack, cur.iconTexture());
+                    selfUpdating = true;
+                    try {
+                        ShopEditorState.get().updateCurrencyDraft(cur, updated);
+                    } finally {
+                        selfUpdating = false;
+                    }
+                }
+            }));
+        } else if (currency.kind() == CurrencyDraft.Kind.TEXTURE) {
+            props.addChild(ShopPropertyRows.stringRow("Icon Texture", currency.iconTexture() != null ? currency.iconTexture().toString() : "", texStr -> {
+                ResourceLocation texLoc = (texStr == null || texStr.isBlank()) ? null : ResourceLocation.tryParse(texStr.trim());
+                CurrencyDraft cur = ShopEditorState.get().findCurrencyDraft(currentId[0]);
+                if (cur != null) {
+                    CurrencyDraft updated = new CurrencyDraft(cur.id(), cur.kind(), cur.displayName(), cur.iconText(), cur.itemStack(), texLoc);
                     selfUpdating = true;
                     try {
                         ShopEditorState.get().updateCurrencyDraft(cur, updated);
@@ -487,7 +508,7 @@ public class ShopInspectorView extends LinearBox {
             props.addChild(ShopPropertyRows.stringRow("Icon Symbol", currency.iconText(), sym -> {
                 CurrencyDraft cur = ShopEditorState.get().findCurrencyDraft(currentId[0]);
                 if (cur != null) {
-                    CurrencyDraft updated = new CurrencyDraft(cur.id(), cur.kind(), cur.displayName(), sym, cur.itemStack());
+                    CurrencyDraft updated = new CurrencyDraft(cur.id(), cur.kind(), cur.displayName(), sym, cur.itemStack(), cur.iconTexture());
                     selfUpdating = true;
                     try {
                         ShopEditorState.get().updateCurrencyDraft(cur, updated);

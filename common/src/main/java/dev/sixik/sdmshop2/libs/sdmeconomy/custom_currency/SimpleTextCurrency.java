@@ -5,6 +5,7 @@ import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.IconType;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import org.jetbrains.annotations.Nullable;
 
 import java.math.BigDecimal;
 import java.util.Objects;
@@ -14,11 +15,17 @@ public class SimpleTextCurrency implements IStoredCurrency {
     private final ResourceLocation id;
     private final String displayName;
     private final String iconText;
+    private final @Nullable ResourceLocation iconTexture;
 
     public SimpleTextCurrency(ResourceLocation id, String displayName, String iconText) {
+        this(id, displayName, iconText, null);
+    }
+
+    public SimpleTextCurrency(ResourceLocation id, String displayName, String iconText, @Nullable ResourceLocation iconTexture) {
         this.id = Objects.requireNonNull(id, "id");
         this.displayName = displayName == null || displayName.isBlank() ? id.toString() : displayName.trim();
         this.iconText = iconText == null || iconText.isBlank() ? "$" : iconText.trim();
+        this.iconTexture = iconTexture;
     }
 
     @Override
@@ -54,11 +61,18 @@ public class SimpleTextCurrency implements IStoredCurrency {
 
     @Override
     public CurrencyIcon getIcon() {
-        return new CurrencyIcon(IconType.TEXTURE, iconText);
+        if (iconTexture != null) {
+            return new CurrencyIcon(IconType.TEXTURE, iconTexture);
+        }
+        return new CurrencyIcon(IconType.TEXT, iconText);
     }
 
     public String getIconText() {
         return iconText;
+    }
+
+    public @Nullable ResourceLocation getIconTexture() {
+        return iconTexture;
     }
 
     private static boolean isTranslationKey(String value) {

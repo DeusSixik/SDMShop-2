@@ -231,6 +231,7 @@
   "shop.ui.editor.session_conflict.continue_old" : "Продолжить старую",
 
   "shop.ui.offer_element.button.buy" : "Купить",
+  "shop.ui.offer_element.or" : "или",
   "shop.ui.offer_element.button.sell" : "Продать",
   "shop.ui.offer_element.component.reward.command" : "Награда выполняет команду: %s",
   "shop.ui.offer_element.context_menu.edit" : "Изменить",

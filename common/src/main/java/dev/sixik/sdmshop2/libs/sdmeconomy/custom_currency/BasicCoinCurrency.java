@@ -14,7 +14,7 @@ public class BasicCoinCurrency implements IStoredCurrency {
 
     public static final ResourceLocation ID = ResourceLocation.tryBuild("sdm", "coin");
     public static final Component DISPLAY_NAME = Component.translatable(ID.toString().replace(":", "_"));
-    protected static final CurrencyIcon ICON = new CurrencyIcon(IconType.TEXTURE, "◎");
+    protected static final CurrencyIcon ICON = new CurrencyIcon(IconType.TEXT, "◎");
 
     protected BasicCoinCurrency() { }
 

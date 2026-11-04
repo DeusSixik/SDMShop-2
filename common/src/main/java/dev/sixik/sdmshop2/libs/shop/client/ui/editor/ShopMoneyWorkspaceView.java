@@ -22,13 +22,23 @@ import dev.sixik.unigui.widgets.containers.ScrollView;
 import dev.sixik.unigui.widgets.containers.VBox;
 import dev.sixik.unigui.widgets.core.Orientation;
 import dev.sixik.unigui.widgets.display.CanvasWidget;
+import dev.sixik.unigui.widgets.display.ImageView;
 import dev.sixik.unigui.widgets.display.Label;
+import net.minecraft.resources.ResourceLocation;
+import dev.sixik.unigui.api.render.SimpleTextureHandle;
 import dev.sixik.unigui.widgets.feedback.ContextMenu;
 import dev.sixik.unigui.widgets.feedback.OverlayLayer;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.HashMap;
 import java.util.Map;
+import org.jetbrains.annotations.Nullable;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
 
 /**
  * Центральная рабочая панель «Money» (список валют магазина).
@@ -112,129 +122,147 @@ public class ShopMoneyWorkspaceView extends LinearBox {
 
         Object currentTarget = ShopEditorState.get().getSelectedTarget();
 
-        // 2. Черновики валют сессии
+        // 2. Стабильный, единый список валют (порядок не скачет при клике)
+        ResourceLocation defaultId = new ResourceLocation("sdm", "coin");
+        Set<ResourceLocation> serverIds = new LinkedHashSet<>();
+        List<ResourceLocation> otherServerIds = new ArrayList<>();
+
+        for (ICurrency cur : SDMEconomyServiceClient.getAllCurrencies().values()) {
+            if (cur == null) continue;
+            ResourceLocation id = cur.getId();
+            if (ShopEditorState.get().isCurrencyDeleted(id)) continue;
+            if (!id.equals(defaultId)) {
+                otherServerIds.add(id);
+            }
+            serverIds.add(id);
+        }
+
+        // Сортировка существующих валют по ID для 100% стабильного порядка
+        otherServerIds.sort(Comparator.comparing(ResourceLocation::toString));
+
+        // Новые черновики валют (ещё не на сервере)
+        List<ResourceLocation> newDraftIds = new ArrayList<>();
         if (ShopEditorState.get().getSession() != null) {
-            for (CurrencyDraft draft : ShopEditorState.get().getSession().currencyDrafts()) {
-                if (draft.kind() == CurrencyDraft.Kind.DELETE) {
-                    continue;
+            for (CurrencyDraft d : ShopEditorState.get().getSession().currencyDrafts()) {
+                if (d.kind() == CurrencyDraft.Kind.DELETE) continue;
+                ResourceLocation id = d.id();
+                if (!id.equals(defaultId) && !serverIds.contains(id)) {
+                    newDraftIds.add(id);
                 }
-                VBox card = new VBox();
-                card.spacing(3.0f);
-                card.layout(style -> style
-                        .height(96.0f)
-                        .padding(6.0f)
-                        .alignItems(Align.CENTER)
-                        .justifyContent(Justify.CENTER)
-                        .flexNone()
-                );
-
-                boolean isSelected = draft == currentTarget;
-                card.boxVisualEnabled(true);
-                card.backgroundVisible(true);
-                card.background(isSelected ? UnityStyles.BG_HEADER_HOVER : UnityStyles.BG_PANEL);
-                card.borderVisible(true);
-                card.border(isSelected ? UnityStyles.SELECTION_BLUE : UnityStyles.BORDER_DEFAULT);
-                card.borderWidth(isSelected ? 2.0f : 1.0f);
-                card.radius(ShopTheme.RADIUS_CARD);
-
-                // Визуальная иконка валюты
-                if (draft.kind() == CurrencyDraft.Kind.ITEM && draft.itemStack() != null && !draft.itemStack().isEmpty()) {
-                    ShopItemWidget itemSlot = new ShopItemWidget(draft.itemStack(), 20.0f).asSlot(24.0f, 24.0f);
-                    itemSlot.background().set(UnityStyles.BG_INPUT);
-                    itemSlot.borderWidth(1.0f);
-                    itemSlot.radius(3.0f);
-                    itemSlot.layout(s -> s.fixed(24.0f, 24.0f).flexNone());
-                    card.addChild(itemSlot);
-                } else {
-                    Box badge = new Box();
-                    badge.boxVisualEnabled(true);
-                    badge.backgroundVisible(true);
-                    badge.background(UnityStyles.BG_INPUT);
-                    badge.borderVisible(true);
-                    badge.border(UnityStyles.BORDER_DEFAULT);
-                    badge.borderWidth(1.0f);
-                    badge.radius(3.0f);
-                    badge.layout(s -> s.size(24.0f, 24.0f).alignItems(Align.CENTER).justifyContent(Justify.CENTER).flexNone());
-                    Label sym = new Label(draft.iconText() != null && !draft.iconText().isBlank() ? draft.iconText() : "$");
-                    sym.color().set(UnityStyles.WARNING_YELLOW);
-                    badge.addChild(sym);
-                    card.addChild(badge);
-                }
-
-                Label nameLbl = new Label(draft.displayName() + " [Draft]");
-                nameLbl.color(isSelected ? UnityStyles.TEXT_BOLD : UnityStyles.TEXT_PRIMARY);
-                Label idLbl = new Label(draft.id().toString());
-                idLbl.color(UnityStyles.TEXT_MUTED);
-
-                card.addChild(nameLbl);
-                card.addChild(idLbl);
-
-                card.on(PointerPressedEvent.TYPE, event -> {
-                    if (event.button() == PointerButton.PRIMARY) {
-                        ShopEditorState.get().selectTarget(draft);
-                        refreshView();
-                        event.cancel();
-                    } else if (event.button() == PointerButton.SECONDARY) {
-                        ShopEditorState.get().selectTarget(draft);
-                        openCurrencyContextMenu(event.rootX(), event.rootY(), draft);
-                        event.cancel();
-                    }
-                });
-
-                currencyCards.put(draft, card);
-                grid.addChild(card);
             }
         }
 
-        // 3. Существующие валюты
-        for (ICurrency cur : SDMEconomyServiceClient.getAllCurrencies().values()) {
-            if (ShopEditorState.get().isCurrencyDeleted(cur.getId())) {
-                continue;
+        // Итоговый единый список: дефолтная валюта первой, затем серверные, затем новые
+        List<ResourceLocation> orderedIds = new ArrayList<>();
+        if (!ShopEditorState.get().isCurrencyDeleted(defaultId)) {
+            orderedIds.add(defaultId);
+        }
+        orderedIds.addAll(otherServerIds);
+        orderedIds.addAll(newDraftIds);
+
+        for (ResourceLocation id : orderedIds) {
+            CurrencyDraft draft = ShopEditorState.get().findCurrencyDraft(id);
+            ICurrency liveCur = SDMEconomyServiceClient.getCurrency(id);
+            VBox card = buildCurrencyCard(id, draft, liveCur, currentTarget);
+            grid.addChild(card);
+        }
+    }
+
+    private VBox buildCurrencyCard(
+            ResourceLocation id,
+            @Nullable CurrencyDraft draft,
+            @Nullable ICurrency liveCur,
+            Object currentTarget
+    ) {
+        VBox card = new VBox();
+        card.spacing(3.0f);
+        card.layout(style -> style
+                .height(96.0f)
+                .padding(6.0f)
+                .alignItems(Align.CENTER)
+                .justifyContent(Justify.CENTER)
+                .flexNone()
+        );
+
+        boolean isSelected = (currentTarget != null) && (
+                currentTarget == draft ||
+                currentTarget == liveCur ||
+                (currentTarget instanceof CurrencyDraft cd && cd.id().equals(id)) ||
+                (currentTarget instanceof ICurrency ic && ic.getId().equals(id))
+        );
+
+        card.boxVisualEnabled(true);
+        card.backgroundVisible(true);
+        card.background(isSelected ? UnityStyles.BG_HEADER_HOVER : UnityStyles.BG_PANEL);
+        card.borderVisible(true);
+        card.border(isSelected ? UnityStyles.SELECTION_BLUE : UnityStyles.BORDER_DEFAULT);
+        card.borderWidth(isSelected ? 2.0f : 1.0f);
+        card.radius(ShopTheme.RADIUS_CARD);
+
+        // 1. Иконка
+        Widget iconWidget = buildCardIconWidget(draft, liveCur);
+        if (iconWidget != null) {
+            card.addChild(iconWidget);
+        }
+
+        // 2. Название
+        String displayName = draft != null ? draft.displayName() : (liveCur != null ? liveCur.getDisplayName().getString() : id.getPath());
+        if (draft != null && liveCur != null) {
+            displayName = displayName + " [Draft]";
+        }
+        Label nameLbl = new Label(displayName);
+        nameLbl.color(isSelected ? UnityStyles.TEXT_BOLD : UnityStyles.TEXT_PRIMARY);
+        card.addChild(nameLbl);
+
+        // 3. ID
+        Label idLbl = new Label(id.toString());
+        idLbl.color(UnityStyles.TEXT_MUTED);
+        card.addChild(idLbl);
+
+        // 4. Обработчик клика (позиция в сетке не меняется)
+        card.on(PointerPressedEvent.TYPE, event -> {
+            if (event.button() == PointerButton.PRIMARY) {
+                Object targetToSelect;
+                if (draft != null) {
+                    targetToSelect = draft;
+                } else if (liveCur != null) {
+                    targetToSelect = ShopEditorState.get().getOrCreateCurrencyDraft(liveCur);
+                } else {
+                    targetToSelect = id;
+                }
+                ShopEditorState.get().selectTarget(targetToSelect);
+                refreshView();
+                event.cancel();
+            } else if (event.button() == PointerButton.SECONDARY) {
+                Object targetToSelect = draft != null ? draft : liveCur;
+                ShopEditorState.get().selectTarget(targetToSelect);
+                openCurrencyContextMenu(event.rootX(), event.rootY(), targetToSelect != null ? targetToSelect : id);
+                event.cancel();
             }
-            if (ShopEditorState.get().hasCurrencyDraft(cur.getId())) {
-                continue;
-            }
+        });
 
-            VBox card = new VBox();
-            card.spacing(3.0f);
-            card.layout(style -> style
-                    .height(96.0f)
-                    .padding(6.0f)
-                    .alignItems(Align.CENTER)
-                    .justifyContent(Justify.CENTER)
-                    .flexNone()
-            );
+        if (draft != null) currencyCards.put(draft, card);
+        if (liveCur != null) currencyCards.put(liveCur, card);
+        currencyCards.put(id, card);
 
-            boolean isSelected = cur == currentTarget;
-            card.boxVisualEnabled(true);
-            card.backgroundVisible(true);
-            card.background(isSelected ? UnityStyles.BG_HEADER_HOVER : UnityStyles.BG_PANEL);
-            card.borderVisible(true);
-            card.border(isSelected ? UnityStyles.SELECTION_BLUE : UnityStyles.BORDER_DEFAULT);
-            card.borderWidth(isSelected ? 2.0f : 1.0f);
-            card.radius(ShopTheme.RADIUS_CARD);
+        return card;
+    }
 
-            // Визуальная иконка существующей валюты
-            if (cur instanceof ExternalItemCurrency eic && !eic.getItemType().isEmpty()) {
-                ShopItemWidget itemSlot = new ShopItemWidget(eic.getItemType(), 20.0f).asSlot(24.0f, 24.0f);
+    private Widget buildCardIconWidget(@Nullable CurrencyDraft draft, @Nullable ICurrency liveCur) {
+        if (draft != null) {
+            if (draft.kind() == CurrencyDraft.Kind.ITEM && draft.itemStack() != null && !draft.itemStack().isEmpty()) {
+                ShopItemWidget itemSlot = new ShopItemWidget(draft.itemStack(), 20.0f).asSlot(24.0f, 24.0f);
                 itemSlot.background().set(UnityStyles.BG_INPUT);
                 itemSlot.borderWidth(1.0f);
                 itemSlot.radius(3.0f);
                 itemSlot.layout(s -> s.fixed(24.0f, 24.0f).flexNone());
-                card.addChild(itemSlot);
-            } else if (cur.getIcon() != null && cur.getIcon().type() == IconType.ITEM && cur.getIcon().icon() instanceof ItemStack stack && !stack.isEmpty()) {
-                ShopItemWidget itemSlot = new ShopItemWidget(stack, 20.0f).asSlot(24.0f, 24.0f);
-                itemSlot.background().set(UnityStyles.BG_INPUT);
-                itemSlot.borderWidth(1.0f);
-                itemSlot.radius(3.0f);
-                itemSlot.layout(s -> s.fixed(24.0f, 24.0f).flexNone());
-                card.addChild(itemSlot);
+                return itemSlot;
+            } else if (draft.kind() == CurrencyDraft.Kind.TEXTURE && draft.iconTexture() != null) {
+                String tex = draft.iconTexture().toString();
+                ImageView img = new ImageView(new SimpleTextureHandle(tex, 24, 24, tex));
+                img.layout(s -> s.size(24.0f, 24.0f).flexNone());
+                return img;
             } else {
-                String symbol = "$";
-                try {
-                    symbol = cur.format(java.math.BigDecimal.ONE).replaceAll("[0-9.,\\s]", "");
-                    if (symbol.isEmpty()) symbol = "$";
-                } catch (Exception ignored) {}
                 Box badge = new Box();
                 badge.boxVisualEnabled(true);
                 badge.backgroundVisible(true);
@@ -244,35 +272,66 @@ public class ShopMoneyWorkspaceView extends LinearBox {
                 badge.borderWidth(1.0f);
                 badge.radius(3.0f);
                 badge.layout(s -> s.size(24.0f, 24.0f).alignItems(Align.CENTER).justifyContent(Justify.CENTER).flexNone());
-                Label sym = new Label(symbol);
+                Label sym = new Label(draft.iconText() != null && !draft.iconText().isBlank() ? draft.iconText() : "$");
                 sym.color().set(UnityStyles.WARNING_YELLOW);
                 badge.addChild(sym);
-                card.addChild(badge);
+                return badge;
             }
-
-            Label nameLbl = new Label(cur.getDisplayName().getString());
-            nameLbl.color(isSelected ? UnityStyles.TEXT_BOLD : UnityStyles.TEXT_PRIMARY);
-            Label idLbl = new Label(cur.getId().toString());
-            idLbl.color(UnityStyles.TEXT_MUTED);
-
-            card.addChild(nameLbl);
-            card.addChild(idLbl);
-
-            card.on(PointerPressedEvent.TYPE, event -> {
-                if (event.button() == PointerButton.PRIMARY) {
-                    ShopEditorState.get().selectTarget(cur);
-                    refreshView();
-                    event.cancel();
-                } else if (event.button() == PointerButton.SECONDARY) {
-                    ShopEditorState.get().selectTarget(cur);
-                    openCurrencyContextMenu(event.rootX(), event.rootY(), cur);
-                    event.cancel();
-                }
-            });
-
-            currencyCards.put(cur, card);
-            grid.addChild(card);
         }
+
+        if (liveCur instanceof ExternalItemCurrency eic && !eic.getItemType().isEmpty()) {
+            ShopItemWidget itemSlot = new ShopItemWidget(eic.getItemType(), 20.0f).asSlot(24.0f, 24.0f);
+            itemSlot.background().set(UnityStyles.BG_INPUT);
+            itemSlot.borderWidth(1.0f);
+            itemSlot.radius(3.0f);
+            itemSlot.layout(s -> s.fixed(24.0f, 24.0f).flexNone());
+            return itemSlot;
+        }
+
+        if (liveCur != null && liveCur.getIcon() != null) {
+            CurrencyIcon curIcon = liveCur.getIcon();
+            if (curIcon.type() == IconType.ITEM && curIcon.icon() instanceof ItemStack stack && !stack.isEmpty()) {
+                ShopItemWidget itemSlot = new ShopItemWidget(stack, 20.0f).asSlot(24.0f, 24.0f);
+                itemSlot.background().set(UnityStyles.BG_INPUT);
+                itemSlot.borderWidth(1.0f);
+                itemSlot.radius(3.0f);
+                itemSlot.layout(s -> s.fixed(24.0f, 24.0f).flexNone());
+                return itemSlot;
+            } else if (curIcon.type() == IconType.TEXTURE && curIcon.icon() instanceof ResourceLocation loc) {
+                String tex = loc.toString();
+                ImageView img = new ImageView(new SimpleTextureHandle(tex, 24, 24, tex));
+                img.layout(s -> s.size(24.0f, 24.0f).flexNone());
+                return img;
+            } else if (curIcon.type() == IconType.TEXTURE && curIcon.icon() instanceof String str && (str.contains(":") || str.contains("/") || str.endsWith(".png"))) {
+                ImageView img = new ImageView(new SimpleTextureHandle(str, 24, 24, str));
+                img.layout(s -> s.size(24.0f, 24.0f).flexNone());
+                return img;
+            }
+        }
+
+        // Text symbol fallback
+        String symbol = "$";
+        if (liveCur != null && liveCur.getIcon() != null && liveCur.getIcon().icon() instanceof String s && !s.isBlank()) {
+            symbol = s;
+        } else if (liveCur != null) {
+            try {
+                symbol = liveCur.format(java.math.BigDecimal.ONE).replaceAll("[0-9.,\\s]", "");
+                if (symbol.isEmpty()) symbol = "$";
+            } catch (Exception ignored) {}
+        }
+        Box badge = new Box();
+        badge.boxVisualEnabled(true);
+        badge.backgroundVisible(true);
+        badge.background(UnityStyles.BG_INPUT);
+        badge.borderVisible(true);
+        badge.border(UnityStyles.BORDER_DEFAULT);
+        badge.borderWidth(1.0f);
+        badge.radius(3.0f);
+        badge.layout(s -> s.size(24.0f, 24.0f).alignItems(Align.CENTER).justifyContent(Justify.CENTER).flexNone());
+        Label sym = new Label(symbol);
+        sym.color().set(UnityStyles.WARNING_YELLOW);
+        badge.addChild(sym);
+        return badge;
     }
 
     private void openCurrencyContextMenu(float x, float y, Object target) {

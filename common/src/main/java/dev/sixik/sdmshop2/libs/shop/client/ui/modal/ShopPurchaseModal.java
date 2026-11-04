@@ -21,7 +21,9 @@ import dev.sixik.unigui.widgets.containers.HBox;
 import dev.sixik.unigui.widgets.containers.ScrollView;
 import dev.sixik.unigui.widgets.containers.VBox;
 import dev.sixik.unigui.widgets.core.Orientation;
+import dev.sixik.unigui.widgets.display.ImageView;
 import dev.sixik.unigui.widgets.display.Label;
+import dev.sixik.unigui.api.render.SimpleTextureHandle;
 import dev.sixik.unigui.widgets.display.Separator;
 import dev.sixik.unigui.widgets.feedback.OverlayHostAware;
 import dev.sixik.unigui.widgets.interaction.Button;
@@ -71,6 +73,7 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
         this.rewards = sourceCard.getRewards();
         this.costGroups = sourceCard.getCostGroups();
         this.discountPercent = sourceCard.getDiscountPercent();
+        this.activeGroupIndex = Math.min(Math.max(0, sourceCard.getActiveCostGroupIndex()), Math.max(0, this.costGroups.size() - 1));
 
         // Полноэкранный фон-затемнение
         boxVisualEnabled(true);
@@ -411,6 +414,11 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
                 costIcon.attachTooltip(ShopScreenController.getActiveOverlay());
                 costIcon.layout(style -> style.fixed(16.0f, 16.0f));
                 leftPart.addChild(costIcon);
+            } else if (cost.textureIcon() != null) {
+                String tex = cost.textureIcon().toString();
+                ImageView texIcon = new ImageView(new SimpleTextureHandle(tex, 16, 16, tex));
+                texIcon.layout(style -> style.fixed(16.0f, 16.0f));
+                leftPart.addChild(texIcon);
             } else if (cost.textIcon() != null && !cost.textIcon().isBlank()) {
                 Label textIcon = new Label(cost.textIcon());
                 textIcon.color(ShopTheme.color(ShopTheme.GOLD_PRIMARY));
@@ -447,7 +455,8 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
 
         // 3. Дополнительное описание и свойства предмета (Lore / Tooltips)
         ItemStack primaryItem = rewards.isEmpty() ? Items.BARRIER.getDefaultInstance() : rewards.get(0);
-        Player player = Minecraft.getInstance().player;
+        Minecraft mc = Minecraft.getInstance();
+        Player player = mc != null ? mc.player : null;
         if (player != null && !primaryItem.isEmpty()) {
             List<Component> tooltipLines = primaryItem.getTooltipLines(player, TooltipFlag.NORMAL);
             if (tooltipLines.size() > 1) {
@@ -540,7 +549,9 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
     }
 
     private double checkCostBalance(ShopCatalogElement.CostEntry cost) {
-        Player player = Minecraft.getInstance().player;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null) return 0.0;
+        Player player = mc.player;
         if (player == null) return 0.0;
 
         if (cost.component() != null) {
