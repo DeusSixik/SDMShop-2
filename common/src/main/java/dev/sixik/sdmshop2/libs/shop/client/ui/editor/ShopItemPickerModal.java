@@ -35,14 +35,13 @@ import java.util.Locale;
 import java.util.function.Consumer;
 
 /**
- * Модальное окно выбора предмета (Select Item) в стиле Unity Dark.
+ * Модальное окно выбора предмета (Select Item) в стиле Unity Dark со скроллбаром.
  * Позволяет выбирать предмет как из общего реестра (All Items), так и из инвентаря игрока (Inventory).
  */
 public class ShopItemPickerModal extends Box implements OverlayHostAware {
 
     private static final float MODAL_WIDTH = 560.0f;
     private static final float MAX_MODAL_HEIGHT = 440.0f;
-    private static final int ITEMS_PER_PAGE = 126; // 14 колонок x 9 строк
 
     public enum ItemSourceTab {
         ALL_ITEMS,
@@ -57,15 +56,13 @@ public class ShopItemPickerModal extends Box implements OverlayHostAware {
 
     private ItemSourceTab currentTab = ItemSourceTab.ALL_ITEMS;
     private String searchQuery = "";
-    private int currentPage = 0;
     private boolean closing = false;
 
     private Button tabAllBtn;
     private Button tabInvBtn;
     private VBox gridHost;
-    private Label pageLabel;
-    private Button prevPageBtn;
-    private Button nextPageBtn;
+    private ScrollView scroll;
+    private Label itemsCountLabel;
 
     private List<ItemStack> currentFilteredList = new ArrayList<>();
     private @Nullable MinecraftItemTooltip activeTooltip = null;
@@ -192,7 +189,6 @@ public class ShopItemPickerModal extends Box implements OverlayHostAware {
         tabAllBtn.onClick(e -> {
             if (currentTab != ItemSourceTab.ALL_ITEMS) {
                 currentTab = ItemSourceTab.ALL_ITEMS;
-                currentPage = 0;
                 hideTooltip();
                 updateTabStyles();
                 filterAndRefresh();
@@ -205,7 +201,6 @@ public class ShopItemPickerModal extends Box implements OverlayHostAware {
         tabInvBtn.onClick(e -> {
             if (currentTab != ItemSourceTab.INVENTORY) {
                 currentTab = ItemSourceTab.INVENTORY;
-                currentPage = 0;
                 hideTooltip();
                 updateTabStyles();
                 filterAndRefresh();
@@ -242,7 +237,6 @@ public class ShopItemPickerModal extends Box implements OverlayHostAware {
         searchField.layout(style -> style.height(20.0f).flexGrow(1.0f));
         searchField.onTextChanged(event -> {
             this.searchQuery = event.newText() != null ? event.newText().trim() : "";
-            this.currentPage = 0;
             hideTooltip();
             filterAndRefresh();
         });
@@ -250,7 +244,7 @@ public class ShopItemPickerModal extends Box implements OverlayHostAware {
         searchRow.addChild(searchField);
         windowCard.addChild(searchRow);
 
-        // 4. Скроллируемая сетка предметов
+        // 4. Скроллируемая сетка всех предметов со скроллбаром Unity
         gridHost = new VBox();
         gridHost.spacing(4.0f);
         gridHost.layout(style -> style
@@ -261,12 +255,15 @@ public class ShopItemPickerModal extends Box implements OverlayHostAware {
                 .flexShrink(0.0f)
         );
 
-        ScrollView scroll = new ScrollView(gridHost);
-        scroll.scrollStep(20.0f);
+        scroll = new ScrollView(gridHost);
+        scroll.scrollStep(34.0f);
+        scroll.scrollbarSize(6.0f);
         scroll.scrollbarGap(2.0f);
-        scroll.scrollbarTrackColor().set(UnityStyles.BORDER_DEFAULT);
+        scroll.scrollbarTrackColor().set(UnityStyles.BG_INPUT);
         scroll.scrollbarThumbColor().set(UnityStyles.TEXT_MUTED);
+        scroll.scrollbarThumbHoverColor().set(UnityStyles.TEXT_PRIMARY);
         scroll.overlayScrollBars(false);
+        scroll.tickCullingEnabled(true);
         scroll.layout(layout -> layout
                 .widthPercent(100.0f)
                 .flexGrow(1.0f)
@@ -277,7 +274,7 @@ public class ShopItemPickerModal extends Box implements OverlayHostAware {
         );
         windowCard.addChild(scroll);
 
-        // 5. Подвал с пагинацией, кнопкой Clear и кнопкой Cancel
+        // 5. Подвал со счётчиком элементов, кнопкой Clear и кнопкой Cancel
         HBox footer = new HBox();
         footer.layout(style -> style
                 .widthPercent(100.0f)
@@ -300,40 +297,9 @@ public class ShopItemPickerModal extends Box implements OverlayHostAware {
             closeSelf();
         });
 
-        HBox pageControls = new HBox();
-        pageControls.spacing(6.0f);
-        pageControls.layout(style -> style.height(22.0f).alignItems(Align.CENTER).flexNone());
-
-        prevPageBtn = new Button("<");
-        UnityStyles.styleButton(prevPageBtn);
-        prevPageBtn.layout(style -> style.fixed(24.0f, 22.0f).flexNone());
-        prevPageBtn.onClick(e -> {
-            if (currentPage > 0) {
-                currentPage--;
-                hideTooltip();
-                filterAndRefresh();
-            }
-        });
-
-        pageLabel = new Label("Page 1 of 1 (0 items)");
-        pageLabel.color().set(UnityStyles.TEXT_MUTED);
-        pageLabel.layout(style -> style.alignSelf(Align.CENTER).flexNone());
-
-        nextPageBtn = new Button(">");
-        UnityStyles.styleButton(nextPageBtn);
-        nextPageBtn.layout(style -> style.fixed(24.0f, 22.0f).flexNone());
-        nextPageBtn.onClick(e -> {
-            int totalPages = Math.max(1, (int) Math.ceil((double) currentFilteredList.size() / ITEMS_PER_PAGE));
-            if (currentPage < totalPages - 1) {
-                currentPage++;
-                hideTooltip();
-                filterAndRefresh();
-            }
-        });
-
-        pageControls.addChild(prevPageBtn);
-        pageControls.addChild(pageLabel);
-        pageControls.addChild(nextPageBtn);
+        itemsCountLabel = new Label("0 items");
+        itemsCountLabel.color().set(UnityStyles.TEXT_MUTED);
+        itemsCountLabel.layout(style -> style.alignSelf(Align.CENTER).flexNone());
 
         Button cancelBtn = new Button("Cancel");
         UnityStyles.styleButton(cancelBtn);
@@ -341,7 +307,7 @@ public class ShopItemPickerModal extends Box implements OverlayHostAware {
         cancelBtn.onClick(e -> closeSelf());
 
         footer.addChild(clearBtn);
-        footer.addChild(pageControls);
+        footer.addChild(itemsCountLabel);
         footer.addChild(cancelBtn);
         windowCard.addChild(footer);
 
@@ -386,16 +352,13 @@ public class ShopItemPickerModal extends Box implements OverlayHostAware {
         }
 
         int total = currentFilteredList.size();
-        int totalPages = Math.max(1, (int) Math.ceil((double) total / ITEMS_PER_PAGE));
-        if (currentPage >= totalPages) {
-            currentPage = Math.max(0, totalPages - 1);
+        if (itemsCountLabel != null) {
+            itemsCountLabel.text(total + " items");
         }
 
-        pageLabel.text("Page " + (currentPage + 1) + " / " + totalPages + " (" + total + " items)");
-        prevPageBtn.enabled(currentPage > 0);
-        prevPageBtn.textColor().set(currentPage > 0 ? UnityStyles.TEXT_PRIMARY : UnityStyles.TEXT_MUTED);
-        nextPageBtn.enabled(currentPage < totalPages - 1);
-        nextPageBtn.textColor().set(currentPage < totalPages - 1 ? UnityStyles.TEXT_PRIMARY : UnityStyles.TEXT_MUTED);
+        if (scroll != null) {
+            scroll.scrollTo(0.0f, 0.0f);
+        }
 
         if (currentFilteredList.isEmpty()) {
             Label empty = new Label(currentTab == ItemSourceTab.INVENTORY
@@ -407,10 +370,6 @@ public class ShopItemPickerModal extends Box implements OverlayHostAware {
             return;
         }
 
-        int from = currentPage * ITEMS_PER_PAGE;
-        int to = Math.min(from + ITEMS_PER_PAGE, total);
-        List<ItemStack> pageItems = currentFilteredList.subList(from, to);
-
         GridBox grid = new GridBox();
         grid.columns(14);
         grid.spacing(4.0f);
@@ -419,7 +378,7 @@ public class ShopItemPickerModal extends Box implements OverlayHostAware {
                 .alignSelf(Align.CENTER)
         );
 
-        for (ItemStack itemStack : pageItems) {
+        for (ItemStack itemStack : currentFilteredList) {
             final ItemStack stack = itemStack;
             ShopItemWidget slot = new ShopItemWidget(stack, 18.0f).asSlot(30.0f, 30.0f);
             slot.decorations(true);
