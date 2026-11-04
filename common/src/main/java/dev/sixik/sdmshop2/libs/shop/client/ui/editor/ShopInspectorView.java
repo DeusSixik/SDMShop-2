@@ -2,6 +2,7 @@ package dev.sixik.sdmshop2.libs.shop.client.ui.editor;
 
 import dev.sixik.sdmshop2.libs.sdmeconomy.CurrencyDraft;
 import dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency;
+import dev.sixik.sdmshop2.libs.sdmeconomy.custom_currency.ExternalItemCurrency;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.ui.editor.unity.UnityIcons;
 import dev.sixik.sdmshop2.libs.shop.client.ui.editor.unity.UnityStyles;
@@ -24,8 +25,11 @@ import dev.sixik.unigui.widgets.dnd.ReorderController;
 import dev.sixik.unigui.widgets.feedback.OverlayLayer;
 import dev.sixik.unigui.widgets.interaction.Button;
 import dev.sixik.unigui.widgets.interaction.Checkbox;
+import dev.sixik.unigui.widgets.interaction.ComboBox;
 import dev.sixik.unigui.widgets.interaction.TextInput;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 import java.util.Map;
@@ -44,6 +48,7 @@ public class ShopInspectorView extends LinearBox {
     private Object lastTarget;
     private float pendingScrollY = -1.0f;
     private final Map<ShopComponent, Boolean> componentExpandedState = new WeakHashMap<>();
+    private boolean selfUpdating = false;
 
     public ShopInspectorView(OverlayLayer overlayLayer) {
         super(Orientation.VERTICAL);
@@ -78,6 +83,7 @@ public class ShopInspectorView extends LinearBox {
     }
 
     public void refreshInspector() {
+        if (selfUpdating) return;
         float prevScrollY = scrollView != null ? scrollView.scrollY() : 0.0f;
         Object target = ShopEditorState.get().getSelectedTarget();
         boolean sameTarget = Objects.equals(target, lastTarget);
@@ -158,7 +164,12 @@ public class ShopInspectorView extends LinearBox {
             } else {
                 offer.addComponent(new NameComponent(newName));
             }
-            ShopEditorState.get().markDirty();
+            selfUpdating = true;
+            try {
+                ShopEditorState.get().markDirty();
+            } finally {
+                selfUpdating = false;
+            }
         });
         topRow.addChild(nameInput);
 
@@ -271,7 +282,8 @@ public class ShopInspectorView extends LinearBox {
         CanvasWidget icon = UnityIcons.gameObjectIcon(14.0f, () -> UnityIcons.ShopObjectType.CATEGORY);
         topRow.addChild(icon);
 
-        Label title = new Label("Category: " + category.getId());
+        String catId = category.getId() != null && !category.getId().isBlank() ? category.getId() : "unnamed";
+        Label title = new Label("Category: " + catId);
         title.color().set(UnityStyles.TEXT_BOLD);
         title.overflowMode(TextOverflowMode.MARQUEE_ON_HOVER);
         title.layout(s -> s.height(18.0f).expand().margin(0.0f, 0.0f, 4.0f, 0.0f));
@@ -296,33 +308,61 @@ public class ShopInspectorView extends LinearBox {
 
         props.addChild(ShopPropertyRows.stringRow("Category ID", category.getId(), id -> {
             category.setId(id);
-            ShopEditorState.get().markDirty();
+            title.text("Category: " + (id != null && !id.isBlank() ? id : "unnamed"));
+            selfUpdating = true;
+            try {
+                ShopEditorState.get().markDirty();
+            } finally {
+                selfUpdating = false;
+            }
         }));
 
         props.addChild(ShopPropertyRows.numberRow("Order", category.getOrder(), true, null, val -> {
             category.setOrder((int) val);
-            ShopEditorState.get().markDirty();
+            selfUpdating = true;
+            try {
+                ShopEditorState.get().markDirty();
+            } finally {
+                selfUpdating = false;
+            }
         }));
 
         props.addChild(ShopPropertyRows.enumRow("Icon Type", category.getIconType(), CatalogComponent.IconType.class, val -> {
             category.setIconType((CatalogComponent.IconType) val);
             ShopEditorState.get().markDirty();
+            refreshInspector();
         }));
 
-        props.addChild(ShopPropertyRows.itemStackRow("Icon Item", category.getIconItem(), item -> {
-            category.setIconItem(item);
-            ShopEditorState.get().markDirty();
-        }));
-
-        props.addChild(ShopPropertyRows.stringRow("Icon Texture", category.getIconTexture() != null ? category.getIconTexture().toString() : "", tex -> {
-            category.setIconTexture(net.minecraft.resources.ResourceLocation.tryParse(tex));
-            ShopEditorState.get().markDirty();
-        }));
+        if (category.getIconType() == CatalogComponent.IconType.ITEM) {
+            props.addChild(ShopPropertyRows.itemStackRow("Icon Item", category.getIconItem(), item -> {
+                category.setIconItem(item);
+                selfUpdating = true;
+                try {
+                    ShopEditorState.get().markDirty();
+                } finally {
+                    selfUpdating = false;
+                }
+            }));
+        } else if (category.getIconType() == CatalogComponent.IconType.TEXTURE) {
+            props.addChild(ShopPropertyRows.stringRow("Icon Texture", category.getIconTexture() != null ? category.getIconTexture().toString() : "", tex -> {
+                category.setIconTexture(net.minecraft.resources.ResourceLocation.tryParse(tex));
+                selfUpdating = true;
+                try {
+                    ShopEditorState.get().markDirty();
+                } finally {
+                    selfUpdating = false;
+                }
+            }));
+        }
 
         scrollContent.addChild(props);
     }
 
-    private void buildCurrencyDraftInspector(CurrencyDraft currency) {
+    private void buildCurrencyDraftInspector(CurrencyDraft initialCurrency) {
+        final ResourceLocation[] currentId = new ResourceLocation[]{ initialCurrency.id() };
+        CurrencyDraft currency = ShopEditorState.get().findCurrencyDraft(currentId[0]);
+        if (currency == null) currency = initialCurrency;
+
         VBox header = new VBox();
         header.spacing(4.0f);
         header.themeEnabled(false);
@@ -346,12 +386,20 @@ public class ShopInspectorView extends LinearBox {
         title.layout(s -> s.height(18.0f).expand().margin(0.0f, 0.0f, 4.0f, 0.0f));
         topRow.addChild(title);
 
-        Button deleteBtn = new Button("Delete");
-        UnityStyles.styleButton(deleteBtn);
-        deleteBtn.textColor().set(UnityStyles.AXIS_X);
-        deleteBtn.layout(style -> style.height(18.0f).padding(6.0f, 0.0f).flexNone());
-        deleteBtn.onClick(e -> ShopEditorState.get().deleteCurrency(currency));
-        topRow.addChild(deleteBtn);
+        boolean isDefault = ShopEditorState.get().isDefaultCurrency(currency.id());
+        if (!isDefault) {
+            Button deleteBtn = new Button("Delete");
+            UnityStyles.styleButton(deleteBtn);
+            deleteBtn.textColor().set(UnityStyles.AXIS_X);
+            deleteBtn.layout(style -> style.height(18.0f).padding(6.0f, 0.0f).flexNone());
+            deleteBtn.onClick(e -> {
+                CurrencyDraft cur = ShopEditorState.get().findCurrencyDraft(currentId[0]);
+                if (cur != null) {
+                    ShopEditorState.get().deleteCurrency(cur);
+                }
+            });
+            topRow.addChild(deleteBtn);
+        }
 
         header.addChild(topRow);
         scrollContent.addChild(header);
@@ -363,48 +411,103 @@ public class ShopInspectorView extends LinearBox {
         props.boxVisualEnabled(false);
         props.layout(style -> style.widthPercent(100.0f).padding(8.0f, 4.0f, 8.0f, 4.0f).flexGrow(0.0f).flexShrink(0.0f).overflowX(Overflow.HIDDEN));
 
-        props.addChild(ShopPropertyRows.stringRow("Currency ID", currency.id().toString(), null));
-        props.addChild(ShopPropertyRows.stringRow("Display Name", currency.displayName(), null));
-        props.addChild(ShopPropertyRows.stringRow("Icon Symbol", currency.iconText(), null));
+        boolean existsOnServer = dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient.getAllCurrencies().containsKey(currency.id());
+        if (existsOnServer) {
+            props.addChild(ShopPropertyRows.stringRow("Currency ID", currency.id().toString(), null));
+        } else {
+            props.addChild(ShopPropertyRows.stringRow("Currency ID", currency.id().toString(), newIdStr -> {
+                ResourceLocation newId = ResourceLocation.tryParse(newIdStr);
+                if (newId != null && !newId.equals(currentId[0])) {
+                    CurrencyDraft cur = ShopEditorState.get().findCurrencyDraft(currentId[0]);
+                    if (cur != null) {
+                        CurrencyDraft updated = new CurrencyDraft(newId, cur.kind(), cur.displayName(), cur.iconText(), cur.itemStack());
+                        currentId[0] = newId;
+                        selfUpdating = true;
+                        try {
+                            ShopEditorState.get().updateCurrencyDraft(cur, updated);
+                        } finally {
+                            selfUpdating = false;
+                        }
+                    }
+                }
+            }));
+        }
+
+        props.addChild(ShopPropertyRows.stringRow("Display Name", currency.displayName(), newName -> {
+            CurrencyDraft cur = ShopEditorState.get().findCurrencyDraft(currentId[0]);
+            if (cur != null) {
+                CurrencyDraft updated = new CurrencyDraft(cur.id(), cur.kind(), newName, cur.iconText(), cur.itemStack());
+                selfUpdating = true;
+                try {
+                    ShopEditorState.get().updateCurrencyDraft(cur, updated);
+                } finally {
+                    selfUpdating = false;
+                }
+                title.text("Currency: " + (newName != null && !newName.isBlank() ? newName : cur.id().toString()));
+            }
+        }));
+
+        HBox typeRow = new HBox();
+        typeRow.spacing(6.0f);
+        typeRow.layout(style -> style.widthPercent(100.0f).height(ShopPropertyRows.ROW_HEIGHT).alignItems(Align.CENTER).flexGrow(0.0f).flexShrink(0.0f));
+        typeRow.addChild(ShopPropertyRows.label("Type"));
+        ComboBox combo = new ComboBox();
+        combo.items(List.of("TEXT", "ITEM"));
+        combo.selectedIndex(currency.kind() == CurrencyDraft.Kind.ITEM ? 1 : 0);
+        ShopPropertyRows.styleComboBox(combo);
+        combo.layout(style -> style.height(ShopPropertyRows.ROW_HEIGHT).flexGrow(1.0f).flexShrink(1.0f).minWidth(0.0f));
+        combo.onSelectionChanged(e -> {
+            CurrencyDraft cur = ShopEditorState.get().findCurrencyDraft(currentId[0]);
+            if (cur != null) {
+                CurrencyDraft.Kind newKind = combo.selectedIndex() == 1 ? CurrencyDraft.Kind.ITEM : CurrencyDraft.Kind.TEXT;
+                if (newKind != cur.kind()) {
+                    CurrencyDraft updated = new CurrencyDraft(cur.id(), newKind, cur.displayName(), cur.iconText(), cur.itemStack());
+                    ShopEditorState.get().updateCurrencyDraft(cur, updated);
+                    refreshInspector();
+                }
+            }
+        });
+        typeRow.addChild(combo);
+        props.addChild(typeRow);
+
+        if (currency.kind() == CurrencyDraft.Kind.ITEM) {
+            props.addChild(ShopPropertyRows.itemStackRow("Icon Item", currency.itemStack(), stack -> {
+                CurrencyDraft cur = ShopEditorState.get().findCurrencyDraft(currentId[0]);
+                if (cur != null) {
+                    CurrencyDraft updated = new CurrencyDraft(cur.id(), cur.kind(), cur.displayName(), cur.iconText(), stack);
+                    selfUpdating = true;
+                    try {
+                        ShopEditorState.get().updateCurrencyDraft(cur, updated);
+                    } finally {
+                        selfUpdating = false;
+                    }
+                }
+            }));
+        } else {
+            props.addChild(ShopPropertyRows.stringRow("Icon Symbol", currency.iconText(), sym -> {
+                CurrencyDraft cur = ShopEditorState.get().findCurrencyDraft(currentId[0]);
+                if (cur != null) {
+                    CurrencyDraft updated = new CurrencyDraft(cur.id(), cur.kind(), cur.displayName(), sym, cur.itemStack());
+                    selfUpdating = true;
+                    try {
+                        ShopEditorState.get().updateCurrencyDraft(cur, updated);
+                    } finally {
+                        selfUpdating = false;
+                    }
+                }
+            }));
+        }
 
         scrollContent.addChild(props);
     }
 
     private void buildCurrencyInspector(ICurrency currency) {
-        VBox header = new VBox();
-        header.spacing(4.0f);
-        header.themeEnabled(false);
-        header.backgroundVisible(true);
-        header.background().set(UnityStyles.BG_WINDOW);
-        header.layout(style -> style.widthPercent(100.0f).padding(8.0f, 6.0f).flexNone().overflowX(Overflow.HIDDEN));
-
-        HBox topRow = new HBox();
-        topRow.spacing(6.0f);
-        topRow.layout(style -> style.widthPercent(100.0f).height(20.0f).alignItems(Align.CENTER).overflowX(Overflow.HIDDEN));
-
-        CanvasWidget icon = UnityIcons.gameObjectIcon(14.0f, () -> UnityIcons.ShopObjectType.CURRENCY);
-        topRow.addChild(icon);
-
-        Label title = new Label("Currency: " + currency.getDisplayName().getString());
-        title.color().set(UnityStyles.TEXT_BOLD);
-        title.overflowMode(TextOverflowMode.MARQUEE_ON_HOVER);
-        title.layout(s -> s.height(18.0f).expand().margin(0.0f, 0.0f, 4.0f, 0.0f));
-        topRow.addChild(title);
-
-        header.addChild(topRow);
-        scrollContent.addChild(header);
-        scrollContent.addChild(UnityStyles.separatorLine());
-
-        VBox props = new VBox();
-        props.spacing(3.0f);
-        props.themeEnabled(false);
-        props.boxVisualEnabled(false);
-        props.layout(style -> style.widthPercent(100.0f).padding(8.0f, 4.0f, 8.0f, 4.0f).flexGrow(0.0f).flexShrink(0.0f).overflowX(Overflow.HIDDEN));
-
-        props.addChild(ShopPropertyRows.stringRow("ID", currency.getId().toString(), null));
-        props.addChild(ShopPropertyRows.stringRow("Display Name", currency.getDisplayName().getString(), null));
-
-        scrollContent.addChild(props);
+        CurrencyDraft draft = ShopEditorState.get().getOrCreateCurrencyDraft(currency);
+        if (draft != null) {
+            buildCurrencyDraftInspector(draft);
+            return;
+        }
+        buildEmptyPlaceholder();
     }
 
     private void buildEmptyPlaceholder() {

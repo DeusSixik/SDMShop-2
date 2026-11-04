@@ -1,10 +1,15 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.editor;
 
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
+import dev.sixik.sdmshop2.libs.shop.client.ui.editor.unity.UnityIcons;
 import dev.sixik.sdmshop2.libs.shop.client.ui.editor.unity.UnityStyles;
 import dev.sixik.sdmshop2.libs.shop.client.ui.theme.ShopTheme;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopItemWidget;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.unigui.api.core.FrameContext;
+import dev.sixik.unigui.widgets.dnd.DragController;
+import dev.sixik.unigui.widgets.dnd.DragPayload;
+import dev.sixik.unigui.widgets.dnd.DropController;
 import dev.sixik.unigui.api.event.PointerPressedEvent;
 import dev.sixik.unigui.api.input.PointerButton;
 import dev.sixik.unigui.api.layout.*;
@@ -14,8 +19,13 @@ import dev.sixik.unigui.widgets.containers.LinearBox;
 import dev.sixik.unigui.widgets.containers.ScrollView;
 import dev.sixik.unigui.widgets.containers.VBox;
 import dev.sixik.unigui.widgets.core.Orientation;
+import dev.sixik.unigui.widgets.display.CanvasWidget;
+import dev.sixik.unigui.widgets.display.ImageView;
 import dev.sixik.unigui.widgets.display.Label;
+import dev.sixik.unigui.widgets.feedback.ContextMenu;
+import dev.sixik.unigui.widgets.feedback.OverlayLayer;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +39,7 @@ public class ShopCategoryWorkspaceView extends LinearBox {
     private ScrollView scrollView;
     private final Map<CatalogComponent, Widget> categoryCards = new HashMap<>();
     private CatalogComponent pendingScrollCategory;
+    private ContextMenu activeCategoryContextMenu;
 
     public ShopCategoryWorkspaceView() {
         super(Orientation.VERTICAL);
@@ -68,8 +79,8 @@ public class ShopCategoryWorkspaceView extends LinearBox {
         VBox addCard = new VBox();
         addCard.spacing(4.0f);
         addCard.layout(style -> style
-                .height(84.0f)
-                .padding(8.0f)
+                .height(96.0f)
+                .padding(6.0f)
                 .alignItems(Align.CENTER)
                 .justifyContent(Justify.CENTER)
                 .flexNone()
@@ -97,6 +108,29 @@ public class ShopCategoryWorkspaceView extends LinearBox {
                 event.cancel();
             }
         });
+
+        // Drop на карточку добавления перемещает категорию на первое место (индекс 0)
+        DropController.attach(addCard)
+                .accepts("shop.category")
+                .onDragEnter(e -> {
+                    addCard.border(UnityStyles.SELECTION_BLUE);
+                    addCard.borderWidth(2.0f);
+                })
+                .onDragLeave(e -> {
+                    addCard.border(UnityStyles.SELECTION_BLUE);
+                    addCard.borderWidth(1.0f);
+                })
+                .onDrop(e -> {
+                    DragPayload payload = e.payload();
+                    if (payload != null && payload.matchesType("shop.category")) {
+                        CatalogComponent draggedCat = payload.data(CatalogComponent.class);
+                        if (draggedCat != null) {
+                            ShopEditorState.get().moveCategoryToIndex(draggedCat, 0);
+                            refreshView();
+                        }
+                    }
+                });
+
         grid.addChild(addCard);
 
         ShopInstance shop = ShopEditorState.get().getDraftShop();
@@ -111,8 +145,8 @@ public class ShopCategoryWorkspaceView extends LinearBox {
             VBox card = new VBox();
             card.spacing(3.0f);
             card.layout(style -> style
-                    .height(84.0f)
-                    .padding(8.0f)
+                    .height(96.0f)
+                    .padding(6.0f)
                     .alignItems(Align.CENTER)
                     .justifyContent(Justify.CENTER)
                     .flexNone()
@@ -127,7 +161,27 @@ public class ShopCategoryWorkspaceView extends LinearBox {
             card.borderWidth(isSelected ? 2.0f : 1.0f);
             card.radius(ShopTheme.RADIUS_CARD);
 
-            Label idLbl = new Label(cat.getId() != null ? cat.getId() : "unnamed");
+            // Визуальная иконка категории
+            if (cat.getIconType() == CatalogComponent.IconType.ITEM && cat.getIconItem() != null && !cat.getIconItem().isEmpty()) {
+                ShopItemWidget itemSlot = new ShopItemWidget(cat.getIconItem(), 20.0f).asSlot(24.0f, 24.0f);
+                itemSlot.background().set(UnityStyles.BG_INPUT);
+                itemSlot.borderWidth(1.0f);
+                itemSlot.radius(3.0f);
+                itemSlot.layout(s -> s.fixed(24.0f, 24.0f).flexNone());
+                card.addChild(itemSlot);
+            } else if (cat.getIconType() == CatalogComponent.IconType.TEXTURE && cat.getIconTexture() != null
+                    && !CatalogComponent.EMPTY_ICON_TEXTURE.equals(cat.getIconTexture())) {
+                String tex = cat.getIconTexture().toString();
+                ImageView img = new ImageView(new dev.sixik.unigui.api.render.SimpleTextureHandle(tex, 24, 24, tex));
+                img.layout(s -> s.size(24.0f, 24.0f).flexNone());
+                card.addChild(img);
+            } else {
+                CanvasWidget cube = UnityIcons.gameObjectIcon(20.0f, () -> UnityIcons.ShopObjectType.CATEGORY);
+                cube.layout(s -> s.size(20.0f, 20.0f).flexNone());
+                card.addChild(cube);
+            }
+
+            Label idLbl = new Label(cat.getId() != null && !cat.getId().isBlank() ? cat.getId() : "unnamed");
             idLbl.color(isSelected ? UnityStyles.TEXT_BOLD : UnityStyles.TEXT_PRIMARY);
             Label orderLbl = new Label("Order: " + cat.getOrder());
             orderLbl.color(UnityStyles.TEXT_MUTED);
@@ -135,10 +189,72 @@ public class ShopCategoryWorkspaceView extends LinearBox {
             card.addChild(idLbl);
             card.addChild(orderLbl);
 
+            // Drag and Drop для категорий
+            String catName = cat.getId() != null ? cat.getId() : "Category";
+            DragController.attach(card)
+                    .dragged(card)
+                    .payload(() -> DragPayload.of(
+                            cat.getUuid() != null ? cat.getUuid().toString() : catName,
+                            "shop.category",
+                            catName,
+                            cat
+                    ))
+                    .threshold(4.0f)
+                    .sourceOpacity(0.4f)
+                    .ghost(card)
+                    .ghostOpacity(0.8f)
+                    .onDragStart(session -> {
+                        ShopEditorState.get().selectTarget(cat);
+                    });
+
+            DropController.attach(card)
+                    .accepts("shop.category")
+                    .onDragEnter(e -> {
+                        card.border(UnityStyles.SELECTION_BLUE);
+                        card.borderWidth(2.0f);
+                    })
+                    .onDragLeave(e -> {
+                        boolean selected = cat == ShopEditorState.get().getSelectedTarget();
+                        if (selected) {
+                            card.border(UnityStyles.SELECTION_BLUE);
+                            card.borderWidth(2.0f);
+                        } else {
+                            card.border(UnityStyles.BORDER_DEFAULT);
+                            card.borderWidth(1.0f);
+                        }
+                    })
+                    .onDrop(e -> {
+                        DragPayload payload = e.payload();
+                        if (payload != null && payload.matchesType("shop.category")) {
+                            CatalogComponent draggedCat = payload.data(CatalogComponent.class);
+                            if (draggedCat != null && !draggedCat.getUuid().equals(cat.getUuid())) {
+                                ShopInstance shopInstance = ShopEditorState.get().getDraftShop();
+                                if (shopInstance != null && shopInstance.getCategories() != null) {
+                                    List<CatalogComponent> allCats = shopInstance.getCategories().getCatalogsComponents();
+                                    int targetIdx = -1;
+                                    for (int i = 0; i < allCats.size(); i++) {
+                                        if (allCats.get(i).getUuid().equals(cat.getUuid())) {
+                                            targetIdx = i;
+                                            break;
+                                        }
+                                    }
+                                    if (targetIdx >= 0) {
+                                        ShopEditorState.get().moveCategoryToIndex(draggedCat, targetIdx);
+                                        refreshView();
+                                    }
+                                }
+                            }
+                        }
+                    });
+
             card.on(PointerPressedEvent.TYPE, event -> {
                 if (event.button() == PointerButton.PRIMARY) {
                     ShopEditorState.get().selectTarget(cat);
                     refreshView();
+                    event.cancel();
+                } else if (event.button() == PointerButton.SECONDARY) {
+                    ShopEditorState.get().selectTarget(cat);
+                    openCategoryContextMenu(event.rootX(), event.rootY(), cat);
                     event.cancel();
                 }
             });
@@ -146,6 +262,76 @@ public class ShopCategoryWorkspaceView extends LinearBox {
             categoryCards.put(cat, card);
             grid.addChild(card);
         }
+    }
+
+    private void openCategoryContextMenu(float x, float y, CatalogComponent cat) {
+        OverlayLayer layer = findOverlayLayer();
+        if (layer == null) return;
+
+        if (activeCategoryContextMenu != null) {
+            layer.removeOverlay(activeCategoryContextMenu);
+            activeCategoryContextMenu = null;
+        }
+
+        ShopInstance shop = ShopEditorState.get().getDraftShop();
+        if (shop == null || shop.getCategories() == null) return;
+
+        List<CatalogComponent> list = shop.getCategories().getCatalogsComponents();
+        int index = -1;
+        for (int i = 0; i < list.size(); i++) {
+            if (list.get(i).getUuid().equals(cat.getUuid())) {
+                index = i;
+                break;
+            }
+        }
+        int total = list.size();
+        boolean canMoveUp = index > 0;
+        boolean canMoveDown = index >= 0 && index < total - 1;
+
+        float menuWidth = 140.0f;
+        ContextMenu menu = new ContextMenu();
+        UnityStyles.styleContextMenu(menu);
+
+        // 1. Move Up
+        UnityStyles.addContextMenuItem(menu, "Move Up", canMoveUp, menuWidth, () -> {
+            ShopEditorState.get().moveCategory(cat, -1);
+            refreshView();
+        });
+
+        // 2. Move Down
+        UnityStyles.addContextMenuItem(menu, "Move Down", canMoveDown, menuWidth, () -> {
+            ShopEditorState.get().moveCategory(cat, 1);
+            refreshView();
+        });
+
+        UnityStyles.addContextMenuSeparator(menu, menuWidth);
+
+        // 3. Duplicate
+        UnityStyles.addContextMenuItem(menu, "Duplicate", true, menuWidth, () -> {
+            ShopEditorState.get().duplicateCategory(cat);
+            refreshView();
+        });
+
+        UnityStyles.addContextMenuSeparator(menu, menuWidth);
+
+        // 4. Delete
+        UnityStyles.addContextMenuItem(menu, "Delete", true, menuWidth, () -> {
+            ShopEditorState.get().deleteCategory(cat);
+            refreshView();
+        });
+
+        menu.openAt(x, y);
+        layer.addOverlay(menu);
+        activeCategoryContextMenu = menu;
+    }
+
+    private OverlayLayer findOverlayLayer() {
+        Widget current = this;
+        while (current != null) {
+            if (current instanceof OverlayLayer layer) return layer;
+            current = current.parent();
+        }
+        return ShopEditorScreen.getActiveOverlay();
     }
 
     public void scrollToCategory(CatalogComponent cat) {

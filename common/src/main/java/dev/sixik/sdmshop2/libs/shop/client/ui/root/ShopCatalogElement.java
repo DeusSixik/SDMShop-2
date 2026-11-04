@@ -1,5 +1,6 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.root;
 
+import dev.sixik.sdmshop2.libs.sdmeconomy.CurrencyDraft;
 import dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
@@ -568,6 +569,20 @@ public class ShopCatalogElement extends LinearBox {
         if (cost instanceof ItemCostComponent itemCost) {
             return new CostEntry(itemCost.getItem(), null, formatted, cost);
         } else if (cost instanceof MoneyCostComponent moneyCost) {
+            if (ShopEditorState.get().isEditorMode()) {
+                CurrencyDraft draft = ShopEditorState.get().findCurrencyDraft(moneyCost.getMoneyId());
+                if (draft != null) {
+                    if (draft.kind() == CurrencyDraft.Kind.ITEM && draft.itemStack() != null && !draft.itemStack().isEmpty()) {
+                        return new CostEntry(draft.itemStack(), null, formatted, cost);
+                    } else if (draft.kind() == CurrencyDraft.Kind.TEXT) {
+                        String sym = draft.iconText();
+                        if (sym == null || sym.isBlank() || sym.equals("◎")) {
+                            return new CostEntry(new ItemStack(Items.GOLD_NUGGET), null, formatted, cost);
+                        }
+                        return new CostEntry(null, sym, formatted, cost);
+                    }
+                }
+            }
             ICurrency currency = SDMEconomyServiceClient.getCurrency(moneyCost.getMoneyId());
             if (currency != null) {
                 CurrencyIcon curIcon = currency.getIcon();

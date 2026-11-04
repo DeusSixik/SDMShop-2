@@ -222,6 +222,12 @@ public class ShopHierarchyView extends LinearBox {
         nodeTypeMap.put(currenciesGroupNode, UnityIcons.ShopObjectType.CURRENCIES_FOLDER);
 
         for (ICurrency currency : SDMEconomyServiceClient.getAllCurrencies().values()) {
+            if (ShopEditorState.get().isCurrencyDeleted(currency.getId())) {
+                continue;
+            }
+            if (ShopEditorState.get().hasCurrencyDraft(currency.getId())) {
+                continue;
+            }
             String name = currency.getDisplayName().getString();
             if (!currentSearch.isEmpty() && !name.toLowerCase(Locale.ROOT).contains(currentSearch)) {
                 continue;
@@ -234,6 +240,9 @@ public class ShopHierarchyView extends LinearBox {
 
         if (ShopEditorState.get().getSession() != null) {
             for (CurrencyDraft draft : ShopEditorState.get().getSession().currencyDrafts()) {
+                if (draft.kind() == CurrencyDraft.Kind.DELETE) {
+                    continue;
+                }
                 if (!currentSearch.isEmpty() && !draft.displayName().toLowerCase(Locale.ROOT).contains(currentSearch)) {
                     continue;
                 }
@@ -256,7 +265,7 @@ public class ShopHierarchyView extends LinearBox {
     }
 
     private void syncWithState() {
-        syncSelection();
+        rebuildTree();
     }
 
     private void syncSelection() {
@@ -323,7 +332,8 @@ public class ShopHierarchyView extends LinearBox {
         ContextMenu menu = new ContextMenu();
         UnityStyles.styleContextMenu(menu);
 
-        boolean canDelete = !(target instanceof ICurrency);
+        boolean canDelete = !(target instanceof ICurrency cur && ShopEditorState.get().isDefaultCurrency(cur.getId()))
+                && !(target instanceof CurrencyDraft draft && ShopEditorState.get().isDefaultCurrency(draft.id()));
         boolean canDuplicate = true;
 
         // 1. Delete
@@ -334,6 +344,8 @@ public class ShopHierarchyView extends LinearBox {
                 ShopEditorState.get().deleteCategory(cat);
             } else if (target instanceof CurrencyDraft draft) {
                 ShopEditorState.get().deleteCurrency(draft);
+            } else if (target instanceof ICurrency cur) {
+                ShopEditorState.get().deleteCurrency(cur);
             }
             rebuildTree();
         });

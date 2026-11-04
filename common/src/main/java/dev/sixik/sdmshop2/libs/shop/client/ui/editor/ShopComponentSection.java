@@ -425,7 +425,16 @@ public class ShopComponentSection extends LinearBox {
             }
         } else if ("sdm:money_ids".equals(provider)) {
             for (ICurrency currency : SDMEconomyServiceClient.getAllCurrencies().values()) {
-                list.add(currency.getId().toString());
+                if (!ShopEditorState.get().isCurrencyDeleted(currency.getId())) {
+                    list.add(currency.getId().toString());
+                }
+            }
+            if (ShopEditorState.get().getSession() != null) {
+                for (dev.sixik.sdmshop2.libs.sdmeconomy.CurrencyDraft draft : ShopEditorState.get().getSession().currencyDrafts()) {
+                    if (draft.kind() != dev.sixik.sdmshop2.libs.sdmeconomy.CurrencyDraft.Kind.DELETE && !list.contains(draft.id().toString())) {
+                        list.add(draft.id().toString());
+                    }
+                }
             }
         }
         return list;

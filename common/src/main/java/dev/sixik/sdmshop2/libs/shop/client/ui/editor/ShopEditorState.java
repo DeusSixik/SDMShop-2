@@ -267,7 +267,23 @@ public final class ShopEditorState {
 
         // Если были изменения валют
         if (!session.currencyDrafts().isEmpty()) {
-            ShopNetworkManager.sendCurrencyChanges(session.currencyDrafts());
+            List<CurrencyDraft> draftsToSend = List.copyOf(session.currencyDrafts());
+            ShopNetworkManager.sendCurrencyChanges(draftsToSend).thenAccept(curSuccess -> {
+                Minecraft.getInstance().execute(() -> {
+                    if (curSuccess) {
+                        session.setCurrencyDrafts(new ArrayList<>());
+                        markDirty();
+                        ShopToastHelper.success(Component.literal("Currency changes successfully saved on server!"));
+                    } else {
+                        ShopToastHelper.error(Component.literal("Server rejected currency changes!"));
+                    }
+                });
+            }).exceptionally(ex -> {
+                Minecraft.getInstance().execute(() -> {
+                    ShopToastHelper.error(Component.literal("Network error while sending currency changes: " + ex.getMessage()));
+                });
+                return null;
+            });
         }
     }
 
@@ -555,8 +571,7 @@ public final class ShopEditorState {
         cat.setIconType(CatalogComponent.IconType.ITEM);
         cat.setIconItem(Items.CHEST.getDefaultInstance());
 
-        // Добавляем категорию в контейнер категорий
-        draftShop.getCategories().getCatalogsComponents().add(cat);
+        draftShop.getCategories().addCategory(cat);
         session.recordHistory("category.create", "CatalogComponent", cat.getUuid(), cat.getType().getId(), "Created category " + catId);
         selectTarget(cat);
         markDirty();
@@ -568,7 +583,7 @@ public final class ShopEditorState {
             return;
         }
 
-        draftShop.getCategories().getCatalogsComponents().remove(cat);
+        draftShop.getCategories().removeCategory(cat.getUuid());
         session.recordHistory("category.delete", "CatalogComponent", cat.getUuid(), cat.getType().getId(), "Deleted category " + cat.getId());
         if (selectedTarget == cat) {
             selectedTarget = null;
@@ -585,9 +600,8 @@ public final class ShopEditorState {
         copy.setUuid(UUID.randomUUID());
         String baseId = cat.getId() != null ? cat.getId() : "cat";
         copy.setId(baseId + "_copy");
-        copy.setOrder(cat.getOrder() + 1);
 
-        draftShop.getCategories().getCatalogsComponents().add(copy);
+        draftShop.getCategories().addCategory(copy);
         session.recordHistory("category.duplicate", "CatalogComponent", copy.getUuid(), copy.getType().getId(), "Duplicated category " + copy.getId());
         ShopToastHelper.success(Component.literal("Category duplicated"));
         selectTarget(copy);
@@ -595,7 +609,111 @@ public final class ShopEditorState {
         return copy;
     }
 
+    public boolean moveCategory(CatalogComponent cat, int offset) {
+        if (draftShop == null || session == null || cat == null || draftShop.getCategories() == null) {
+            return false;
+        }
+        boolean moved = draftShop.getCategories().moveCategory(cat.getUuid(), offset);
+        if (moved) {
+            session.recordHistory("category.move", "CatalogComponent", cat.getUuid(), null, "Moved category offset " + offset);
+            markDirty();
+            return true;
+        }
+        return false;
+    }
+
+    public boolean moveCategoryToIndex(CatalogComponent cat, int targetIndex) {
+        if (draftShop == null || session == null || cat == null || draftShop.getCategories() == null) {
+            return false;
+        }
+        boolean moved = draftShop.getCategories().moveCategoryToIndex(cat.getUuid(), targetIndex);
+        if (moved) {
+            session.recordHistory("category.reorder", "CatalogComponent", cat.getUuid(), null, "Reordered category to index " + targetIndex);
+            markDirty();
+            return true;
+        }
+        return false;
+    }
+
     // --- Управление валютами (Currencies) ---
+
+    public boolean isDefaultCurrency(@Nullable ResourceLocation id) {
+        if (id == null) return false;
+        return "sdm".equals(id.getNamespace()) && "coin".equals(id.getPath());
+    }
+
+    public boolean isCurrencyDeleted(@Nullable ResourceLocation id) {
+        if (session == null || id == null) return false;
+        for (CurrencyDraft d : session.currencyDrafts()) {
+            if (d.kind() == CurrencyDraft.Kind.DELETE && d.id().equals(id)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean hasCurrencyDraft(@Nullable ResourceLocation id) {
+        if (session == null || id == null) return false;
+        for (CurrencyDraft d : session.currencyDrafts()) {
+            if (d.kind() != CurrencyDraft.Kind.DELETE && d.id().equals(id)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Nullable
+    public CurrencyDraft findCurrencyDraft(@Nullable ResourceLocation id) {
+        if (session == null || id == null) return null;
+        for (CurrencyDraft d : session.currencyDrafts()) {
+            if (d.kind() != CurrencyDraft.Kind.DELETE && d.id().equals(id)) {
+                return d;
+            }
+        }
+        return null;
+    }
+
+    public CurrencyDraft getOrCreateCurrencyDraft(dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency currency) {
+        if (session == null || currency == null) return null;
+        CurrencyDraft existing = findCurrencyDraft(currency.getId());
+        if (existing != null) return existing;
+
+        CurrencyDraft draft = CurrencyDraft.fromCurrency(currency);
+        if (draft == null) {
+            draft = CurrencyDraft.text(currency.getId(), currency.getDisplayName().getString(), "$");
+        }
+        List<CurrencyDraft> list = new ArrayList<>(session.currencyDrafts());
+        list.add(draft);
+        session.setCurrencyDrafts(list);
+        session.recordHistory("currency.edit", "CurrencyDraft", null, draft.id(), "Started editing currency " + draft.id());
+        selectTarget(draft);
+        markDirty();
+        return draft;
+    }
+
+    public void updateCurrencyDraft(CurrencyDraft oldDraft, CurrencyDraft newDraft) {
+        if (session == null || oldDraft == null || newDraft == null) return;
+        List<CurrencyDraft> list = new ArrayList<>(session.currencyDrafts());
+        int idx = -1;
+        for (int i = 0; i < list.size(); i++) {
+            if (list.get(i).id().equals(oldDraft.id())) {
+                idx = i;
+                break;
+            }
+        }
+        if (idx >= 0) {
+            list.set(idx, newDraft);
+        } else {
+            list.add(newDraft);
+        }
+        session.setCurrencyDrafts(list);
+        session.recordHistory("currency.update", "CurrencyDraft", null, newDraft.id(), "Updated currency draft " + newDraft.id());
+        if (selectedTarget == oldDraft || (selectedTarget instanceof CurrencyDraft cd && cd.id().equals(oldDraft.id()))
+                || (selectedTarget instanceof dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency ic && ic.getId().equals(oldDraft.id()))) {
+            selectedTarget = newDraft;
+        }
+        markDirty();
+    }
 
     public CurrencyDraft createNewCurrency() {
         if (session == null) {
@@ -618,15 +736,47 @@ public final class ShopEditorState {
         if (session == null || currency == null) {
             return;
         }
+        if (isDefaultCurrency(currency.id())) {
+            ShopToastHelper.warning(Component.literal("Default currency (sdm:coin) cannot be deleted."));
+            return;
+        }
 
         List<CurrencyDraft> list = new ArrayList<>(session.currencyDrafts());
         list.remove(currency);
+
+        boolean existsOnServer = dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient.getAllCurrencies().containsKey(currency.id());
+        if (existsOnServer) {
+            list.add(CurrencyDraft.delete(currency.id()));
+        }
+
         session.setCurrencyDrafts(list);
-        session.recordHistory("currency.delete", "CurrencyDraft", null, currency.id(), "Deleted currency draft " + currency.id());
+        session.recordHistory("currency.delete", "CurrencyDraft", null, currency.id(), "Deleted currency " + currency.id());
         if (selectedTarget == currency) {
             selectedTarget = null;
         }
         markDirty();
+        ShopToastHelper.info(Component.literal("Currency deleted"));
+    }
+
+    public void deleteCurrency(dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency currency) {
+        if (session == null || currency == null) {
+            return;
+        }
+        if (isDefaultCurrency(currency.getId())) {
+            ShopToastHelper.warning(Component.literal("Default currency (sdm:coin) cannot be deleted."));
+            return;
+        }
+
+        List<CurrencyDraft> list = new ArrayList<>(session.currencyDrafts());
+        list.removeIf(d -> d.id().equals(currency.getId()));
+        list.add(CurrencyDraft.delete(currency.getId()));
+        session.setCurrencyDrafts(list);
+        session.recordHistory("currency.delete", "ICurrency", null, currency.getId(), "Marked currency for deletion: " + currency.getId());
+        if (selectedTarget == currency) {
+            selectedTarget = null;
+        }
+        markDirty();
+        ShopToastHelper.info(Component.literal("Currency marked for deletion"));
     }
 
     public CurrencyDraft duplicateCurrency(CurrencyDraft currency) {
