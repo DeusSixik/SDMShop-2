@@ -9,6 +9,7 @@ import dev.sixik.unigui.api.core.UnityLikeUIScaleProvider;
 import dev.sixik.unigui.api.layout.Align;
 import dev.sixik.unigui.api.layout.Justify;
 import dev.sixik.unigui.api.layout.Overflow;
+import dev.sixik.unigui.api.math.RectView;
 import dev.sixik.unigui.api.render.UiRenderPolicy;
 import dev.sixik.unigui.api.screen.UniScreen;
 import dev.sixik.unigui.api.text.Fonts;
@@ -18,6 +19,7 @@ import dev.sixik.unigui.widgets.containers.*;
 import dev.sixik.unigui.widgets.display.CanvasWidget;
 import dev.sixik.unigui.widgets.display.Label;
 import dev.sixik.unigui.widgets.docking.*;
+import dev.sixik.unigui.widgets.feedback.ContextMenu;
 import dev.sixik.unigui.widgets.feedback.OverlayLayer;
 import dev.sixik.unigui.widgets.interaction.Button;
 
@@ -28,15 +30,25 @@ import java.util.Map;
 /**
  * Полноэкранный редактор магазина SDMShop-2 в стиле Unity Editor.
  * Воспроизводит компоновку Unity:
+ * - Сверху: Toolbar с выпадающими меню (File, Window), заголовком и быстрыми действиями
  * - Слева: Hierarchy (поиск и дерево категорий, товаров, валют)
  * - По центру: 3 вкладки вместо Scene/Game — Catalog, Category, Money
  * - Справа: Inspector (компоненты, свойства и кнопка Add Component)
  */
 public final class ShopEditorScreen {
 
+    private enum MenuId {
+        FILE,
+        WINDOW
+    }
+
     private static UniScreen currentScreen;
     private static OverlayLayer activeOverlay;
     private static ShopHierarchyView hierarchyView;
+    private static DockingRoot dockingRoot;
+    private static final Map<String, DockPane> paneRegistry = new HashMap<>();
+    private static ContextMenu activeMenu = null;
+    private static MenuId lastOpenedMenuId = null;
 
     private ShopEditorScreen() {}
 
@@ -45,10 +57,17 @@ public final class ShopEditorScreen {
     }
 
     public static void close() {
+        closeActiveMenu();
         if (currentScreen != null) {
-            currentScreen.closeGui();
+            try {
+                currentScreen.closeGui();
+            } catch (Exception ignored) {}
             currentScreen = null;
         }
+        activeOverlay = null;
+        hierarchyView = null;
+        dockingRoot = null;
+        paneRegistry.clear();
     }
 
     public static OverlayLayer getActiveOverlay() {
@@ -57,6 +76,44 @@ public final class ShopEditorScreen {
 
     public static ShopHierarchyView getHierarchyView() {
         return hierarchyView;
+    }
+
+    public static DockingRoot getDockingRoot() {
+        return dockingRoot;
+    }
+
+    public static Map<String, DockPane> getPaneRegistry() {
+        return paneRegistry;
+    }
+
+    public static void closeActiveMenu() {
+        if (activeMenu != null) {
+            ContextMenu m = activeMenu;
+            activeMenu = null;
+            lastOpenedMenuId = null;
+            try {
+                m.close();
+            } catch (Exception ignored) {}
+            if (activeOverlay != null) {
+                try {
+                    activeOverlay.removeOverlay(m);
+                } catch (Exception ignored) {}
+            }
+        }
+    }
+
+    public static void openResetSessionModal() {
+        if (activeOverlay != null) {
+            activeOverlay.addOverlay(new ShopResetSessionModal());
+        } else {
+            ShopScreenController.openModal(new ShopResetSessionModal());
+        }
+    }
+
+    public static void closeEditor() {
+        close();
+        ShopEditorState.get().exitEditor();
+        ShopScreenController.openShop();
     }
 
     public static UniScreen createScreen() {
@@ -104,8 +161,8 @@ public final class ShopEditorScreen {
         ShopInspectorView inspectorView = new ShopInspectorView(activeOverlay);
 
         // 2. Создание DockingRoot и настройка темы Unity
-        DockingRoot dockingRoot = new DockingRoot();
-        dockingRoot.layout(style -> style.widthPercent(100.0f).heightPercent(100.0f)
+        DockingRoot root = new DockingRoot();
+        root.layout(style -> style.widthPercent(100.0f).heightPercent(100.0f)
                 .flexGrow(1.0f).flexShrink(1.0f));
 
         DockTheme theme = DockTheme.editor();
@@ -128,11 +185,11 @@ public final class ShopEditorScreen {
         theme.splitThickness(3.0f);
         theme.tabHeight(22.0f);
 
-        dockingRoot.theme(theme);
-        dockingRoot.tabHeight(22.0f);
-        dockingRoot.splitHandleThickness(3.0f);
-        dockingRoot.splitHandleStyle(DockingRoot.SplitHandleStyle.SEAM);
-        dockingRoot.tearOffOnDragOut(false);
+        root.theme(theme);
+        root.tabHeight(22.0f);
+        root.splitHandleThickness(3.0f);
+        root.splitHandleStyle(DockingRoot.SplitHandleStyle.SEAM);
+        root.tearOffOnDragOut(false);
 
         // Регистрация панелей
         DockPane hierarchyPane = DockPane.tool("hierarchy", "Hierarchy", hierarchyView)
@@ -146,7 +203,8 @@ public final class ShopEditorScreen {
         DockPane inspectorPane = DockPane.tool("inspector", "Inspector", inspectorView)
                 .icon(UnityIcons.INSPECTOR_TAB_ICON);
 
-        Map<String, DockPane> paneRegistry = new HashMap<>();
+        dockingRoot = root;
+        paneRegistry.clear();
         paneRegistry.put("hierarchy", hierarchyPane);
         paneRegistry.put("catalog", catalogPane);
         paneRegistry.put("category", categoryPane);
@@ -175,7 +233,7 @@ public final class ShopEditorScreen {
         return viewport;
     }
 
-    private static DockLayoutSnapshot buildDefaultLayoutSnapshot() {
+    public static DockLayoutSnapshot buildDefaultLayoutSnapshot() {
         DockLayoutSnapshot.Node centerDocs = new DockLayoutSnapshot.Node(
                 DockNode.Kind.LEAF, null, 1.0f, List.of("catalog", "category", "money"), "catalog", null, null);
         DockLayoutSnapshot.Node inspectorLeaf = new DockLayoutSnapshot.Node(
@@ -207,6 +265,29 @@ public final class ShopEditorScreen {
         });
         toolbar.addChild(cubeIcon);
 
+        // Кнопка меню File
+        Button fileBtn = new Button("File");
+        styleToolbarMenuButton(fileBtn);
+        fileBtn.layout(style -> style.height(20.0f).flexNone());
+        fileBtn.onClick(e -> openFileMenu(fileBtn));
+        toolbar.addChild(fileBtn);
+
+        // Кнопка меню Window
+        Button windowBtn = new Button("Window");
+        styleToolbarMenuButton(windowBtn);
+        windowBtn.layout(style -> style.height(20.0f).flexNone());
+        windowBtn.onClick(e -> openWindowMenu(windowBtn));
+        toolbar.addChild(windowBtn);
+
+        // Разделитель между меню и заголовком
+        Box menuDivider = new Box();
+        menuDivider.themeEnabled(false);
+        menuDivider.backgroundVisible(true);
+        menuDivider.background().set(UnityStyles.BORDER_DEFAULT);
+        menuDivider.borderVisible(false);
+        menuDivider.layout(style -> style.width(1.0f).height(14.0f).margin(2.0f, 0.0f).flexNone());
+        toolbar.addChild(menuDivider);
+
         ShopInstance shop = ShopEditorState.get().getDraftShop();
         String shopIdStr = shop != null && shop.getId() != null ? shop.getId().toString() : "Shop";
         Label titleLbl = new Label("SDMShop Editor — " + shopIdStr);
@@ -235,34 +316,198 @@ public final class ShopEditorScreen {
         Button resetBtn = new Button("Reset Session");
         UnityStyles.styleButton(resetBtn);
         resetBtn.layout(style -> style.height(20.0f).flexNone());
-        resetBtn.onClick(e -> {
-            if (activeOverlay != null) {
-                activeOverlay.addOverlay(new ShopResetSessionModal());
-            } else {
-                ShopScreenController.openModal(new ShopResetSessionModal());
-            }
-        });
+        resetBtn.onClick(e -> openResetSessionModal());
         toolbar.addChild(resetBtn);
 
-        // Кнопка Send Changes
+        // Кнопка Send Changes (обычный цвет текста)
         Button sendChangesBtn = new Button("Send Changes");
         UnityStyles.styleButton(sendChangesBtn);
-        sendChangesBtn.textColor().set(UnityStyles.SELECTION_BLUE);
+        sendChangesBtn.textColor().set(UnityStyles.TEXT_PRIMARY);
         sendChangesBtn.layout(style -> style.height(20.0f).flexNone());
         sendChangesBtn.onClick(e -> ShopEditorState.get().sendChanges());
         toolbar.addChild(sendChangesBtn);
 
-        // Кнопка Back to Shop (View)
-        Button backBtn = new Button("✕ Back to Shop");
-        UnityStyles.styleButton(backBtn);
-        backBtn.layout(style -> style.height(20.0f).flexNone());
-        backBtn.onClick(e -> {
-            close();
-            ShopEditorState.get().exitEditor();
-            ShopScreenController.openShop();
-        });
-        toolbar.addChild(backBtn);
+        // Кнопка Close
+        Button closeBtn = new Button("Close");
+        UnityStyles.styleButton(closeBtn);
+        closeBtn.layout(style -> style.height(20.0f).flexNone());
+        closeBtn.onClick(e -> closeEditor());
+        toolbar.addChild(closeBtn);
 
         return toolbar;
+    }
+
+    private static void styleToolbarMenuButton(Button button) {
+        UnityStyles.styleButton(button);
+        button.borderVisible(false);
+        button.background().set(UnityStyles.BG_WORKSPACE);
+        button.textColor().set(UnityStyles.TEXT_PRIMARY);
+    }
+
+    private static void openFileMenu(Button anchor) {
+        if (activeMenu != null && lastOpenedMenuId == MenuId.FILE && activeMenu.opened()) {
+            closeActiveMenu();
+            return;
+        }
+        closeActiveMenu();
+
+        float menuWidth = 160.0f;
+        ContextMenu menu = new ContextMenu();
+        UnityStyles.styleContextMenu(menu);
+
+        UnityStyles.addContextMenuItem(menu, "Reset Session", true, menuWidth, () -> {
+            closeActiveMenu();
+            openResetSessionModal();
+        });
+
+        UnityStyles.addContextMenuItem(menu, "Send Changes", true, menuWidth, () -> {
+            closeActiveMenu();
+            ShopEditorState.get().sendChanges();
+        });
+
+        UnityStyles.addContextMenuSeparator(menu, menuWidth);
+
+        UnityStyles.addContextMenuItem(menu, "Close", true, menuWidth, () -> {
+            closeActiveMenu();
+            closeEditor();
+        });
+
+        float rootX = getRootX(anchor);
+        float rootY = getRootY(anchor) + anchor.layoutBounds().height() + 2.0f;
+        menu.openAt(rootX, rootY);
+        if (activeOverlay != null) {
+            activeOverlay.addOverlay(menu);
+        }
+        activeMenu = menu;
+        lastOpenedMenuId = MenuId.FILE;
+    }
+
+    private static void openWindowMenu(Button anchor) {
+        if (activeMenu != null && lastOpenedMenuId == MenuId.WINDOW && activeMenu.opened()) {
+            closeActiveMenu();
+            return;
+        }
+        closeActiveMenu();
+
+        float menuWidth = 190.0f;
+        ContextMenu menu = new ContextMenu();
+        UnityStyles.styleContextMenu(menu);
+
+        addWindowMenuItem(menu, "Hierarchy", "hierarchy", menuWidth);
+        addWindowMenuItem(menu, "Catalog", "catalog", menuWidth);
+        addWindowMenuItem(menu, "Category", "category", menuWidth);
+        addWindowMenuItem(menu, "Money", "money", menuWidth);
+        addWindowMenuItem(menu, "Inspector", "inspector", menuWidth);
+
+        UnityStyles.addContextMenuSeparator(menu, menuWidth);
+
+        UnityStyles.addContextMenuItem(menu, "Restore Default Layout", true, menuWidth, () -> {
+            closeActiveMenu();
+            restoreDefaultLayout();
+        });
+
+        float rootX = getRootX(anchor);
+        float rootY = getRootY(anchor) + anchor.layoutBounds().height() + 2.0f;
+        menu.openAt(rootX, rootY);
+        if (activeOverlay != null) {
+            activeOverlay.addOverlay(menu);
+        }
+        activeMenu = menu;
+        lastOpenedMenuId = MenuId.WINDOW;
+    }
+
+    private static void addWindowMenuItem(ContextMenu menu, String title, String paneId, float menuWidth) {
+        boolean isOpen = dockingRoot != null && dockingRoot.findPane(paneId) != null;
+        String shortcut = isOpen ? "✓" : "";
+        UnityStyles.addContextMenuItem(menu, title, shortcut, true, menuWidth, () -> {
+            closeActiveMenu();
+            restoreOrFocusPane(paneId);
+        });
+    }
+
+    public static void restoreOrFocusPane(String paneId) {
+        if (dockingRoot == null) return;
+        DockPane pane = paneRegistry.get(paneId);
+        if (pane == null) return;
+
+        if (dockingRoot.findPane(paneId) != null) {
+            dockingRoot.selectPane(paneId);
+            return;
+        }
+
+        try {
+            switch (paneId) {
+                case "hierarchy" -> {
+                    String centerId = findAnyOpenPane("catalog", "category", "money", "inspector");
+                    if (centerId != null) {
+                        dockingRoot.splitPane(centerId, DockArea.LEFT, pane, 0.20f);
+                    } else {
+                        dockingRoot.addPane(pane);
+                    }
+                }
+                case "inspector" -> {
+                    String centerId = findAnyOpenPane("catalog", "category", "money", "hierarchy");
+                    if (centerId != null) {
+                        dockingRoot.splitPane(centerId, DockArea.RIGHT, pane, 0.25f);
+                    } else {
+                        dockingRoot.addPane(pane);
+                    }
+                }
+                case "catalog", "category", "money" -> {
+                    String existingDoc = findAnyOpenPane("catalog", "category", "money");
+                    if (existingDoc != null) {
+                        dockingRoot.tabPane(existingDoc, pane);
+                    } else if (dockingRoot.findPane("hierarchy") != null) {
+                        dockingRoot.splitPane("hierarchy", DockArea.RIGHT, pane, 0.75f);
+                    } else if (dockingRoot.findPane("inspector") != null) {
+                        dockingRoot.splitPane("inspector", DockArea.LEFT, pane, 0.75f);
+                    } else {
+                        dockingRoot.addPane(pane);
+                    }
+                }
+                default -> dockingRoot.addPane(pane);
+            }
+        } catch (Exception e) {
+            restoreDefaultLayout();
+        }
+        dockingRoot.selectPane(paneId);
+    }
+
+    private static String findAnyOpenPane(String... candidateIds) {
+        if (dockingRoot == null) return null;
+        for (String id : candidateIds) {
+            if (dockingRoot.findPane(id) != null) {
+                return id;
+            }
+        }
+        return null;
+    }
+
+    public static void restoreDefaultLayout() {
+        if (dockingRoot != null && !paneRegistry.isEmpty()) {
+            dockingRoot.restoreLayout(buildDefaultLayoutSnapshot(), paneRegistry);
+        }
+    }
+
+    private static float getRootX(Widget widget) {
+        float x = 0.0f;
+        Widget cur = widget;
+        while (cur != null) {
+            if (cur instanceof OverlayLayer) break;
+            x += cur.layoutBounds().x();
+            cur = cur.parent();
+        }
+        return x;
+    }
+
+    private static float getRootY(Widget widget) {
+        float y = 0.0f;
+        Widget cur = widget;
+        while (cur != null) {
+            if (cur instanceof OverlayLayer) break;
+            y += cur.layoutBounds().y();
+            cur = cur.parent();
+        }
+        return y;
     }
 }
