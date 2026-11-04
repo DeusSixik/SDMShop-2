@@ -130,3 +130,7 @@ fabric/build/
 fabric/run/
 fabric/.gradle/
 /common/logs
+/demo
+/demo
+/info
+/info
