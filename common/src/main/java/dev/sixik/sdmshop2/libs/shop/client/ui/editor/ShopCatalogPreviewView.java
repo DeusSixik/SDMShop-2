@@ -234,12 +234,40 @@ public class ShopCatalogPreviewView extends LinearBox {
         }
     }
 
+    private ShopOffer pendingScrollOffer;
+
+    public void scrollToOffer(ShopOffer offer) {
+        if (offer == null) return;
+        if (!scrollToOfferInternal(offer)) {
+            this.pendingScrollOffer = offer;
+        }
+    }
+
+    private boolean scrollToOfferInternal(ShopOffer offer) {
+        if (scrollView == null) return false;
+        for (ShopCatalogElement card : currentCards) {
+            if (card.getOffer() == offer || (card.getOffer() != null && offer.getUUID() != null && offer.getUUID().equals(card.getOffer().getUUID()))) {
+                float targetY = card.layoutBounds().y();
+                if (targetY > 0.0f || card.layoutBounds().height() > 0.0f) {
+                    scrollView.scrollTo(0.0f, Math.max(0.0f, targetY - 16.0f));
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     @Override
     public void tick(FrameContext context) {
         super.tick(context);
         if (pendingScrollY >= 0.0f && scrollView != null) {
             scrollView.scrollTo(0.0f, pendingScrollY);
             pendingScrollY = -1.0f;
+        }
+        if (pendingScrollOffer != null && scrollView != null) {
+            if (scrollToOfferInternal(pendingScrollOffer)) {
+                pendingScrollOffer = null;
+            }
         }
     }
 

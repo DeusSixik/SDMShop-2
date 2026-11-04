@@ -5,9 +5,11 @@ import dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
 import dev.sixik.sdmshop2.libs.shop.client.ui.editor.unity.UnityStyles;
 import dev.sixik.sdmshop2.libs.shop.client.ui.theme.ShopTheme;
+import dev.sixik.unigui.api.core.FrameContext;
 import dev.sixik.unigui.api.event.PointerPressedEvent;
 import dev.sixik.unigui.api.input.PointerButton;
 import dev.sixik.unigui.api.layout.*;
+import dev.sixik.unigui.api.widget.Widget;
 import dev.sixik.unigui.widgets.containers.GridBox;
 import dev.sixik.unigui.widgets.containers.LinearBox;
 import dev.sixik.unigui.widgets.containers.ScrollView;
@@ -15,12 +17,18 @@ import dev.sixik.unigui.widgets.containers.VBox;
 import dev.sixik.unigui.widgets.core.Orientation;
 import dev.sixik.unigui.widgets.display.Label;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Центральная рабочая панель «Money» (список валют магазина).
  */
 public class ShopMoneyWorkspaceView extends LinearBox {
 
     private final GridBox grid = new GridBox();
+    private ScrollView scrollView;
+    private final Map<Object, Widget> currencyCards = new HashMap<>();
+    private Object pendingScrollCurrency;
 
     public ShopMoneyWorkspaceView() {
         super(Orientation.VERTICAL);
@@ -38,15 +46,15 @@ public class ShopMoneyWorkspaceView extends LinearBox {
                 .padding(8.0f)
         );
 
-        ScrollView scrollView = new ScrollView(grid);
-        scrollView.scrollStep(24.0f);
-        scrollView.scrollbarGap(2.0f);
-        scrollView.scrollbarTrackColor().set(UnityStyles.BORDER_DEFAULT);
-        scrollView.scrollbarThumbColor().set(UnityStyles.TEXT_MUTED);
-        scrollView.layout(style -> style.sizePercent(100.0f, 100.0f)
+        this.scrollView = new ScrollView(grid);
+        this.scrollView.scrollStep(24.0f);
+        this.scrollView.scrollbarGap(2.0f);
+        this.scrollView.scrollbarTrackColor().set(UnityStyles.BORDER_DEFAULT);
+        this.scrollView.scrollbarThumbColor().set(UnityStyles.TEXT_MUTED);
+        this.scrollView.layout(style -> style.sizePercent(100.0f, 100.0f)
                 .overflowX(Overflow.HIDDEN).overflowY(Overflow.AUTO)
                 .flexGrow(1.0f).flexShrink(1.0f));
-        addChild(scrollView);
+        addChild(this.scrollView);
 
         ShopEditorState.get().addListener(this::refreshView);
         refreshView();
@@ -54,6 +62,7 @@ public class ShopMoneyWorkspaceView extends LinearBox {
 
     public void refreshView() {
         grid.clearChildren();
+        currencyCards.clear();
 
         // 1. Карточка "+ Add New Currency"
         VBox addCard = new VBox();
@@ -130,6 +139,7 @@ public class ShopMoneyWorkspaceView extends LinearBox {
                     }
                 });
 
+                currencyCards.put(draft, card);
                 grid.addChild(card);
             }
         }
@@ -171,7 +181,38 @@ public class ShopMoneyWorkspaceView extends LinearBox {
                 }
             });
 
+            currencyCards.put(cur, card);
             grid.addChild(card);
+        }
+    }
+
+    public void scrollToCurrency(Object target) {
+        if (target == null) return;
+        if (!scrollToCurrencyInternal(target)) {
+            this.pendingScrollCurrency = target;
+        }
+    }
+
+    private boolean scrollToCurrencyInternal(Object target) {
+        if (scrollView == null) return false;
+        Widget card = currencyCards.get(target);
+        if (card != null) {
+            float targetY = card.layoutBounds().y();
+            if (targetY > 0.0f || card.layoutBounds().height() > 0.0f) {
+                scrollView.scrollTo(0.0f, Math.max(0.0f, targetY - 16.0f));
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public void tick(FrameContext context) {
+        super.tick(context);
+        if (pendingScrollCurrency != null && scrollView != null) {
+            if (scrollToCurrencyInternal(pendingScrollCurrency)) {
+                pendingScrollCurrency = null;
+            }
         }
     }
 }

@@ -4,9 +4,11 @@ import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.client.ui.editor.unity.UnityStyles;
 import dev.sixik.sdmshop2.libs.shop.client.ui.theme.ShopTheme;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
+import dev.sixik.unigui.api.core.FrameContext;
 import dev.sixik.unigui.api.event.PointerPressedEvent;
 import dev.sixik.unigui.api.input.PointerButton;
 import dev.sixik.unigui.api.layout.*;
+import dev.sixik.unigui.api.widget.Widget;
 import dev.sixik.unigui.widgets.containers.GridBox;
 import dev.sixik.unigui.widgets.containers.LinearBox;
 import dev.sixik.unigui.widgets.containers.ScrollView;
@@ -14,7 +16,9 @@ import dev.sixik.unigui.widgets.containers.VBox;
 import dev.sixik.unigui.widgets.core.Orientation;
 import dev.sixik.unigui.widgets.display.Label;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Центральная рабочая панель «Category» (список категорий магазина).
@@ -22,6 +26,9 @@ import java.util.List;
 public class ShopCategoryWorkspaceView extends LinearBox {
 
     private final GridBox grid = new GridBox();
+    private ScrollView scrollView;
+    private final Map<CatalogComponent, Widget> categoryCards = new HashMap<>();
+    private CatalogComponent pendingScrollCategory;
 
     public ShopCategoryWorkspaceView() {
         super(Orientation.VERTICAL);
@@ -39,15 +46,15 @@ public class ShopCategoryWorkspaceView extends LinearBox {
                 .padding(8.0f)
         );
 
-        ScrollView scrollView = new ScrollView(grid);
-        scrollView.scrollStep(24.0f);
-        scrollView.scrollbarGap(2.0f);
-        scrollView.scrollbarTrackColor().set(UnityStyles.BORDER_DEFAULT);
-        scrollView.scrollbarThumbColor().set(UnityStyles.TEXT_MUTED);
-        scrollView.layout(style -> style.sizePercent(100.0f, 100.0f)
+        this.scrollView = new ScrollView(grid);
+        this.scrollView.scrollStep(24.0f);
+        this.scrollView.scrollbarGap(2.0f);
+        this.scrollView.scrollbarTrackColor().set(UnityStyles.BORDER_DEFAULT);
+        this.scrollView.scrollbarThumbColor().set(UnityStyles.TEXT_MUTED);
+        this.scrollView.layout(style -> style.sizePercent(100.0f, 100.0f)
                 .overflowX(Overflow.HIDDEN).overflowY(Overflow.AUTO)
                 .flexGrow(1.0f).flexShrink(1.0f));
-        addChild(scrollView);
+        addChild(this.scrollView);
 
         ShopEditorState.get().addListener(this::refreshView);
         refreshView();
@@ -55,6 +62,7 @@ public class ShopCategoryWorkspaceView extends LinearBox {
 
     public void refreshView() {
         grid.clearChildren();
+        categoryCards.clear();
 
         // 1. Карточка "+ Add New Category"
         VBox addCard = new VBox();
@@ -135,7 +143,38 @@ public class ShopCategoryWorkspaceView extends LinearBox {
                 }
             });
 
+            categoryCards.put(cat, card);
             grid.addChild(card);
+        }
+    }
+
+    public void scrollToCategory(CatalogComponent cat) {
+        if (cat == null) return;
+        if (!scrollToCategoryInternal(cat)) {
+            this.pendingScrollCategory = cat;
+        }
+    }
+
+    private boolean scrollToCategoryInternal(CatalogComponent cat) {
+        if (scrollView == null) return false;
+        Widget card = categoryCards.get(cat);
+        if (card != null) {
+            float targetY = card.layoutBounds().y();
+            if (targetY > 0.0f || card.layoutBounds().height() > 0.0f) {
+                scrollView.scrollTo(0.0f, Math.max(0.0f, targetY - 16.0f));
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public void tick(FrameContext context) {
+        super.tick(context);
+        if (pendingScrollCategory != null && scrollView != null) {
+            if (scrollToCategoryInternal(pendingScrollCategory)) {
+                pendingScrollCategory = null;
+            }
         }
     }
 }

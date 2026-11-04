@@ -1,10 +1,12 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.editor;
 
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
+import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
 import dev.sixik.sdmshop2.libs.shop.client.ui.ShopScreenController;
 import dev.sixik.sdmshop2.libs.shop.client.ui.editor.unity.UnityIcons;
 import dev.sixik.sdmshop2.libs.shop.client.ui.editor.unity.UnityStyles;
+import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.unigui.api.core.UnityLikeUIScaleProvider;
 import dev.sixik.unigui.api.layout.Align;
 import dev.sixik.unigui.api.layout.Justify;
@@ -45,6 +47,10 @@ public final class ShopEditorScreen {
     private static UniScreen currentScreen;
     private static OverlayLayer activeOverlay;
     private static ShopHierarchyView hierarchyView;
+    private static ShopCatalogPreviewView catalogView;
+    private static ShopCategoryWorkspaceView categoryView;
+    private static ShopMoneyWorkspaceView moneyView;
+    private static ShopInspectorView inspectorView;
     private static DockingRoot dockingRoot;
     private static final Map<String, DockPane> paneRegistry = new HashMap<>();
     private static ContextMenu activeMenu = null;
@@ -66,6 +72,10 @@ public final class ShopEditorScreen {
         }
         activeOverlay = null;
         hierarchyView = null;
+        catalogView = null;
+        categoryView = null;
+        moneyView = null;
+        inspectorView = null;
         dockingRoot = null;
         paneRegistry.clear();
     }
@@ -76,6 +86,22 @@ public final class ShopEditorScreen {
 
     public static ShopHierarchyView getHierarchyView() {
         return hierarchyView;
+    }
+
+    public static ShopCatalogPreviewView getCatalogView() {
+        return catalogView;
+    }
+
+    public static ShopCategoryWorkspaceView getCategoryView() {
+        return categoryView;
+    }
+
+    public static ShopMoneyWorkspaceView getMoneyView() {
+        return moneyView;
+    }
+
+    public static ShopInspectorView getInspectorView() {
+        return inspectorView;
     }
 
     public static DockingRoot getDockingRoot() {
@@ -155,10 +181,10 @@ public final class ShopEditorScreen {
 
         // 1. Создание представлений
         hierarchyView = new ShopHierarchyView();
-        ShopCatalogPreviewView catalogView = new ShopCatalogPreviewView();
-        ShopCategoryWorkspaceView categoryView = new ShopCategoryWorkspaceView();
-        ShopMoneyWorkspaceView moneyView = new ShopMoneyWorkspaceView();
-        ShopInspectorView inspectorView = new ShopInspectorView(activeOverlay);
+        catalogView = new ShopCatalogPreviewView();
+        categoryView = new ShopCategoryWorkspaceView();
+        moneyView = new ShopMoneyWorkspaceView();
+        inspectorView = new ShopInspectorView(activeOverlay);
 
         // 2. Создание DockingRoot и настройка темы Unity
         DockingRoot root = new DockingRoot();
@@ -418,11 +444,45 @@ public final class ShopEditorScreen {
 
     private static void addWindowMenuItem(ContextMenu menu, String title, String paneId, float menuWidth) {
         boolean isOpen = dockingRoot != null && dockingRoot.findPane(paneId) != null;
-        String shortcut = isOpen ? "✓" : "";
-        UnityStyles.addContextMenuItem(menu, title, shortcut, true, menuWidth, () -> {
+        UnityStyles.addToggleContextMenuItem(menu, title, isOpen, true, menuWidth, () -> {
             closeActiveMenu();
-            restoreOrFocusPane(paneId);
+            togglePane(paneId);
         });
+    }
+
+    public static void togglePane(String paneId) {
+        if (dockingRoot == null) return;
+        if (dockingRoot.findPane(paneId) != null) {
+            dockingRoot.manager().closePane(paneId);
+        } else {
+            restoreOrFocusPane(paneId);
+        }
+    }
+
+    public static void navigateTo(Object target) {
+        if (target == null) return;
+        ShopEditorState.get().selectTarget(target);
+
+        String tabId = null;
+        if (target instanceof ShopOffer) {
+            tabId = "catalog";
+        } else if (target instanceof CatalogComponent) {
+            tabId = "category";
+        } else if (target instanceof dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency || target instanceof dev.sixik.sdmshop2.libs.sdmeconomy.CurrencyDraft) {
+            tabId = "money";
+        }
+
+        if (tabId != null) {
+            restoreOrFocusPane(tabId);
+        }
+
+        if (target instanceof ShopOffer offer && catalogView != null) {
+            catalogView.scrollToOffer(offer);
+        } else if (target instanceof CatalogComponent cat && categoryView != null) {
+            categoryView.scrollToCategory(cat);
+        } else if (moneyView != null) {
+            moneyView.scrollToCurrency(target);
+        }
     }
 
     public static void restoreOrFocusPane(String paneId) {

@@ -1,9 +1,13 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.editor;
 
+import dev.sixik.sdmshop2.libs.sdmeconomy.CurrencyDraft;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
+import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.cache.ClientCache;
 import dev.sixik.sdmshop2.libs.shop.client.cache.ShopClientCache;
 import dev.sixik.sdmshop2.libs.shop.client.ui.editor.unity.UnityStyles;
+import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
+import dev.sixik.sdmshop2.libs.shop.components.misc.NameComponent;
 import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
 import dev.sixik.sdmshop2.libs.shop.register.ShopRegister;
 import dev.sixik.unigui.api.screen.UniScreen;
@@ -13,6 +17,7 @@ import dev.sixik.unigui.widgets.containers.StackPanel;
 import dev.sixik.unigui.widgets.containers.VBox;
 import dev.sixik.unigui.widgets.docking.DockPane;
 import dev.sixik.unigui.widgets.docking.DockingRoot;
+import dev.sixik.unigui.widgets.feedback.ContextMenu;
 import dev.sixik.unigui.widgets.feedback.OverlayLayer;
 import dev.sixik.unigui.widgets.interaction.Button;
 import net.minecraft.resources.ResourceLocation;
@@ -144,19 +149,79 @@ public class ShopEditorScreenTest {
     }
 
     @Test
-    void testRestoreOrFocusPane() {
+    void testTogglePaneTurnsWindowsOffAndOn() {
         ShopEditorScreen.createScreen();
         DockingRoot dockingRoot = ShopEditorScreen.getDockingRoot();
         assertNotNull(dockingRoot);
 
-        // Focusing open pane does not throw and keeps pane present
-        ShopEditorScreen.restoreOrFocusPane("inspector");
+        // Initially Inspector is open
         assertNotNull(dockingRoot.findPane("inspector"));
 
-        ShopEditorScreen.restoreOrFocusPane("hierarchy");
-        assertNotNull(dockingRoot.findPane("hierarchy"));
+        // Toggle turns it off
+        ShopEditorScreen.togglePane("inspector");
+        assertNull(dockingRoot.findPane("inspector"), "Inspector should be closed after toggle");
 
-        ShopEditorScreen.restoreOrFocusPane("catalog");
-        assertNotNull(dockingRoot.findPane("catalog"));
+        // Toggle again turns it on
+        ShopEditorScreen.togglePane("inspector");
+        assertNotNull(dockingRoot.findPane("inspector"), "Inspector should be restored after second toggle");
+    }
+
+    @Test
+    void testToggleContextMenuItemProperties() {
+        ContextMenu menu = new ContextMenu();
+        Button checkedBtn = UnityStyles.addToggleContextMenuItem(menu, "Hierarchy", true, true, 190.0f, null);
+        assertTrue(checkedBtn instanceof UnityStyles.UnityContextMenuItem);
+        UnityStyles.UnityContextMenuItem item = (UnityStyles.UnityContextMenuItem) checkedBtn;
+        assertTrue(item.isCheckable());
+        assertTrue(item.isChecked());
+
+        Button uncheckedBtn = UnityStyles.addToggleContextMenuItem(menu, "Catalog", false, true, 190.0f, null);
+        UnityStyles.UnityContextMenuItem unItem = (UnityStyles.UnityContextMenuItem) uncheckedBtn;
+        assertTrue(unItem.isCheckable());
+        assertFalse(unItem.isChecked());
+    }
+
+    @Test
+    void testNavigateToAndAutoReopenPane() {
+        ShopEditorScreen.createScreen();
+        DockingRoot dockingRoot = ShopEditorScreen.getDockingRoot();
+        assertNotNull(dockingRoot);
+
+        ShopOffer offer = ShopEditorState.get().createNewOffer();
+        assertNotNull(offer);
+
+        // Close catalog pane
+        ShopEditorScreen.togglePane("catalog");
+        assertNull(dockingRoot.findPane("catalog"));
+
+        // Navigate to offer should reopen catalog pane and select it
+        ShopEditorScreen.navigateTo(offer);
+
+        assertNotNull(dockingRoot.findPane("catalog"), "Catalog pane should be automatically reopened by navigateTo");
+        assertEquals(offer, ShopEditorState.get().getSelectedTarget());
+    }
+
+    @Test
+    void testDuplicateAndDeleteCategoryAndCurrency() {
+        CatalogComponent cat = ShopEditorState.get().createNewCategory();
+        assertNotNull(cat);
+
+        CatalogComponent copyCat = ShopEditorState.get().duplicateCategory(cat);
+        assertNotNull(copyCat);
+        assertEquals(cat.getId() + "_copy", copyCat.getId());
+        assertNotEquals(cat.getUuid(), copyCat.getUuid());
+
+        ShopEditorState.get().deleteCategory(copyCat);
+        assertFalse(ShopEditorState.get().getDraftShop().getCategories().getCatalogsComponents().contains(copyCat));
+
+        CurrencyDraft draft = ShopEditorState.get().createNewCurrency();
+        assertNotNull(draft);
+
+        CurrencyDraft copyDraft = ShopEditorState.get().duplicateCurrency(draft);
+        assertNotNull(copyDraft);
+        assertTrue(copyDraft.id().getPath().endsWith("_copy"));
+
+        ShopEditorState.get().deleteCurrency(copyDraft);
+        assertFalse(ShopEditorState.get().getSession().currencyDrafts().contains(copyDraft));
     }
 }

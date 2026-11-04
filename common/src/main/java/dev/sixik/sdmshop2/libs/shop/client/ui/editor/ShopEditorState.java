@@ -545,6 +545,25 @@ public final class ShopEditorState {
         markDirty();
     }
 
+    public CatalogComponent duplicateCategory(CatalogComponent cat) {
+        if (draftShop == null || session == null || cat == null) {
+            return null;
+        }
+
+        CatalogComponent copy = CatalogComponent.copyOf(cat);
+        copy.setUuid(UUID.randomUUID());
+        String baseId = cat.getId() != null ? cat.getId() : "cat";
+        copy.setId(baseId + "_copy");
+        copy.setOrder(cat.getOrder() + 1);
+
+        draftShop.getCategories().getCatalogsComponents().add(copy);
+        session.recordHistory("category.duplicate", "CatalogComponent", copy.getUuid(), copy.getType().getId(), "Duplicated category " + copy.getId());
+        ShopToastHelper.success(Component.literal("Category duplicated"));
+        selectTarget(copy);
+        markDirty();
+        return copy;
+    }
+
     // --- Управление валютами (Currencies) ---
 
     public CurrencyDraft createNewCurrency() {
@@ -577,5 +596,50 @@ public final class ShopEditorState {
             selectedTarget = null;
         }
         markDirty();
+    }
+
+    public CurrencyDraft duplicateCurrency(CurrencyDraft currency) {
+        if (session == null || currency == null) {
+            return null;
+        }
+
+        ResourceLocation oldId = currency.id();
+        ResourceLocation newId = new ResourceLocation(oldId.getNamespace(), oldId.getPath() + "_copy");
+        CurrencyDraft copy = CurrencyDraft.text(newId, currency.displayName() + " (Copy)", currency.iconText());
+
+        List<CurrencyDraft> list = new ArrayList<>(session.currencyDrafts());
+        list.add(copy);
+        session.setCurrencyDrafts(list);
+        session.recordHistory("currency.duplicate", "CurrencyDraft", null, newId, "Duplicated currency " + newId);
+        ShopToastHelper.success(Component.literal("Currency draft duplicated"));
+        selectTarget(copy);
+        markDirty();
+        return copy;
+    }
+
+    public CurrencyDraft duplicateCurrency(dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency currency) {
+        if (session == null || currency == null) {
+            return null;
+        }
+
+        ResourceLocation oldId = currency.getId();
+        ResourceLocation newId = new ResourceLocation(oldId != null ? oldId.getNamespace() : "sdm",
+                (oldId != null ? oldId.getPath() : "cur") + "_copy");
+        String name = currency.getDisplayName() != null ? currency.getDisplayName().getString() + " (Copy)" : "New Currency";
+        String symbol = "$";
+        try {
+            symbol = currency.format(java.math.BigDecimal.ONE).replaceAll("[0-9.,\\s]", "");
+            if (symbol.isEmpty()) symbol = "$";
+        } catch (Exception ignored) {}
+        CurrencyDraft copy = CurrencyDraft.text(newId, name, symbol);
+
+        List<CurrencyDraft> list = new ArrayList<>(session.currencyDrafts());
+        list.add(copy);
+        session.setCurrencyDrafts(list);
+        session.recordHistory("currency.duplicate", "CurrencyDraft", null, newId, "Duplicated currency " + newId);
+        ShopToastHelper.success(Component.literal("Currency duplicated as draft"));
+        selectTarget(copy);
+        markDirty();
+        return copy;
     }
 }

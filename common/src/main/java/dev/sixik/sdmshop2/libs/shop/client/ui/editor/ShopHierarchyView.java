@@ -10,6 +10,8 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.editor.unity.UnityIcons;
 import dev.sixik.sdmshop2.libs.shop.client.ui.editor.unity.UnityStyles;
 import dev.sixik.sdmshop2.libs.shop.client.ui.root.ShopCatalogElement;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
+import dev.sixik.unigui.api.event.PointerPressedEvent;
+import dev.sixik.unigui.api.input.PointerButton;
 import dev.sixik.unigui.api.layout.Align;
 import dev.sixik.unigui.api.layout.Overflow;
 import dev.sixik.unigui.api.math.RectView;
@@ -47,6 +49,7 @@ public class ShopHierarchyView extends LinearBox {
 
     private TextInput searchInput;
     private ContextMenu activeCreateMenu;
+    private ContextMenu activeItemContextMenu;
     private String currentSearch = "";
     private Consumer<String> onTabSwitchRequested;
 
@@ -117,6 +120,23 @@ public class ShopHierarchyView extends LinearBox {
             }
         });
 
+        // Обработка контекстного меню по ПКМ на строках дерева
+        treeView.onRowCreated(row -> {
+            row.on(PointerPressedEvent.TYPE, event -> {
+                if (event.button() == PointerButton.SECONDARY) {
+                    TreeViewNode node = row.node();
+                    if (node != null) {
+                        treeView.select(node);
+                        Object target = nodeObjectMap.get(node);
+                        if (target != null) {
+                            openItemContextMenu(event.rootX(), event.rootY(), target);
+                            event.cancel();
+                        }
+                    }
+                }
+            });
+        });
+
         ScrollView scroll = new ScrollView(treeView);
         scroll.scrollStep(18.0f);
         scroll.overlayScrollBars(false);
@@ -137,6 +157,13 @@ public class ShopHierarchyView extends LinearBox {
     }
 
     public void rebuildTree() {
+        if (activeItemContextMenu != null) {
+            try {
+                activeItemContextMenu.close();
+            } catch (Exception ignored) {}
+            activeItemContextMenu = null;
+        }
+
         treeView.clearRoots();
         nodeObjectMap.clear();
         objectNodeMap.clear();
@@ -278,6 +305,67 @@ public class ShopHierarchyView extends LinearBox {
         menu.openAt(bounds.x(), bounds.y() + bounds.height() + 2.0f);
         overlay.addOverlay(menu);
         activeCreateMenu = menu;
+    }
+
+    private void openItemContextMenu(float x, float y, Object target) {
+        OverlayLayer overlay = findOverlayLayer(this);
+        if (overlay == null) return;
+
+        if (activeItemContextMenu != null) {
+            try {
+                activeItemContextMenu.close();
+                overlay.removeOverlay(activeItemContextMenu);
+            } catch (Exception ignored) {}
+            activeItemContextMenu = null;
+        }
+
+        float menuWidth = 140.0f;
+        ContextMenu menu = new ContextMenu();
+        UnityStyles.styleContextMenu(menu);
+
+        boolean canDelete = !(target instanceof ICurrency);
+        boolean canDuplicate = true;
+
+        // 1. Delete
+        UnityStyles.addContextMenuItem(menu, "Delete", canDelete, menuWidth, () -> {
+            if (target instanceof ShopOffer offer) {
+                ShopEditorState.get().deleteOffer(offer);
+            } else if (target instanceof CatalogComponent cat) {
+                ShopEditorState.get().deleteCategory(cat);
+            } else if (target instanceof CurrencyDraft draft) {
+                ShopEditorState.get().deleteCurrency(draft);
+            }
+            rebuildTree();
+        });
+
+        // 2. Duplicate
+        UnityStyles.addContextMenuItem(menu, "Duplicate", canDuplicate, menuWidth, () -> {
+            Object duplicated = null;
+            if (target instanceof ShopOffer offer) {
+                duplicated = ShopEditorState.get().duplicateOffer(offer);
+            } else if (target instanceof CatalogComponent cat) {
+                duplicated = ShopEditorState.get().duplicateCategory(cat);
+            } else if (target instanceof CurrencyDraft draft) {
+                duplicated = ShopEditorState.get().duplicateCurrency(draft);
+            } else if (target instanceof ICurrency cur) {
+                duplicated = ShopEditorState.get().duplicateCurrency(cur);
+            }
+            rebuildTree();
+            if (duplicated != null) {
+                selectNodeFor(duplicated);
+            }
+        });
+
+        UnityStyles.addContextMenuSeparator(menu, menuWidth);
+
+        // 3. Move To
+        UnityStyles.addContextMenuItem(menu, "Move To", true, menuWidth, () -> {
+            ShopEditorScreen.navigateTo(target);
+        });
+
+        menu.openAt(x, y);
+        overlay.addOverlay(menu);
+        activeItemContextMenu = menu;
     }
 
     private static OverlayLayer findOverlayLayer(dev.sixik.unigui.api.widget.Widget start) {

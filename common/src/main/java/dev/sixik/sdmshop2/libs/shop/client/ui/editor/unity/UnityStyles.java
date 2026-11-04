@@ -429,13 +429,28 @@ public final class UnityStyles {
             TextEngine.drawInline(draw, srt, sX, sY, shortcutWidth - 8.0f, sHeight, Paint.fill(sColor));
         }
 
-        float contentWidth = Math.max(0.0f, w - padX * 2.0f - shortcutWidth);
+        boolean isCheckable = (btn instanceof UnityContextMenuItem uItem) && uItem.isCheckable();
+        boolean isChecked = isCheckable && ((UnityContextMenuItem) btn).isChecked();
+
+        if (isChecked) {
+            float checkX = x + 4.0f;
+            float checkY = y + h * 0.5f;
+            ColorView checkColor = !enabled ? TEXT_MUTED : (hovered || pressed ? TEXT_BOLD : TEXT_PRIMARY);
+            draw.pathClear();
+            draw.pathLineTo(checkX + 2.0f, checkY - 0.5f);
+            draw.pathLineTo(checkX + 5.0f, checkY + 2.8f);
+            draw.pathLineTo(checkX + 10.5f, checkY - 3.8f);
+            draw.pathStroke(checkColor, false, 1.5f);
+        }
+
+        float textStartX = x + (isCheckable ? 20.0f : padX);
+        float contentWidth = Math.max(0.0f, w - (isCheckable ? (20.0f + padX) : (padX * 2.0f)) - shortcutWidth);
         float textHeight = TextEngine.measureTextHeight(draw.context(), rt);
         float drawY = y + Math.max(0.0f, h - textHeight) * 0.5f;
 
-        draw.pushTextClip(x + padX, y, contentWidth, h);
+        draw.pushTextClip(textStartX, y, contentWidth, h);
         try {
-            TextEngine.drawInline(draw, rt, x + padX, drawY, contentWidth, textHeight, Paint.fill(textColor));
+            TextEngine.drawInline(draw, rt, textStartX, drawY, contentWidth, textHeight, Paint.fill(textColor));
         } finally {
             draw.popClip();
         }
@@ -483,6 +498,7 @@ public final class UnityStyles {
      */
     public static class UnityContextMenuItem extends Button {
         private String shortcut;
+        private Boolean checked;
 
         public UnityContextMenuItem(String text) {
             this(text, null);
@@ -500,6 +516,38 @@ public final class UnityStyles {
         public void shortcut(String shortcut) {
             this.shortcut = shortcut;
         }
+
+        public boolean isCheckable() {
+            return checked != null;
+        }
+
+        public boolean isChecked() {
+            return checked != null && checked;
+        }
+
+        public UnityContextMenuItem checked(Boolean checked) {
+            this.checked = checked;
+            return this;
+        }
+    }
+
+    public static Button addToggleContextMenuItem(ContextMenu menu, String text, boolean checked, boolean enabled, float menuWidth, Runnable action) {
+        UnityContextMenuItem btn = new UnityContextMenuItem(text);
+        btn.checked(checked);
+        btn.themeEnabled(false);
+        btn.enabled(enabled);
+        btn.renderer(CONTEXT_MENU_ITEM_RENDERER);
+        if (action != null) {
+            btn.onClick(e -> {
+                if (btn.enabled()) {
+                    menu.close();
+                    action.run();
+                }
+            });
+        }
+        menu.item(btn);
+        btn.layout(style -> style.size(menuWidth, 19.0f).flexGrow(0.0f).flexShrink(0.0f));
+        return btn;
     }
 
     public static Button addContextMenuItem(ContextMenu menu, String text, String shortcut, boolean enabled, float menuWidth, Runnable action) {
