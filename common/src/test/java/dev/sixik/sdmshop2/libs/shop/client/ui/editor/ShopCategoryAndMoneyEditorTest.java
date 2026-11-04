@@ -126,6 +126,25 @@ public class ShopCategoryAndMoneyEditorTest {
     }
 
     @Test
+    void testCategoryMultipleDuplicatesHaveUniqueIds() {
+        ShopCategoriesContainerComponent container = shop.getCategories();
+        CatalogComponent dup1 = ShopEditorState.get().duplicateCategory(cat1);
+        assertNotNull(dup1);
+        assertEquals("cat_1_copy", dup1.getId());
+
+        CatalogComponent dup2 = ShopEditorState.get().duplicateCategory(cat1);
+        assertNotNull(dup2);
+        assertEquals("cat_1_copy_2", dup2.getId());
+
+        // Reindex does not create duplicate categories for matching IDs
+        container.reindex();
+        long copyCount = container.getCatalogsComponents().stream()
+                .filter(c -> "cat_1_copy".equalsIgnoreCase(c.getId()))
+                .count();
+        assertEquals(1, copyCount);
+    }
+
+    @Test
     void testDefaultCurrencyCannotBeDeleted() {
         ResourceLocation coinId = new ResourceLocation("sdm", "coin");
         assertTrue(ShopEditorState.get().isDefaultCurrency(coinId));

@@ -219,10 +219,31 @@ public final class DefaultShopGenerator {
         for (ShopOffer offer : instance.getEntries().getEntryMap().values()) {
             for (CatalogComponent catalog : offer.getComponents(CatalogComponent.class)) {
                 catalog.setOrder(CATEGORY_ORDER.getOrDefault(catalog.getId(), 1_000));
+                if (!catalog.hasIcon()) {
+                    ItemStack defaultIcon = getDefaultIconForCategory(catalog.getId());
+                    if (!defaultIcon.isEmpty()) {
+                        catalog.setIconType(CatalogComponent.IconType.ITEM);
+                        catalog.setIconItem(defaultIcon);
+                    }
+                }
             }
         }
 
         instance.getCategories().reindex();
+    }
+
+    private static ItemStack getDefaultIconForCategory(String id) {
+        if (id == null) return ItemStack.EMPTY;
+        return switch (id) {
+            case "shop.default.category.resources" -> new ItemStack(Items.DIAMOND);
+            case "shop.default.category.blocks" -> new ItemStack(Items.BRICKS);
+            case "shop.default.category.farming_food" -> new ItemStack(Items.WHEAT);
+            case "shop.default.category.utility" -> new ItemStack(Items.TORCH);
+            case "shop.default.category.redstone" -> new ItemStack(Items.REDSTONE);
+            case "shop.default.category.rares" -> new ItemStack(Items.NETHER_STAR);
+            case "shop.default.category.exchange" -> new ItemStack(Items.EMERALD);
+            default -> ItemStack.EMPTY;
+        };
     }
 
     private static Category category(String id, int order) {

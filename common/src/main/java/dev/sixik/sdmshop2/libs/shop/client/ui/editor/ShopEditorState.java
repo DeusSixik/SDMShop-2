@@ -583,8 +583,35 @@ public final class ShopEditorState {
             return;
         }
 
-        draftShop.getCategories().removeCategory(cat.getUuid());
-        session.recordHistory("category.delete", "CatalogComponent", cat.getUuid(), cat.getType().getId(), "Deleted category " + cat.getId());
+        UUID catUuid = cat.getUuid();
+        String catId = cat.getId();
+
+        draftShop.getCategories().removeCategory(catUuid);
+
+        if (draftShop.getEntries() != null) {
+            String fallbackCatId = "resources";
+            UUID fallbackCatUuid = null;
+            if (draftShop.getCategories() != null && !draftShop.getCategories().getCatalogsComponents().isEmpty()) {
+                CatalogComponent fallback = draftShop.getCategories().getCatalogsComponents().get(0);
+                fallbackCatId = fallback.getId();
+                fallbackCatUuid = fallback.getUuid();
+            }
+
+            for (ShopOffer offer : draftShop.getEntries().getEntryMap().values()) {
+                CatalogComponent oCat = offer.getComponent(CatalogComponent.class).orElse(null);
+                if (oCat != null) {
+                    boolean match = (catUuid != null && catUuid.equals(oCat.getUuid()))
+                            || (catId != null && !catId.isBlank() && catId.equalsIgnoreCase(oCat.getId()));
+                    if (match) {
+                        oCat.setId(fallbackCatId);
+                        oCat.setUuid(fallbackCatUuid != null ? fallbackCatUuid : UUID.randomUUID());
+                    }
+                }
+            }
+        }
+
+        draftShop.getCategories().reindex();
+        session.recordHistory("category.delete", "CatalogComponent", catUuid, cat.getType().getId(), "Deleted category " + catId);
         if (selectedTarget == cat) {
             selectedTarget = null;
         }
@@ -599,7 +626,12 @@ public final class ShopEditorState {
         CatalogComponent copy = CatalogComponent.copyOf(cat);
         copy.setUuid(UUID.randomUUID());
         String baseId = cat.getId() != null ? cat.getId() : "cat";
-        copy.setId(baseId + "_copy");
+        String copyId = baseId + "_copy";
+        int suffix = 2;
+        while (isCategoryIdTaken(copyId)) {
+            copyId = baseId + "_copy_" + suffix++;
+        }
+        copy.setId(copyId);
 
         draftShop.getCategories().addCategory(copy);
         session.recordHistory("category.duplicate", "CatalogComponent", copy.getUuid(), copy.getType().getId(), "Duplicated category " + copy.getId());
@@ -607,6 +639,16 @@ public final class ShopEditorState {
         selectTarget(copy);
         markDirty();
         return copy;
+    }
+
+    private boolean isCategoryIdTaken(String id) {
+        if (id == null || draftShop == null || draftShop.getCategories() == null) return false;
+        for (CatalogComponent c : draftShop.getCategories().getCatalogsComponents()) {
+            if (id.equalsIgnoreCase(c.getId())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public boolean moveCategory(CatalogComponent cat, int offset) {

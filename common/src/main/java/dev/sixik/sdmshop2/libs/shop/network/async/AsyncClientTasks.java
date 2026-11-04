@@ -103,20 +103,18 @@ public class AsyncClientTasks {
     }
 
     private static void warnExternalShopUpdate(ShopInstance previousShop, ShopInstance newShop, UUID updater) {
-        throw new NotImplementedException();
+        if (updater == null || previousShop == null || newShop == null || previousShop.getId() == null || newShop.getId() == null) {
+            return;
+        }
+        if (!previousShop.getId().equals(newShop.getId())) {
+            return;
+        }
+
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player != null && updater.equals(minecraft.player.getUUID())) {
+            return;
+        }
+
+        dev.sixik.sdmshop2.libs.shop.client.ui.editor.ShopToastHelper.warning(Component.literal("Shop was updated by another editor. Your view has been refreshed."));
     }
-//        if (updater == null || previousShop == null || newShop == null || previousShop.getId() == null || newShop.getId() == null) {
-//            return;
-//        }
-//        if (!previousShop.getId().equals(newShop.getId()) || ShopScreenController.Instance == null) {
-//            return;
-//        }
-//
-//        Minecraft minecraft = Minecraft.getInstance();
-//        if (minecraft.player != null && updater.equals(minecraft.player.getUUID())) {
-//            return;
-//        }
-//
-//        ShopToasts.warning(Component.literal("Shop was updated by another editor. Your view has been refreshed."));
-//    }
 }

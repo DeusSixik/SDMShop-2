@@ -81,6 +81,7 @@ public class ShopUtils {
     }
 
     public static boolean isPlayerAdmin(Player player) {
+        if (player == null) return false;
         return player.hasPermissions(Commands.LEVEL_GAMEMASTERS);
     }
 }

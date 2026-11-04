@@ -9,6 +9,7 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.editor.ShopEditorScreen;
 import dev.sixik.sdmshop2.libs.shop.client.ui.editor.ShopEditorState;
 import dev.sixik.sdmshop2.libs.shop.client.ui.editor.ShopExistingSessionModal;
 import dev.sixik.sdmshop2.libs.shop.client.ui.theme.ShopTheme;
+import dev.sixik.sdmshop2.utils.ShopUtils;
 import dev.sixik.unigui.api.layout.Align;
 import dev.sixik.unigui.api.layout.FlexDirection;
 import dev.sixik.unigui.api.layout.LayoutStyle;
@@ -18,6 +19,9 @@ import dev.sixik.unigui.widgets.containers.PanelWidget;
 import dev.sixik.unigui.widgets.containers.WrapPanel;
 import dev.sixik.unigui.widgets.interaction.Button;
 import dev.sixik.unigui.widgets.interaction.TextField;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.player.Player;
+import org.jetbrains.annotations.Nullable;
 
 public class ShopToolPanel implements ShopScreenElement {
 
@@ -47,8 +51,17 @@ public class ShopToolPanel implements ShopScreenElement {
         toolbar.borderWidth(ShopTheme.BORDER_WIDTH_THIN);
         toolbar.radius(ShopTheme.RADIUS_PANEL);
 
-        editBtn = createToolButton("Edit");
-        editBtn.onClick(event -> handleEditToggle());
+        Minecraft mc = Minecraft.getInstance();
+        Player player = mc != null ? mc.player : null;
+        boolean isAdmin = ShopUtils.isPlayerAdmin(player);
+
+        if (isAdmin) {
+            editBtn = createToolButton("Edit");
+            editBtn.onClick(event -> handleEditToggle());
+            toolbar.addChild(editBtn);
+        } else {
+            editBtn = null;
+        }
 
         WrapPanel spacer = new WrapPanel();
         spacer.layout(LayoutStyle::expand);
@@ -91,7 +104,6 @@ public class ShopToolPanel implements ShopScreenElement {
         searchGroup.addChild(searchInput);
         searchGroup.addChild(favBtn);
 
-        toolbar.addChild(editBtn);
         toolbar.addChild(spacer);
         toolbar.addChild(searchGroup);
         toolbar.addChild(spacer2);
@@ -100,7 +112,16 @@ public class ShopToolPanel implements ShopScreenElement {
         return toolbar;
     }
 
+    public @Nullable Button getEditBtn() {
+        return editBtn;
+    }
+
     private void handleEditToggle() {
+        Minecraft mc = Minecraft.getInstance();
+        Player player = mc != null ? mc.player : null;
+        if (!ShopUtils.isPlayerAdmin(player)) {
+            return;
+        }
         PersistentEditSession saved = ShopClientCache.getEditSession();
         if (saved != null && saved.shopId() != null && SDMShopClient.Shop != null
                 && !saved.shopId().equals(SDMShopClient.Shop.getId())) {

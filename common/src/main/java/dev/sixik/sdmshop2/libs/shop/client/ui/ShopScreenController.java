@@ -35,6 +35,7 @@ public class ShopScreenController {
     }
 
     public static void openShop() {
+        ROOT_PANEL.resetViewState();
         UniScreen screen = new UniScreen(root());
         screen.openGui();
     }
@@ -97,6 +98,7 @@ public class ShopScreenController {
     }
 
     public static void invokeRefreshAll() {
+        ROOT_PANEL.buildCategoriesList();
         ROOT_PANEL.refreshOffers();
         ROOT_PANEL.refreshCurrencies();
     }

@@ -24,6 +24,9 @@ import dev.sixik.unigui.widgets.docking.*;
 import dev.sixik.unigui.widgets.feedback.ContextMenu;
 import dev.sixik.unigui.widgets.feedback.OverlayLayer;
 import dev.sixik.unigui.widgets.interaction.Button;
+import dev.sixik.sdmshop2.utils.ShopUtils;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.player.Player;
 
 import java.util.HashMap;
 import java.util.List;
@@ -59,6 +62,11 @@ public final class ShopEditorScreen {
     private ShopEditorScreen() {}
 
     public static void open() {
+        Minecraft mc = Minecraft.getInstance();
+        Player player = mc != null ? mc.player : null;
+        if (!ShopUtils.isPlayerAdmin(player)) {
+            return;
+        }
         createScreen().openGui();
     }
 
@@ -71,7 +79,12 @@ public final class ShopEditorScreen {
             currentScreen = null;
         }
         activeOverlay = null;
-        hierarchyView = null;
+        if (hierarchyView != null) {
+            try {
+                hierarchyView.setOnTabSwitchRequested(null);
+            } catch (Exception ignored) {}
+            hierarchyView = null;
+        }
         catalogView = null;
         categoryView = null;
         moneyView = null;
@@ -241,7 +254,7 @@ public final class ShopEditorScreen {
 
         // Связывание Hierarchy с переключением вкладок в центре
         hierarchyView.setOnTabSwitchRequested(tabId -> {
-            if (dockingRoot.findPane(tabId) != null) {
+            if (dockingRoot != null && dockingRoot.findPane(tabId) != null) {
                 dockingRoot.selectPane(tabId);
             }
         });
