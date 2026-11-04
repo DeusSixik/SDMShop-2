@@ -2,7 +2,11 @@ package dev.sixik.sdmshop2.libs.shop.client.ui.editor;
 
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
+import dev.sixik.sdmshop2.libs.shop.client.ui.editor.preset.ShopCreatePresetModal;
+import dev.sixik.sdmshop2.libs.shop.client.ui.editor.preset.ShopOfferPreset;
+import dev.sixik.sdmshop2.libs.shop.client.ui.editor.preset.ShopOfferPresetManager;
 import dev.sixik.sdmshop2.libs.shop.client.ui.editor.unity.UnityStyles;
+import org.jetbrains.annotations.Nullable;
 import dev.sixik.sdmshop2.libs.shop.client.ui.root.ShopCatalogElement;
 import dev.sixik.sdmshop2.libs.shop.client.ui.theme.ShopTheme;
 import dev.sixik.unigui.api.core.FrameContext;
@@ -122,18 +126,16 @@ public class ShopCatalogPreviewView extends LinearBox {
         itemsGrid.clearChildren();
         currentCards.clear();
 
-        // 1. Первая карточка — "+ Add New Offer" с поддержкой Drop (перемещение в самое начало)
-        itemsGrid.addChild(createAddOfferCard());
+        // 1. Первая карточка — "+ Add New Offer" в начале списка
+        itemsGrid.addChild(createAddOfferCard(true));
 
         ShopInstance shop = ShopEditorState.get().getDraftShop();
-        if (shop == null || shop.getEntries() == null) return;
+        if (shop != null && shop.getEntries() != null) {
+            Map<UUID, ShopOffer> map = shop.getEntries().getEntryMap();
+            if (map != null && !map.isEmpty()) {
+                Object currentTarget = ShopEditorState.get().getSelectedTarget();
 
-        Map<UUID, ShopOffer> map = shop.getEntries().getEntryMap();
-        if (map == null || map.isEmpty()) return;
-
-        Object currentTarget = ShopEditorState.get().getSelectedTarget();
-
-        for (ShopOffer offer : map.values()) {
+                for (ShopOffer offer : map.values()) {
             String title = ShopCatalogElement.resolveTitle(offer);
             if (!searchQuery.isEmpty()) {
                 boolean matches = title.toLowerCase(Locale.ROOT).contains(searchQuery);
@@ -224,6 +226,13 @@ public class ShopCatalogPreviewView extends LinearBox {
 
             currentCards.add(card);
             itemsGrid.addChild(card);
+        }
+            }
+        }
+
+        // 2. Вторая карточка — "+ Add New Offer" в конце списка
+        if (!currentCards.isEmpty()) {
+            itemsGrid.addChild(createAddOfferCard(false));
         }
 
         if (scrollView != null && prevScrollY > 0.0f) {
@@ -324,7 +333,7 @@ public class ShopCatalogPreviewView extends LinearBox {
         return ShopEditorScreen.getActiveOverlay();
     }
 
-    private VBox createAddOfferCard() {
+    private VBox createAddOfferCard(boolean atBeginning) {
         VBox card = new VBox();
         card.spacing(4.0f);
         card.layout(style -> style
@@ -353,14 +362,19 @@ public class ShopCatalogPreviewView extends LinearBox {
 
         card.on(PointerPressedEvent.TYPE, event -> {
             if (event.button() == PointerButton.PRIMARY) {
-                ShopOffer newOffer = ShopEditorState.get().createNewOffer();
-                ShopEditorState.get().selectTarget(newOffer);
-                refreshGrid();
+                ShopOffer newOffer = ShopEditorState.get().createNewOffer(atBeginning);
+                if (newOffer != null) {
+                    ShopEditorState.get().selectTarget(newOffer);
+                    refreshGrid();
+                }
+                event.cancel();
+            } else if (event.button() == PointerButton.SECONDARY) {
+                openPresetContextMenu(event.rootX(), event.rootY(), atBeginning);
                 event.cancel();
             }
         });
 
-        // Drop на карточку Add Offer переносит товар на первую позицию
+        // Drop на карточку Add Offer переносит товар на первую/последнюю позицию
         DropController.attach(card)
                 .accepts("shop.offer")
                 .onDragEnter(e -> {
@@ -376,11 +390,77 @@ public class ShopCatalogPreviewView extends LinearBox {
                     if (payload != null && payload.matchesType("shop.offer")) {
                         ShopOffer draggedOffer = payload.data(ShopOffer.class);
                         if (draggedOffer != null) {
-                            ShopEditorState.get().moveOfferToIndex(draggedOffer, 0);
+                            if (atBeginning) {
+                                ShopEditorState.get().moveOfferToIndex(draggedOffer, 0);
+                            } else {
+                                ShopInstance shopInstance = ShopEditorState.get().getDraftShop();
+                                int count = (shopInstance != null && shopInstance.getEntries() != null)
+                                        ? shopInstance.getEntries().getEntryMap().size()
+                                        : 0;
+                                ShopEditorState.get().moveOfferToIndex(draggedOffer, Math.max(0, count - 1));
+                            }
                         }
                     }
                 });
 
         return card;
+    }
+
+    private void openPresetContextMenu(float x, float y, boolean atBeginning) {
+        OverlayLayer layer = findOverlayLayer();
+        if (layer == null) return;
+
+        if (activeContextMenu != null) {
+            try {
+                activeContextMenu.close();
+                layer.removeOverlay(activeContextMenu);
+            } catch (Exception ignored) {}
+            activeContextMenu = null;
+        }
+
+        float menuWidth = 190.0f;
+        ContextMenu menu = new ContextMenu();
+        UnityStyles.styleContextMenu(menu);
+
+        // 1. Встроенные пресеты
+        for (ShopOfferPreset preset : ShopOfferPresetManager.getBuiltInPresets()) {
+            UnityStyles.addContextMenuItem(menu, preset.name(), true, menuWidth, () -> {
+                ShopEditorState.get().createOfferFromPreset(preset, atBeginning);
+            });
+        }
+
+        // 2. Пользовательские пресеты
+        List<ShopOfferPreset> customPresets = ShopOfferPresetManager.getCustomPresets();
+        if (!customPresets.isEmpty()) {
+            UnityStyles.addContextMenuSeparator(menu, menuWidth);
+            for (ShopOfferPreset preset : customPresets) {
+                UnityStyles.addContextMenuItem(menu, preset.name(), true, menuWidth, () -> {
+                    ShopEditorState.get().createOfferFromPreset(preset, atBeginning);
+                });
+            }
+        }
+
+        // 3. Раздел создания и управления пресетами
+        UnityStyles.addContextMenuSeparator(menu, menuWidth);
+
+        ShopOffer currentOffer = ShopEditorState.get().getSelectedTarget() instanceof ShopOffer o ? o : null;
+        UnityStyles.addContextMenuItem(menu, "Save Selected as Preset...", currentOffer != null, menuWidth, () -> {
+            openCreatePresetModal(currentOffer);
+        });
+
+        UnityStyles.addContextMenuItem(menu, "Preset Manager...", true, menuWidth, () -> {
+            openCreatePresetModal(null);
+        });
+
+        menu.openAt(x, y);
+        layer.addOverlay(menu);
+        activeContextMenu = menu;
+    }
+
+    private void openCreatePresetModal(@Nullable ShopOffer sourceOffer) {
+        OverlayLayer layer = findOverlayLayer();
+        if (layer == null) return;
+        ShopCreatePresetModal modal = new ShopCreatePresetModal(sourceOffer);
+        layer.addOverlay(modal);
     }
 }

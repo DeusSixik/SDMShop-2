@@ -7,6 +7,7 @@ import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.ui.ShopScreenController;
+import dev.sixik.sdmshop2.libs.shop.client.ui.editor.preset.ShopOfferPreset;
 import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentCategory;
@@ -186,6 +187,33 @@ public final class ShopClientCache {
     public static void clearEditSession() {
         get().remove(ClientCacheKeys.EDIT_SESSION);
         get().saveAsync();
+    }
+
+    public static List<ShopOfferPreset> getOfferPresets() {
+        return new ArrayList<>(get().get(ClientCacheKeys.OFFER_PRESETS, ClientCacheCodecs.OFFER_PRESETS, List.of()));
+    }
+
+    public static void setOfferPresets(List<ShopOfferPreset> presets) {
+        get().set(ClientCacheKeys.OFFER_PRESETS, ClientCacheCodecs.OFFER_PRESETS, presets);
+        get().saveAsync();
+    }
+
+    public static void addOfferPreset(ShopOfferPreset preset) {
+        if (preset == null) return;
+        List<ShopOfferPreset> list = new ArrayList<>(getOfferPresets());
+        list.removeIf(p -> p.id().equals(preset.id()));
+        list.add(preset);
+        setOfferPresets(list);
+    }
+
+    public static boolean deleteOfferPreset(String presetId) {
+        if (presetId == null) return false;
+        List<ShopOfferPreset> list = new ArrayList<>(getOfferPresets());
+        boolean removed = list.removeIf(p -> p.id().equals(presetId));
+        if (removed) {
+            setOfferPresets(list);
+        }
+        return removed;
     }
 
     public static void saveAsync() {

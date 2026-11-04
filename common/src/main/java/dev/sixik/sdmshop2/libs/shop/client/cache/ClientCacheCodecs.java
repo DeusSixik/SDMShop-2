@@ -1,5 +1,6 @@
 package dev.sixik.sdmshop2.libs.shop.client.cache;
 
+import dev.sixik.sdmshop2.libs.shop.client.ui.editor.preset.ShopOfferPreset;
 import dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodec;
 import dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs;
 import net.minecraft.resources.ResourceLocation;
@@ -13,6 +14,7 @@ public final class ClientCacheCodecs {
     public static final FieldCodec<List<ResourceLocation>> COMPONENT_FAVORITES = FieldCodecs.list(FieldCodecs.RESOURCE_LOCATION);
     public static final FieldCodec<List<EditorHistoryEntry>> EDITOR_HISTORY = FieldCodecs.list(EditorHistoryEntry.CODEC);
     public static final FieldCodec<PersistentEditSession> EDIT_SESSION = PersistentEditSession.CODEC;
+    public static final FieldCodec<List<ShopOfferPreset>> OFFER_PRESETS = FieldCodecs.list(ShopOfferPreset.CODEC);
 
     private ClientCacheCodecs() {
     }

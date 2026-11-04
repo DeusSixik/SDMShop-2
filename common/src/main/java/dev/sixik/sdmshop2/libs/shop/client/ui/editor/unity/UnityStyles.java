@@ -20,6 +20,7 @@ import dev.sixik.unigui.widgets.interaction.Checkbox;
 import dev.sixik.unigui.widgets.interaction.ComboBox;
 import dev.sixik.unigui.widgets.interaction.NumberField;
 import dev.sixik.unigui.widgets.interaction.TextInput;
+import dev.sixik.unigui.widgets.interaction.TextField;
 import dev.sixik.unigui.api.style.StyleKeys;
 import dev.sixik.unigui.api.style.TreeDisclosureStyle;
 import dev.sixik.unigui.api.style.TreeRowStyle;
@@ -354,6 +355,20 @@ public final class UnityStyles {
         button.radius(3.0f);
         button.textPaddingX(8.0f);
         button.textColor().set(TEXT_BOLD);
+    }
+
+    public static void styleTextField(TextField textField) {
+        if (textField == null) return;
+        textField.themeEnabled(false);
+        textField.boxVisualEnabled(true);
+        textField.backgroundVisible(true);
+        textField.background().set(BG_INPUT);
+        textField.borderVisible(true);
+        textField.borderColor().set(BORDER_INPUT);
+        textField.borderWidth(1.0f);
+        textField.radius(2.0f);
+        textField.textColor().set(TEXT_PRIMARY);
+        textField.placeholderColor().set(TEXT_MUTED);
     }
 
     public static Box separatorLine() {

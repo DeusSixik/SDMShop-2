@@ -115,6 +115,24 @@ public class ShopOffersContainerComponent extends ShopComponent {
         return moveEntryToIndex(entryId, currentIndex + offset);
     }
 
+    public synchronized void addEntryAt(ShopOffer entry, int index) {
+        Objects.requireNonNull(entry, "entry");
+        ShopOffer previous = entryMap.get(entry.getUUID());
+        if (previous != null && previous != entry) {
+            previous.setParentShop(null);
+        }
+        List<ShopOffer> list = new ArrayList<>(entryMap.values());
+        list.removeIf(o -> o.getUUID().equals(entry.getUUID()));
+        int clamped = Math.max(0, Math.min(list.size(), index));
+        list.add(clamped, entry);
+        entryMap.clear();
+        for (ShopOffer offer : list) {
+            entryMap.put(offer.getUUID(), offer);
+        }
+        attachEntry(entry);
+        notifyEntriesChanged();
+    }
+
     public synchronized void addEntryAfter(ShopOffer entry, UUID afterId) {
         Objects.requireNonNull(entry, "entry");
         List<ShopOffer> list = new ArrayList<>(entryMap.values());

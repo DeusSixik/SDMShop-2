@@ -4,6 +4,8 @@ import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.cache.ClientCache;
 import dev.sixik.sdmshop2.libs.shop.client.cache.ShopClientCache;
+import dev.sixik.sdmshop2.libs.shop.client.ui.editor.preset.ShopOfferPreset;
+import dev.sixik.sdmshop2.libs.shop.client.ui.editor.preset.ShopOfferPresetManager;
 import dev.sixik.sdmshop2.libs.shop.client.ui.root.ShopCatalogElement;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.NameComponent;
@@ -125,5 +127,110 @@ public class ShopCatalogPreviewTest {
 
         card.showFavorite(true);
         assertTrue(card.isShowFavorite());
+    }
+
+    @Test
+    void testAddOfferAtBeginningAndEnd() {
+        int initialCount = shop.getEntries().getEntryMap().size();
+        assertEquals(3, initialCount);
+
+        // Добавляем новый оффер в начало списка (atBeginning = true)
+        ShopOffer offerStart = ShopEditorState.get().createNewOffer(true);
+        assertNotNull(offerStart);
+
+        List<ShopOffer> offers = new ArrayList<>(shop.getEntries().getEntryMap().values());
+        assertEquals(initialCount + 1, offers.size());
+        assertEquals(offerStart.getUUID(), offers.get(0).getUUID(), "Offer should be inserted at index 0");
+
+        // Добавляем новый оффер в конец списка (atBeginning = false)
+        ShopOffer offerEnd = ShopEditorState.get().createNewOffer(false);
+        assertNotNull(offerEnd);
+
+        offers = new ArrayList<>(shop.getEntries().getEntryMap().values());
+        assertEquals(initialCount + 2, offers.size());
+        assertEquals(offerEnd.getUUID(), offers.get(offers.size() - 1).getUUID(), "Offer should be inserted at end");
+    }
+
+    @Test
+    void testBuiltInPresets() {
+        List<ShopOfferPreset> builtIns = ShopOfferPresetManager.getBuiltInPresets();
+        assertFalse(builtIns.isEmpty(), "Built-in presets must not be empty");
+        assertTrue(builtIns.size() >= 5, "Should have at least 5 built-in presets");
+
+        for (ShopOfferPreset preset : builtIns) {
+            assertTrue(preset.builtIn());
+            assertNotNull(preset.name());
+            assertFalse(preset.name().isBlank());
+
+            ShopOffer offer = preset.createOffer();
+            assertNotNull(offer);
+            assertNotNull(offer.getUUID());
+            assertTrue(offer.getComponent(NameComponent.class).isPresent());
+            assertTrue(offer.getComponent(CatalogComponent.class).isPresent());
+        }
+    }
+
+    @Test
+    void testCustomPresetLifecycle() {
+        // 1. Создаем кастомный пресет на основе offer1
+        String presetName = "Special Diamond Pack";
+        String presetDesc = "Custom test description";
+        ShopOfferPreset customPreset = ShopOfferPresetManager.saveOfferAsPreset(presetName, presetDesc, offer1);
+
+        assertNotNull(customPreset);
+        assertFalse(customPreset.builtIn());
+        assertEquals(presetName, customPreset.name());
+        assertEquals(presetDesc, customPreset.description());
+
+        // 2. Проверяем, что он сохранился в кэше
+        List<ShopOfferPreset> customPresets = ShopOfferPresetManager.getCustomPresets();
+        assertTrue(customPresets.stream().anyMatch(p -> p.id().equals(customPreset.id())));
+
+        // 3. Создаем оффер из кастомного пресета в начало (atBeginning = true)
+        int beforeCount = shop.getEntries().getEntryMap().size();
+        ShopOffer createdStart = ShopEditorState.get().createOfferFromPreset(customPreset, true);
+        assertNotNull(createdStart);
+        assertNotEquals(offer1.getUUID(), createdStart.getUUID(), "Created offer must have fresh UUID");
+
+        List<ShopOffer> offers = new ArrayList<>(shop.getEntries().getEntryMap().values());
+        assertEquals(beforeCount + 1, offers.size());
+        assertEquals(createdStart.getUUID(), offers.get(0).getUUID());
+
+        // 4. Создаем оффер из кастомного пресета в конец (atBeginning = false)
+        ShopOffer createdEnd = ShopEditorState.get().createOfferFromPreset(customPreset, false);
+        assertNotNull(createdEnd);
+
+        offers = new ArrayList<>(shop.getEntries().getEntryMap().values());
+        assertEquals(beforeCount + 2, offers.size());
+        assertEquals(createdEnd.getUUID(), offers.get(offers.size() - 1).getUUID());
+
+        // 5. Удаляем кастомный пресет
+        boolean deleted = ShopOfferPresetManager.deletePreset(customPreset.id());
+        assertTrue(deleted);
+        assertFalse(ShopOfferPresetManager.getCustomPresets().stream().anyMatch(p -> p.id().equals(customPreset.id())));
+    }
+
+    @Test
+    void testContainerAddEntryAt() {
+        ShopOffer extra = ShopOffer.create(UUID.randomUUID(), false);
+        extra.addComponent(new NameComponent("Extra"));
+        extra.addComponent(new CatalogComponent("test_cat"));
+
+        // Вставка в индекс 1
+        shop.getEntries().addEntryAt(extra, 1);
+
+        List<ShopOffer> offers = new ArrayList<>(shop.getEntries().getEntryMap().values());
+        assertEquals(4, offers.size());
+        assertEquals(offer1.getUUID(), offers.get(0).getUUID());
+        assertEquals(extra.getUUID(), offers.get(1).getUUID());
+        assertEquals(offer2.getUUID(), offers.get(2).getUUID());
+        assertEquals(offer3.getUUID(), offers.get(3).getUUID());
+
+        // Перемещение через addEntryAt в индекс 0
+        shop.getEntries().addEntryAt(extra, 0);
+        offers = new ArrayList<>(shop.getEntries().getEntryMap().values());
+        assertEquals(4, offers.size());
+        assertEquals(extra.getUUID(), offers.get(0).getUUID());
+        assertEquals(offer1.getUUID(), offers.get(1).getUUID());
     }
 }

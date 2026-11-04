@@ -9,6 +9,7 @@ import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
 import dev.sixik.sdmshop2.libs.shop.client.cache.PersistentEditSession;
 import dev.sixik.sdmshop2.libs.shop.client.cache.ShopClientCache;
 import dev.sixik.sdmshop2.libs.shop.client.ui.ShopScreenController;
+import dev.sixik.sdmshop2.libs.shop.client.ui.editor.preset.ShopOfferPreset;
 import dev.sixik.sdmshop2.libs.shop.components.ItemRewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
@@ -296,6 +297,10 @@ public final class ShopEditorState {
     // --- Управление товарами (Offers) ---
 
     public ShopOffer createNewOffer() {
+        return createNewOffer(false);
+    }
+
+    public ShopOffer createNewOffer(boolean atBeginning) {
         if (draftShop == null || session == null) {
             return null;
         }
@@ -330,10 +335,36 @@ public final class ShopEditorState {
                 : SDMEconomyServiceClient.getAllCurrencies().values().iterator().next().getId();
         offer.addComponent(new MoneyCostComponent(defaultMoney, 10.0));
 
-        draftShop.getEntries().addEntry(offer);
+        if (atBeginning) {
+            draftShop.getEntries().addEntryAt(offer, 0);
+        } else {
+            draftShop.getEntries().addEntry(offer);
+        }
         session.recordHistory("offer.create", "ShopOffer", offerId, null, "Created offer " + offerId);
         selectTarget(offer);
         markDirty();
+        return offer;
+    }
+
+    public ShopOffer createOfferFromPreset(ShopOfferPreset preset, boolean atBeginning) {
+        if (draftShop == null || session == null || preset == null) {
+            return null;
+        }
+
+        ShopOffer offer = preset.createOffer();
+        if (offer == null) return null;
+
+        if (atBeginning) {
+            draftShop.getEntries().addEntryAt(offer, 0);
+        } else {
+            draftShop.getEntries().addEntry(offer);
+        }
+
+        ensureOfferDefaultsTracked(offer);
+        session.recordHistory("offer.create_preset", "ShopOffer", offer.getUUID(), null, "Created offer from preset: " + preset.name());
+        selectTarget(offer);
+        markDirty();
+        ShopToastHelper.success(Component.literal("Offer created from preset: " + preset.name()));
         return offer;
     }
 
