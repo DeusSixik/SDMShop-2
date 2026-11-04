@@ -25,8 +25,9 @@ public final class ShopToastHelper {
     }
 
     private static void send(Component message) {
-        if (Minecraft.getInstance().player != null && message != null) {
-            Minecraft.getInstance().player.displayClientMessage(message, false);
+        Minecraft mc = Minecraft.getInstance();
+        if (mc != null && mc.player != null && message != null) {
+            mc.player.displayClientMessage(message, false);
         }
     }
 }

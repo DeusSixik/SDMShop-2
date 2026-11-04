@@ -20,11 +20,14 @@ import dev.sixik.sdmshop2.libs.shop.components.money.MoneyCostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.promo.effects.DiscountComponent;
 import dev.sixik.sdmshop2.libs.shop.network.ShopNetworkManager;
 import dev.sixik.sdmshop2.libs.shop.client.ui.editor.ShopEditorState;
+import dev.sixik.unigui.api.event.EventPhase;
 import dev.sixik.unigui.api.event.PointerPressedEvent;
+import dev.sixik.unigui.api.event.PointerReleasedEvent;
 import dev.sixik.unigui.api.input.PointerButton;
 import dev.sixik.unigui.api.layout.Align;
 import dev.sixik.unigui.api.layout.Alignment;
 import dev.sixik.unigui.api.layout.Justify;
+import dev.sixik.unigui.api.widget.Visibility;
 import dev.sixik.unigui.widgets.containers.Box;
 import dev.sixik.unigui.widgets.containers.HBox;
 import dev.sixik.unigui.widgets.containers.LinearBox;
@@ -88,6 +91,7 @@ public class ShopCatalogElement extends LinearBox {
     private final double discountPercent;
     private boolean favorite;
     private boolean selected = false;
+    private boolean showFavorite = true;
     private Button favoriteButton;
     private ImageView favoriteIcon;
     private @Nullable Consumer<ShopCatalogElement> onOpenPurchase;
@@ -197,12 +201,12 @@ public class ShopCatalogElement extends LinearBox {
                 .padding(6.0f, 8.0f)
         );
 
-        on(PointerPressedEvent.TYPE, event -> {
-            if (ShopEditorState.get().isEditorMode()) {
-                if (offer != null) {
-                    ShopEditorState.get().selectTarget(offer);
-                    event.cancel();
-                }
+        on(PointerReleasedEvent.TYPE, event -> {
+            if (event.phase() == EventPhase.CAPTURE) return;
+            if (event.button() != PointerButton.PRIMARY) return;
+            if (event.isCancelled()) return;
+            if (ShopEditorState.get().isEditorMode() && offer != null) {
+                ShopEditorState.get().selectTarget(offer);
             }
         });
 
@@ -278,6 +282,9 @@ public class ShopCatalogElement extends LinearBox {
             }
         });
         header.addChild(favoriteButton);
+        if (!showFavorite || ShopEditorState.get().isEditorMode()) {
+            favoriteButton.visibility(Visibility.HIDDEN);
+        }
         addChild(header);
 
         // --- 2. Центр (Слот с предметом строго по центру слота) ---
@@ -393,33 +400,42 @@ public class ShopCatalogElement extends LinearBox {
         }
         footer.addChild(pricesBox);
 
-        Button buyBtn = new Button(Component.translatable("shop.ui.offer_element.button.buy").getString());
-        buyBtn.backgroundVisible(true);
-        buyBtn.background(ShopTheme.color(ShopTheme.BG_CARD));
-        buyBtn.hoverBackground(ShopTheme.color(ShopTheme.BG_CARD_HOVER));
-        buyBtn.pressedBackground(ShopTheme.color(ShopTheme.GOLD_PRIMARY));
-        buyBtn.borderVisible(true);
-        buyBtn.border(ShopTheme.color(ShopTheme.GOLD_PRIMARY));
-        buyBtn.borderWidth(ShopTheme.BORDER_WIDTH_THIN);
-        buyBtn.radius(ShopTheme.RADIUS_BUTTON);
-        buyBtn.textColor(ShopTheme.color(ShopTheme.TEXT_PRIMARY));
-        buyBtn.focusRingVisible(false);
-        buyBtn.textPadding(8.0f, 2.0f);
-        buyBtn.layout(style -> style.height(18.0f).flexNone());
+        if (ShopEditorState.get().isEditorMode()) {
+            Box buyBadge = new Box();
+            buyBadge.boxVisualEnabled(true);
+            buyBadge.backgroundVisible(true);
+            buyBadge.background(ShopTheme.color(ShopTheme.BG_CARD));
+            buyBadge.borderVisible(true);
+            buyBadge.border(ShopTheme.color(ShopTheme.GOLD_PRIMARY));
+            buyBadge.borderWidth(ShopTheme.BORDER_WIDTH_THIN);
+            buyBadge.radius(ShopTheme.RADIUS_BUTTON);
+            buyBadge.layout(style -> style.height(18.0f).padding(8.0f, 2.0f).flexNone());
+            Label buyLabel = new Label(Component.translatable("shop.ui.offer_element.button.buy").getString());
+            buyLabel.color(ShopTheme.color(ShopTheme.TEXT_PRIMARY));
+            buyBadge.addChild(buyLabel);
+            footer.addChild(buyBadge);
+        } else {
+            Button buyBtn = new Button(Component.translatable("shop.ui.offer_element.button.buy").getString());
+            buyBtn.backgroundVisible(true);
+            buyBtn.background(ShopTheme.color(ShopTheme.BG_CARD));
+            buyBtn.hoverBackground(ShopTheme.color(ShopTheme.BG_CARD_HOVER));
+            buyBtn.pressedBackground(ShopTheme.color(ShopTheme.GOLD_PRIMARY));
+            buyBtn.borderVisible(true);
+            buyBtn.border(ShopTheme.color(ShopTheme.GOLD_PRIMARY));
+            buyBtn.borderWidth(ShopTheme.BORDER_WIDTH_THIN);
+            buyBtn.radius(ShopTheme.RADIUS_BUTTON);
+            buyBtn.textColor(ShopTheme.color(ShopTheme.TEXT_PRIMARY));
+            buyBtn.focusRingVisible(false);
+            buyBtn.textPadding(8.0f, 2.0f);
+            buyBtn.layout(style -> style.height(18.0f).flexNone());
 
-        buyBtn.onClick(event -> {
-            if (ShopEditorState.get().isEditorMode()) {
-                if (offer != null) {
-                    ShopEditorState.get().selectTarget(offer);
+            buyBtn.onClick(event -> {
+                if (onOpenPurchase != null) {
+                    onOpenPurchase.accept(this);
                 }
-                return;
-            }
-            if (onOpenPurchase != null) {
-                onOpenPurchase.accept(this);
-            }
-        });
-
-        footer.addChild(buyBtn);
+            });
+            footer.addChild(buyBtn);
+        }
         addChild(footer);
     }
 
@@ -466,6 +482,18 @@ public class ShopCatalogElement extends LinearBox {
 
     public boolean isFavorite() {
         return favorite;
+    }
+
+    public boolean isShowFavorite() {
+        return showFavorite;
+    }
+
+    public ShopCatalogElement showFavorite(boolean show) {
+        this.showFavorite = show;
+        if (favoriteButton != null) {
+            favoriteButton.visibility(show ? Visibility.VISIBLE : Visibility.HIDDEN);
+        }
+        return this;
     }
 
     public @Nullable ShopOffer getOffer() {

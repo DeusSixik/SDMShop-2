@@ -53,6 +53,7 @@ public final class ShopEditorState {
     private @Nullable ShopInstance draftShop = null;
     private EditorTab activeTab = EditorTab.OFFERS;
     private @Nullable Object selectedTarget = null;
+    private long revision = 0;
 
     private final List<Runnable> listeners = new CopyOnWriteArrayList<>();
 
@@ -90,7 +91,14 @@ public final class ShopEditorState {
         return selectedTarget;
     }
 
+    public long getRevision() {
+        return revision;
+    }
+
     public void selectTarget(@Nullable Object target) {
+        if (Objects.equals(this.selectedTarget, target)) {
+            return;
+        }
         this.selectedTarget = target;
         notifyListeners();
     }
@@ -141,7 +149,8 @@ public final class ShopEditorState {
             }
         } else {
             if (clearOldSession) {
-                ShopClientCache.clearEditSession();
+                this.revision++;
+        ShopClientCache.clearEditSession();
             }
             this.session = ShopEditSession.forShop(liveShop, playerUUID);
             this.draftShop = this.session.draftShop(liveShop.getId());
@@ -149,6 +158,7 @@ public final class ShopEditorState {
 
         this.editorMode = true;
         this.activeTab = EditorTab.OFFERS;
+        this.revision++;
 
         initializedOfferDefaults.clear();
         defaultComponents.clear();
@@ -172,6 +182,25 @@ public final class ShopEditorState {
     }
 
     /**
+     * Прямая инициализация сессии (для тестирования или внешнего внедрения).
+     */
+    public void startSession(ShopEditSession session, ShopInstance draftShop) {
+        this.session = session;
+        this.draftShop = draftShop;
+        this.editorMode = true;
+        this.activeTab = EditorTab.OFFERS;
+        this.revision++;
+        this.initializedOfferDefaults.clear();
+        this.defaultComponents.clear();
+        if (this.draftShop != null && this.draftShop.getEntries() != null) {
+            for (ShopOffer offer : this.draftShop.getEntries().getEntryMap().values()) {
+                ensureOfferDefaultsTracked(offer);
+            }
+        }
+        notifyListeners();
+    }
+
+    /**
      * Выход из режима редактора (переход в режим обычного просмотра).
      */
     public void exitEditor() {
@@ -192,6 +221,7 @@ public final class ShopEditorState {
             session.clearHistory();
             this.draftShop = session.draftShop(liveShop.getId());
         }
+        this.revision++;
         ShopClientCache.clearEditSession();
         this.selectedTarget = null;
         initializedOfferDefaults.clear();
@@ -219,7 +249,8 @@ public final class ShopEditorState {
         ShopNetworkManager.sendShopChanges(draftShop).thenAccept(success -> {
             Minecraft.getInstance().execute(() -> {
                 if (Boolean.TRUE.equals(success)) {
-                    ShopClientCache.clearEditSession();
+                    this.revision++;
+        ShopClientCache.clearEditSession();
                     ShopToastHelper.success(Component.literal("Shop changes successfully saved on server!"));
                     exitEditor();
                 } else {
@@ -249,6 +280,7 @@ public final class ShopEditorState {
 
     public void markDirty() {
         if (session != null) {
+            this.revision++;
             saveToCache();
             notifyListeners();
             ShopScreenController.invokeRefreshOffers();
@@ -316,6 +348,66 @@ public final class ShopEditorState {
             selectedTarget = null;
         }
         markDirty();
+    }
+
+    public boolean moveOffer(ShopOffer offer, int offset) {
+        if (draftShop == null || session == null || offer == null || draftShop.getEntries() == null) {
+            return false;
+        }
+        boolean moved = draftShop.getEntries().moveEntry(offer.getUUID(), offset);
+        if (moved) {
+            session.recordHistory("offer.move", "ShopOffer", offer.getUUID(), null, "Moved offer offset " + offset);
+            markDirty();
+            return true;
+        }
+        return false;
+    }
+
+    public boolean moveOfferToIndex(ShopOffer offer, int targetIndex) {
+        if (draftShop == null || session == null || offer == null || draftShop.getEntries() == null) {
+            return false;
+        }
+        boolean moved = draftShop.getEntries().moveEntryToIndex(offer.getUUID(), targetIndex);
+        if (moved) {
+            session.recordHistory("offer.reorder", "ShopOffer", offer.getUUID(), null, "Reordered offer to index " + targetIndex);
+            markDirty();
+            return true;
+        }
+        return false;
+    }
+
+    public ShopOffer duplicateOffer(ShopOffer offer) {
+        if (draftShop == null || session == null || offer == null || draftShop.getEntries() == null) {
+            return null;
+        }
+        try {
+            com.google.gson.JsonObject json = offer.serialize().getAsJsonObject();
+            UUID newUuid = UUID.randomUUID();
+            json.addProperty("uuid", newUuid.toString());
+            ShopOffer clone = ShopOffer.create(newUuid, false);
+            clone.deserialize(json);
+
+            NameComponent nameComp = clone.getComponent(NameComponent.class).orElse(null);
+            if (nameComp != null) {
+                try {
+                    var f = NameComponent.class.getDeclaredField("name");
+                    f.setAccessible(true);
+                    f.set(nameComp, nameComp.getName() + " (Copy)");
+                } catch (Exception ignored) {}
+            }
+
+            draftShop.getEntries().addEntryAfter(clone, offer.getUUID());
+            ensureOfferDefaultsTracked(clone);
+            session.recordHistory("offer.duplicate", "ShopOffer", newUuid, null, "Duplicated offer " + offer.getUUID());
+            selectTarget(clone);
+            markDirty();
+            ShopToastHelper.success(Component.literal("Offer duplicated"));
+            return clone;
+        } catch (Exception e) {
+            e.printStackTrace();
+            ShopToastHelper.error(Component.literal("Failed to duplicate offer: " + e.getMessage()));
+            return null;
+        }
     }
 
     // --- Управление компонентами оффера ---

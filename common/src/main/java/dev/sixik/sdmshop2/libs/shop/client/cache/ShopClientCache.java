@@ -33,6 +33,12 @@ public final class ShopClientCache {
 
     private static volatile ClientCache cache;
 
+    public static void setCache(@Nullable ClientCache newCache) {
+        synchronized (ShopClientCache.class) {
+            cache = newCache;
+        }
+    }
+
     public static ClientCache get() {
         ClientCache local = cache;
         if (local == null) {
