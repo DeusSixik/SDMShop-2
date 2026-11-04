@@ -1,12 +1,20 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.editor;
 
+import dev.sixik.sdmshop2.libs.shop.client.ui.ShopScreenController;
 import dev.sixik.sdmshop2.libs.shop.client.ui.editor.unity.UnityStyles;
 import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopItemWidget;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentNumberRange;
+import dev.sixik.unigui.api.event.EventPhase;
+import dev.sixik.unigui.api.event.PointerEnteredEvent;
+import dev.sixik.unigui.api.event.PointerExitedEvent;
+import dev.sixik.unigui.api.event.PointerPressedEvent;
+import dev.sixik.unigui.api.input.PointerButton;
 import dev.sixik.unigui.api.layout.Align;
 import dev.sixik.unigui.api.widget.CheckboxState;
+import dev.sixik.unigui.api.widget.Widget;
 import dev.sixik.unigui.widgets.containers.HBox;
 import dev.sixik.unigui.widgets.display.Label;
+import dev.sixik.unigui.widgets.feedback.OverlayLayer;
 import dev.sixik.unigui.widgets.interaction.*;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -207,6 +215,7 @@ public final class ShopPropertyRows {
 
     /**
      * Строка выбора ItemStack: превью слота + текстовый ввод ID предмета.
+     * Нажатие на слот открывает модальное окно ShopItemPickerModal для выбора предмета из реестра или инвентаря.
      * Поле количества отключено по требованию пользователя.
      */
     public static HBox itemStackRow(String labelText, ItemStack stack, Consumer<ItemStack> onChange) {
@@ -224,17 +233,66 @@ public final class ShopPropertyRows {
 
         final ItemStack currentStack = stack != null ? stack : ItemStack.EMPTY;
         ShopItemWidget slot = new ShopItemWidget(currentStack, 16.0f).asSlot(20.0f, 20.0f);
+        slot.background().set(UnityStyles.BG_INPUT);
+        slot.borderColor().set(UnityStyles.BORDER_INPUT);
+        slot.borderWidth(1.0f);
+        slot.radius(2.0f);
         slot.layout(style -> style.fixed(20.0f, 20.0f).flexNone());
-        row.addChild(slot);
+
+        slot.on(PointerEnteredEvent.TYPE, event -> {
+            slot.borderColor().set(UnityStyles.BORDER_INPUT_FOCUS);
+            slot.borderWidth(1.5f);
+        });
+        slot.on(PointerExitedEvent.TYPE, event -> {
+            slot.borderColor().set(UnityStyles.BORDER_INPUT);
+            slot.borderWidth(1.0f);
+        });
 
         String idStr = BuiltInRegistries.ITEM.getKey(currentStack.getItem()).toString();
         TextInput idInput = new TextInput(idStr);
         styleTextInput(idInput);
         idInput.layout(style -> style.height(ROW_HEIGHT).flexGrow(1.0f).flexShrink(1.0f).minWidth(0.0f));
 
+        final boolean[] updatingFromPicker = new boolean[]{false};
+
+        slot.on(PointerPressedEvent.TYPE, event -> {
+            if (event.phase() == EventPhase.CAPTURE) return;
+            if (event.button() != PointerButton.PRIMARY) return;
+            event.cancel();
+            OverlayLayer overlay = findOverlayLayer(slot);
+            if (overlay != null) {
+                for (Widget w : overlay.children()) {
+                    if (w instanceof ShopItemPickerModal) return;
+                }
+                overlay.addOverlay(new ShopItemPickerModal(slot.item(), newStack -> {
+                    ItemStack picked = newStack != null ? newStack : ItemStack.EMPTY;
+                    slot.item(picked);
+                    ResourceLocation id = BuiltInRegistries.ITEM.getKey(picked.getItem());
+                    updatingFromPicker[0] = true;
+                    try {
+                        idInput.text(id != null && !picked.isEmpty() ? id.toString() : "minecraft:air");
+                    } finally {
+                        updatingFromPicker[0] = false;
+                    }
+                    if (onChange != null) {
+                        onChange.accept(picked);
+                    }
+                }));
+            }
+        });
+
         idInput.onTextChanged(event -> {
+            if (updatingFromPicker[0]) return;
             try {
-                ResourceLocation id = ResourceLocation.tryParse(event.newText());
+                String text = event.newText() != null ? event.newText().trim() : "";
+                if (text.isEmpty() || "minecraft:air".equalsIgnoreCase(text) || "air".equalsIgnoreCase(text)) {
+                    slot.item(ItemStack.EMPTY);
+                    if (onChange != null) {
+                        onChange.accept(ItemStack.EMPTY);
+                    }
+                    return;
+                }
+                ResourceLocation id = ResourceLocation.tryParse(text);
                 Item item = id != null ? BuiltInRegistries.ITEM.get(id) : Items.AIR;
                 if (item != null && item != Items.AIR) {
                     ItemStack newStack = new ItemStack(item, 1);
@@ -247,8 +305,22 @@ public final class ShopPropertyRows {
             }
         });
 
+        row.addChild(slot);
         row.addChild(idInput);
         return row;
+    }
+
+    public static OverlayLayer findOverlayLayer(Widget start) {
+        OverlayLayer overlay = ShopEditorScreen.getActiveOverlay();
+        if (overlay != null) return overlay;
+        overlay = ShopScreenController.getActiveOverlay();
+        if (overlay != null) return overlay;
+        Widget current = start;
+        while (current != null) {
+            if (current instanceof OverlayLayer layer) return layer;
+            current = current.parent();
+        }
+        return null;
     }
 
     /**
