@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.curseforge.com/minecraft/mc-mods/sdm-shop-2"><img src="https://img.shields.io/curseforge/dt/1649763?style=for-the-badge&logo=curseforge&logoColor=white" alt="CurseForge downloads"></a>
+  <a href="https://www.curseforge.com/minecraft/mc-mods/sdm-shop-2"><img src="https://img.shields.io/curseforge/dt/1640442?style=for-the-badge&logo=curseforge&logoColor=white" alt="CurseForge downloads"></a>
 </p>
 
 <p align="center">
