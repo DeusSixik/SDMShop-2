@@ -1,15 +1,14 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.editor.unity;
 
+import dev.sixik.sdmshop2.libs.shop.client.ui.theme.ShopEditorStyles;
 import dev.sixik.unigui.api.render.DrawScope;
 import dev.sixik.unigui.widgets.interaction.Button;
 
-/**
- * Кнопка создания (+) с маленькой стрелочкой dropdown в стиле редактора Unity.
- */
+/** Кнопка создания (+) с маленькой стрелочкой dropdown в стиле редактора Unity. */
 public class UnityCreateButton extends Button {
     public UnityCreateButton() {
         super("");
-        UnityStyles.styleButton(this);
+        ShopEditorStyles.styleButton(this);
         focusRingVisible(false);
         focusable(false);
         layout(style -> style.size(28.0f, 20.0f).padding(0.0f, 0.0f));

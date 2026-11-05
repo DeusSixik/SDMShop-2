@@ -3,7 +3,7 @@ package dev.sixik.sdmshop2.libs.shop.client.ui.editor;
 import dev.sixik.sdmshop2.libs.shop.client.cache.PersistentEditSession;
 import dev.sixik.sdmshop2.libs.shop.client.ui.ShopScreenController;
 import dev.sixik.sdmshop2.libs.shop.client.ui.editor.unity.UnityIcons;
-import dev.sixik.sdmshop2.libs.shop.client.ui.editor.unity.UnityStyles;
+import dev.sixik.sdmshop2.libs.shop.client.ui.theme.ShopEditorStyles;
 import dev.sixik.unigui.api.layout.Align;
 import dev.sixik.unigui.api.layout.Justify;
 import dev.sixik.unigui.api.layout.LayoutContext;
@@ -18,11 +18,12 @@ import dev.sixik.unigui.widgets.display.Label;
 import dev.sixik.unigui.widgets.feedback.OverlayHostAware;
 import dev.sixik.unigui.widgets.feedback.OverlayLayer;
 import dev.sixik.unigui.widgets.interaction.Button;
+
 import net.minecraft.resources.ResourceLocation;
 
 /**
- * Модальное окно разрешения конфликта сессий.
- * Отображается, если в локальном кэше сохранена сессия для другого магазина.
+ * Модальное окно разрешения конфликта сессий. Отображается, если в локальном кэше сохранена сессия
+ * для другого магазина.
  */
 public class ShopExistingSessionModal extends Box implements OverlayHostAware {
 
@@ -33,7 +34,8 @@ public class ShopExistingSessionModal extends Box implements OverlayHostAware {
     private final ResourceLocation currentShopId;
     private final VBox window = new VBox();
 
-    public ShopExistingSessionModal(PersistentEditSession savedSession, ResourceLocation currentShopId) {
+    public ShopExistingSessionModal(
+            PersistentEditSession savedSession, ResourceLocation currentShopId) {
         this.savedSession = savedSession;
         this.currentShopId = currentShopId;
 
@@ -42,11 +44,7 @@ public class ShopExistingSessionModal extends Box implements OverlayHostAware {
         backgroundVisible(true);
         background(new MutableColor(0.0f, 0.0f, 0.0f, 0.70f));
 
-        layout(style -> style
-                .position(PositionType.ABSOLUTE)
-                .inset(0.0f)
-                .fill()
-        );
+        layout(style -> style.position(PositionType.ABSOLUTE).inset(0.0f).fill());
 
         buildWindow();
     }
@@ -72,35 +70,35 @@ public class ShopExistingSessionModal extends Box implements OverlayHostAware {
 
     private void buildWindow() {
         window.spacing(14.0f);
-        window.layout(style -> style
-                .fixed(MODAL_WIDTH, MODAL_HEIGHT)
-                .padding(12.0f)
-                .alignItems(Align.CENTER)
-                .justifyContent(Justify.SPACE_BETWEEN)
-                .flexNone()
-        );
+        window.layout(
+                style ->
+                        style.fixed(MODAL_WIDTH, MODAL_HEIGHT)
+                                .padding(12.0f)
+                                .alignItems(Align.CENTER)
+                                .justifyContent(Justify.SPACE_BETWEEN)
+                                .flexNone());
 
         window.themeEnabled(false);
         window.boxVisualEnabled(true);
         window.backgroundVisible(true);
-        window.background().set(UnityStyles.BG_WINDOW);
+        window.background().set(ShopEditorStyles.BG_WINDOW);
         window.borderVisible(true);
-        window.border(UnityStyles.BORDER_DEFAULT);
+        window.border(ShopEditorStyles.BORDER_DEFAULT);
         window.borderWidth(1.0f);
         window.radius(4.0f);
 
         // 1. Шапка: Заголовок + ✕
         HBox header = new HBox();
-        header.layout(style -> style
-                .widthPercent(100.0f)
-                .height(20.0f)
-                .alignItems(Align.CENTER)
-                .justifyContent(Justify.SPACE_BETWEEN)
-                .flexNone()
-        );
+        header.layout(
+                style ->
+                        style.widthPercent(100.0f)
+                                .height(20.0f)
+                                .alignItems(Align.CENTER)
+                                .justifyContent(Justify.SPACE_BETWEEN)
+                                .flexNone());
 
         Label title = new Label("Existing Edit Session");
-        title.color().set(UnityStyles.TEXT_BOLD);
+        title.color().set(ShopEditorStyles.TEXT_BOLD);
 
         Button closeBtn = UnityIcons.createCloseButton(this::closeSelf);
 
@@ -114,12 +112,15 @@ public class ShopExistingSessionModal extends Box implements OverlayHostAware {
         messageBox.layout(style -> style.alignItems(Align.CENTER));
 
         Label warning = new Label("A saved edit session exists for another shop.");
-        warning.color().set(UnityStyles.AUDIO_GOLD);
+        warning.color().set(ShopEditorStyles.AUDIO_GOLD);
 
-        String savedStr = savedSession != null && savedSession.shopId() != null ? savedSession.shopId().toString() : "unknown";
+        String savedStr =
+                savedSession != null && savedSession.shopId() != null
+                        ? savedSession.shopId().toString()
+                        : "unknown";
         String currStr = currentShopId != null ? currentShopId.toString() : "unknown";
         Label details = new Label("Saved: " + savedStr + " | Current: " + currStr);
-        details.color().set(UnityStyles.TEXT_LABEL);
+        details.color().set(ShopEditorStyles.TEXT_LABEL);
 
         messageBox.addChild(warning);
         messageBox.addChild(details);
@@ -128,30 +129,32 @@ public class ShopExistingSessionModal extends Box implements OverlayHostAware {
         // 3. Кнопки (Clear Old / Continue Old)
         HBox buttonRow = new HBox();
         buttonRow.spacing(14.0f);
-        buttonRow.layout(style -> style
-                .widthPercent(100.0f)
-                .justifyContent(Justify.CENTER)
-                .alignItems(Align.CENTER)
-                .flexNone()
-        );
+        buttonRow.layout(
+                style ->
+                        style.widthPercent(100.0f)
+                                .justifyContent(Justify.CENTER)
+                                .alignItems(Align.CENTER)
+                                .flexNone());
 
         Button clearOldBtn = new Button("Clear Old");
-        UnityStyles.styleButton(clearOldBtn);
+        ShopEditorStyles.styleButton(clearOldBtn);
         clearOldBtn.layout(style -> style.fixed(120.0f, 24.0f));
-        clearOldBtn.onClick(event -> {
-            ShopEditorState.get().startEditor(true);
-            closeSelf();
-            ShopEditorScreen.open();
-        });
+        clearOldBtn.onClick(
+                event -> {
+                    ShopEditorState.get().startEditor(true);
+                    closeSelf();
+                    ShopEditorScreen.open();
+                });
 
         Button continueOldBtn = new Button("Continue Old");
-        UnityStyles.styleButton(continueOldBtn);
+        ShopEditorStyles.styleButton(continueOldBtn);
         continueOldBtn.layout(style -> style.fixed(120.0f, 24.0f));
-        continueOldBtn.onClick(event -> {
-            ShopEditorState.get().startEditor(false);
-            closeSelf();
-            ShopEditorScreen.open();
-        });
+        continueOldBtn.onClick(
+                event -> {
+                    ShopEditorState.get().startEditor(false);
+                    closeSelf();
+                    ShopEditorScreen.open();
+                });
 
         buttonRow.addChild(clearOldBtn);
         buttonRow.addChild(continueOldBtn);

@@ -23,4 +23,6 @@ dependencies {
     compileOnly("com.github.DeusSixik.UniGui:unigui-core:v${unigui_version}")
     testCompileOnly("com.github.DeusSixik.UniGui:unigui-core:v${unigui_version}")
     testRuntimeOnly("com.github.DeusSixik.UniGui:unigui-core:v${unigui_version}")
+    // Minecraft widgets need Loom's named mapping, rather than the published intermediary jar.
+    testRuntimeOnly(files(configurations.compileClasspath.filter { it.name.startsWith("unigui-common-") }))
 }

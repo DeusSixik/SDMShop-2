@@ -10,13 +10,15 @@ import dev.sixik.unigui.backend.minecraft_impl.MinecraftGuiRenderBackend;
 import dev.sixik.unigui.widgets.containers.Box;
 import dev.sixik.unigui.widgets.feedback.OverlayLayer;
 import dev.sixik.unigui.widgets.minecraft.MinecraftItemTooltip;
+
 import net.minecraft.world.item.ItemStack;
+
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Виджет отображения предмета и/или слота Minecraft.
- * Наследует Box, что позволяет использовать его как самостоятельный слот с рамкой и фоном,
- * центрируя предмет математически точно внутри границ слота (без смещений в угол).
+ * Виджет отображения предмета и/или слота Minecraft. Наследует Box, что позволяет использовать его
+ * как самостоятельный слот с рамкой и фоном, центрируя предмет математически точно внутри границ
+ * слота (без смещений в угол).
  */
 public class ShopItemWidget extends Box {
 
@@ -25,7 +27,11 @@ public class ShopItemWidget extends Box {
     private boolean decorations = false;
     private @Nullable MinecraftItemTooltip tooltip = null;
 
+    /** Overlay that owns the current tooltip, independent of the active screen. */
+    private @Nullable OverlayLayer tooltipOwner;
+
     public ShopItemWidget() {
+        themeEnabled(false);
         boxVisualEnabled(false);
         backgroundVisible(false);
         borderVisible(false);
@@ -37,9 +43,7 @@ public class ShopItemWidget extends Box {
         this.itemSize = itemSize;
     }
 
-    /**
-     * Конфигурирует виджет как полноценный слот инвентаря с фоном, рамкой и центрированием.
-     */
+    /** Конфигурирует виджет как полноценный слот инвентаря с фоном, рамкой и центрированием. */
     public ShopItemWidget asSlot(float slotWidth, float slotHeight) {
         boxVisualEnabled(true);
         backgroundVisible(true);
@@ -48,11 +52,7 @@ public class ShopItemWidget extends Box {
         border(ShopTheme.color(ShopTheme.BORDER_SLOT));
         borderWidth(ShopTheme.BORDER_WIDTH_THIN);
         radius(ShopTheme.RADIUS_SLOT);
-        layout(style -> style
-                .fixed(slotWidth, slotHeight)
-                .alignSelf(Align.CENTER)
-                .flexNone()
-        );
+        layout(style -> style.fixed(slotWidth, slotHeight).alignSelf(Align.CENTER).flexNone());
         return this;
     }
 
@@ -88,7 +88,9 @@ public class ShopItemWidget extends Box {
     }
 
     public ShopItemWidget attachTooltip(@Nullable OverlayLayer overlayLayer) {
+        if (tooltipOwner != overlayLayer) detachTooltip(tooltipOwner);
         if (overlayLayer != null && tooltip == null && !stack.isEmpty()) {
+            tooltipOwner = overlayLayer;
             tooltip = new MinecraftItemTooltip(this, () -> this.stack);
             overlayLayer.addOverlay(tooltip);
         }
@@ -96,12 +98,20 @@ public class ShopItemWidget extends Box {
     }
 
     public ShopItemWidget detachTooltip(@Nullable OverlayLayer overlayLayer) {
-        if (overlayLayer != null && tooltip != null) {
-            overlayLayer.removeOverlay(tooltip);
+        if (tooltip != null) {
+            if (tooltipOwner != null) tooltipOwner.removeOverlay(tooltip);
             tooltip.dispose();
             tooltip = null;
         }
+        tooltipOwner = null;
         return this;
+    }
+
+    /** Releases the item tooltip before disposing the widget tree. */
+    @Override
+    public void dispose() {
+        detachTooltip(tooltipOwner);
+        super.dispose();
     }
 
     public @Nullable MinecraftItemTooltip getTooltip() {
@@ -133,10 +143,11 @@ public class ShopItemWidget extends Box {
         ItemStack itemStack = this.stack;
         boolean deco = this.decorations;
 
-        context.custom(backend -> {
-            if (backend instanceof MinecraftGuiRenderBackend mcBackend) {
-                mcBackend.renderItemPreview(itemStack, x, y, size, opacity, deco);
-            }
-        });
+        context.custom(
+                backend -> {
+                    if (backend instanceof MinecraftGuiRenderBackend mcBackend) {
+                        mcBackend.renderItemPreview(itemStack, x, y, size, opacity, deco);
+                    }
+                });
     }
 }

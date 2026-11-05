@@ -1,39 +1,33 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.editor;
 
 import dev.sixik.sdmshop2.libs.sdmeconomy.CurrencyDraft;
-import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
-import dev.sixik.sdmshop2.libs.shop.base.ObjectIdGetter;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
 import dev.sixik.sdmshop2.libs.shop.client.cache.PersistentEditSession;
 import dev.sixik.sdmshop2.libs.shop.client.cache.ShopClientCache;
 import dev.sixik.sdmshop2.libs.shop.client.ui.ShopScreenController;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUiSubscription;
 import dev.sixik.sdmshop2.libs.shop.client.ui.editor.preset.ShopOfferPreset;
-import dev.sixik.sdmshop2.libs.shop.components.ItemRewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
-import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponentRegistry;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
-import dev.sixik.sdmshop2.libs.shop.components.misc.NameComponent;
-import dev.sixik.sdmshop2.libs.shop.components.misc.ShopOffersContainerComponent;
-import dev.sixik.sdmshop2.libs.shop.components.money.MoneyCostComponent;
 import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
-import dev.sixik.sdmshop2.libs.shop.editor.ShopEditTargets;
 import dev.sixik.sdmshop2.libs.shop.network.ShopNetworkManager;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.Items;
+
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Глобальный диспетчер состояния внутриигрового редактора магазина SDMShop-2.
- * Управляет сессией редактирования (ShopEditSession / draftShop), активной вкладкой
- * (Offers / Categories / Currencies) и выбранным объектом для инспектора.
+ * Глобальный диспетчер состояния внутриигрового редактора магазина SDMShop-2. Управляет сессией
+ * редактирования (ShopEditSession / draftShop), активной вкладкой (Offers / Categories /
+ * Currencies) и выбранным объектом для инспектора.
  */
 public final class ShopEditorState {
 
@@ -58,11 +52,71 @@ public final class ShopEditorState {
 
     private final List<Runnable> listeners = new CopyOnWriteArrayList<>();
 
-    private final Set<ShopComponent> defaultComponents = Collections.newSetFromMap(new IdentityHashMap<>());
-    private final Set<UUID> initializedOfferDefaults = new HashSet<>();
+    /** Commands bound to this editor state. */
+    private final ShopOfferEditor offerEditor = new ShopOfferEditor(this);
 
-    private ShopEditorState() {
+    /**
+     * Returns session-scoped editing commands.
+     *
+     * @return commands for this state.
+     */
+    public ShopOfferEditor offerEditor() {
+        return offerEditor;
     }
+
+    /** Commands bound to this editor state. */
+    private final ShopCategoryEditor categoryEditor = new ShopCategoryEditor(this);
+
+    /**
+     * Returns session-scoped editing commands.
+     *
+     * @return commands for this state.
+     */
+    public ShopCategoryEditor categoryEditor() {
+        return categoryEditor;
+    }
+
+    /** Commands bound to this editor state. */
+    private final ShopCurrencyEditor currencyEditor = new ShopCurrencyEditor(this);
+
+    /**
+     * Returns session-scoped editing commands.
+     *
+     * @return commands for this state.
+     */
+    public ShopCurrencyEditor currencyEditor() {
+        return currencyEditor;
+    }
+
+    /**
+     * Returns the actual draft, without falling back to the live shop.
+     *
+     * @return editable draft, or null outside a session.
+     */
+    @Nullable
+    ShopInstance editableShop() {
+        return draftShop;
+    }
+
+    /**
+     * Updates selection before the command publishes a single change notification.
+     *
+     * @param target selected object, or null to clear selection.
+     */
+    void setSelectionSilently(@Nullable Object target) {
+        selectedTarget = target;
+    }
+
+    /**
+     * Creates independent editor state for embedding and tests.
+     *
+     * @return empty editor state with its own commands and subscriptions.
+     */
+    public static ShopEditorState create() {
+        return new ShopEditorState();
+    }
+
+    private ShopEditorState() {}
 
     public boolean isEditorMode() {
         return editorMode;
@@ -104,6 +158,21 @@ public final class ShopEditorState {
         notifyListeners();
     }
 
+    /**
+     * Registers a listener with an explicit disposal handle.
+     *
+     * @param listener callback invoked after editor state changes.
+     * @return idempotent registration handle.
+     * @throws NullPointerException if listener is null.
+     */
+    public ShopUiSubscription subscribe(Runnable listener) {
+        Objects.requireNonNull(listener, "listener");
+        // A distinct wrapper gives each registration independent ownership.
+        Runnable registered = listener::run;
+        listeners.add(registered);
+        return () -> listeners.remove(registered);
+    }
+
     public void addListener(Runnable listener) {
         if (listener != null && !listeners.contains(listener)) {
             listeners.add(listener);
@@ -124,10 +193,7 @@ public final class ShopEditorState {
         }
     }
 
-    /**
-     * Запуск режима редактирования.
-     * Проверяет сохраненную сессию в кэше.
-     */
+    /** Запуск режима редактирования. Проверяет сохраненную сессию в кэше. */
     public void startEditor(boolean clearOldSession) {
         ShopInstance liveShop = SDMShopClient.Shop;
         if (liveShop == null) {
@@ -135,9 +201,10 @@ public final class ShopEditorState {
             return;
         }
 
-        UUID playerUUID = Minecraft.getInstance().player != null
-                ? Minecraft.getInstance().player.getUUID()
-                : UUID.randomUUID();
+        UUID playerUUID =
+                Minecraft.getInstance().player != null
+                        ? Minecraft.getInstance().player.getUUID()
+                        : UUID.randomUUID();
 
         PersistentEditSession saved = ShopClientCache.getEditSession();
         if (saved != null && !clearOldSession) {
@@ -151,7 +218,7 @@ public final class ShopEditorState {
         } else {
             if (clearOldSession) {
                 this.revision++;
-        ShopClientCache.clearEditSession();
+                ShopClientCache.clearEditSession();
             }
             this.session = ShopEditSession.forShop(liveShop, playerUUID);
             this.draftShop = this.session.draftShop(liveShop.getId());
@@ -159,10 +226,10 @@ public final class ShopEditorState {
 
         this.editorMode = true;
         this.activeTab = EditorTab.OFFERS;
+        this.selectedTarget = null;
         this.revision++;
 
-        initializedOfferDefaults.clear();
-        defaultComponents.clear();
+        offerEditor.resetDefaults();
         if (this.draftShop != null && this.draftShop.getEntries() != null) {
             for (ShopOffer offer : this.draftShop.getEntries().getEntryMap().values()) {
                 ensureOfferDefaultsTracked(offer);
@@ -182,17 +249,15 @@ public final class ShopEditorState {
         ShopScreenController.invokeRefreshAll();
     }
 
-    /**
-     * Прямая инициализация сессии (для тестирования или внешнего внедрения).
-     */
+    /** Прямая инициализация сессии (для тестирования или внешнего внедрения). */
     public void startSession(ShopEditSession session, ShopInstance draftShop) {
         this.session = session;
         this.draftShop = draftShop;
         this.editorMode = true;
         this.activeTab = EditorTab.OFFERS;
+        this.selectedTarget = null;
         this.revision++;
-        this.initializedOfferDefaults.clear();
-        this.defaultComponents.clear();
+        offerEditor.resetDefaults();
         if (this.draftShop != null && this.draftShop.getEntries() != null) {
             for (ShopOffer offer : this.draftShop.getEntries().getEntryMap().values()) {
                 ensureOfferDefaultsTracked(offer);
@@ -201,9 +266,7 @@ public final class ShopEditorState {
         notifyListeners();
     }
 
-    /**
-     * Выход из режима редактора (переход в режим обычного просмотра).
-     */
+    /** Выход из режима редактора (переход в режим обычного просмотра). */
     public void exitEditor() {
         this.editorMode = false;
         this.selectedTarget = null;
@@ -212,9 +275,7 @@ public final class ShopEditorState {
         ShopScreenController.invokeRefreshAll();
     }
 
-    /**
-     * Сброс текущей сессии к актуальному состоянию с сервера.
-     */
+    /** Сброс текущей сессии к актуальному состоянию с сервера. */
     public void resetSession() {
         ShopInstance liveShop = SDMShopClient.Shop;
         if (liveShop != null && session != null) {
@@ -225,8 +286,7 @@ public final class ShopEditorState {
         this.revision++;
         ShopClientCache.clearEditSession();
         this.selectedTarget = null;
-        initializedOfferDefaults.clear();
-        defaultComponents.clear();
+        offerEditor.resetDefaults();
         if (this.draftShop != null && this.draftShop.getEntries() != null) {
             for (ShopOffer offer : this.draftShop.getEntries().getEntryMap().values()) {
                 ensureOfferDefaultsTracked(offer);
@@ -237,9 +297,7 @@ public final class ShopEditorState {
         ShopToastHelper.info(Component.literal("Edit session reset to server state"));
     }
 
-    /**
-     * Отправка изменений на сервер.
-     */
+    /** Отправка изменений на сервер. */
     public void sendChanges() {
         if (draftShop == null || session == null) {
             return;
@@ -247,43 +305,81 @@ public final class ShopEditorState {
 
         ShopToastHelper.info(Component.literal("Sending changes to server..."));
 
-        ShopNetworkManager.sendShopChanges(draftShop).thenAccept(success -> {
-            Minecraft.getInstance().execute(() -> {
-                if (Boolean.TRUE.equals(success)) {
-                    this.revision++;
-        ShopClientCache.clearEditSession();
-                    ShopToastHelper.success(Component.literal("Shop changes successfully saved on server!"));
-                    exitEditor();
-                } else {
-                    ShopToastHelper.error(Component.literal("Server rejected shop changes!"));
-                }
-            });
-        }).exceptionally(ex -> {
-            Minecraft.getInstance().execute(() -> {
-                ShopToastHelper.error(Component.literal("Network error while sending changes: " + ex.getMessage()));
-            });
-            return null;
-        });
+        ShopNetworkManager.sendShopChanges(draftShop)
+                .thenAccept(
+                        success -> {
+                            Minecraft.getInstance()
+                                    .execute(
+                                            () -> {
+                                                if (Boolean.TRUE.equals(success)) {
+                                                    this.revision++;
+                                                    ShopClientCache.clearEditSession();
+                                                    ShopToastHelper.success(
+                                                            Component.literal(
+                                                                    "Shop changes successfully"
+                                                                        + " saved on server!"));
+                                                    exitEditor();
+                                                } else {
+                                                    ShopToastHelper.error(
+                                                            Component.literal(
+                                                                    "Server rejected shop"
+                                                                        + " changes!"));
+                                                }
+                                            });
+                        })
+                .exceptionally(
+                        ex -> {
+                            Minecraft.getInstance()
+                                    .execute(
+                                            () -> {
+                                                ShopToastHelper.error(
+                                                        Component.literal(
+                                                                "Network error while sending"
+                                                                    + " changes: "
+                                                                        + ex.getMessage()));
+                                            });
+                            return null;
+                        });
 
         // Если были изменения валют
         if (!session.currencyDrafts().isEmpty()) {
             List<CurrencyDraft> draftsToSend = List.copyOf(session.currencyDrafts());
-            ShopNetworkManager.sendCurrencyChanges(draftsToSend).thenAccept(curSuccess -> {
-                Minecraft.getInstance().execute(() -> {
-                    if (curSuccess) {
-                        session.setCurrencyDrafts(new ArrayList<>());
-                        markDirty();
-                        ShopToastHelper.success(Component.literal("Currency changes successfully saved on server!"));
-                    } else {
-                        ShopToastHelper.error(Component.literal("Server rejected currency changes!"));
-                    }
-                });
-            }).exceptionally(ex -> {
-                Minecraft.getInstance().execute(() -> {
-                    ShopToastHelper.error(Component.literal("Network error while sending currency changes: " + ex.getMessage()));
-                });
-                return null;
-            });
+            ShopNetworkManager.sendCurrencyChanges(draftsToSend)
+                    .thenAccept(
+                            curSuccess -> {
+                                Minecraft.getInstance()
+                                        .execute(
+                                                () -> {
+                                                    if (curSuccess) {
+                                                        session.setCurrencyDrafts(
+                                                                new ArrayList<>());
+                                                        markDirty();
+                                                        ShopToastHelper.success(
+                                                                Component.literal(
+                                                                        "Currency changes"
+                                                                            + " successfully saved"
+                                                                            + " on server!"));
+                                                    } else {
+                                                        ShopToastHelper.error(
+                                                                Component.literal(
+                                                                        "Server rejected currency"
+                                                                            + " changes!"));
+                                                    }
+                                                });
+                            })
+                    .exceptionally(
+                            ex -> {
+                                Minecraft.getInstance()
+                                        .execute(
+                                                () -> {
+                                                    ShopToastHelper.error(
+                                                            Component.literal(
+                                                                    "Network error while sending"
+                                                                        + " currency changes: "
+                                                                            + ex.getMessage()));
+                                                });
+                                return null;
+                            });
         }
     }
 
@@ -312,562 +408,327 @@ public final class ShopEditorState {
 
     // --- Управление товарами (Offers) ---
 
+    /**
+     * Delegates to {@link ShopOfferEditor}.
+     *
+     * @return the operation result; absent objects may be null.
+     */
     public ShopOffer createNewOffer() {
-        return createNewOffer(false);
+        return offerEditor.createNewOffer();
     }
 
+    /**
+     * Delegates to {@link ShopOfferEditor}.
+     *
+     * @param atBeginning atBeginning used by this operation.
+     * @return the operation result; absent objects may be null.
+     */
     public ShopOffer createNewOffer(boolean atBeginning) {
-        if (draftShop == null || session == null) {
-            return null;
-        }
-
-        UUID offerId = UUID.randomUUID();
-        ShopOffer offer = ShopOffer.create(offerId, false);
-
-        NameComponent nameComp = new NameComponent("New Offer");
-        offer.addComponent(nameComp);
-
-        // Категория по умолчанию
-        String defaultCatId = "resources";
-        if (draftShop.getCategories() != null && !draftShop.getCategories().getCatalogsComponents().isEmpty()) {
-            defaultCatId = draftShop.getCategories().getCatalogsComponents().get(0).getId();
-        }
-        CatalogComponent catalogComp = new CatalogComponent(defaultCatId);
-        catalogComp.setIconType(CatalogComponent.IconType.ITEM);
-        catalogComp.setIconItem(Items.DIAMOND.getDefaultInstance());
-        offer.addComponent(catalogComp);
-
-        // Регистрируем обязательные базовые компоненты как не удаляемые по умолчанию
-        initializedOfferDefaults.add(offerId);
-        defaultComponents.add(nameComp);
-        defaultComponents.add(catalogComp);
-
-        // Награда по умолчанию
-        offer.addComponent(new ItemRewardComponent(Items.DIAMOND, 1));
-
-        // Цена по умолчанию
-        ResourceLocation defaultMoney = SDMEconomyServiceClient.getAllCurrencies().isEmpty()
-                ? new ResourceLocation("sdm", "coin")
-                : SDMEconomyServiceClient.getAllCurrencies().values().iterator().next().getId();
-        offer.addComponent(new MoneyCostComponent(defaultMoney, 10.0));
-
-        if (atBeginning) {
-            draftShop.getEntries().addEntryAt(offer, 0);
-        } else {
-            draftShop.getEntries().addEntry(offer);
-        }
-        session.recordHistory("offer.create", "ShopOffer", offerId, null, "Created offer " + offerId);
-        selectTarget(offer);
-        markDirty();
-        return offer;
+        return offerEditor.createNewOffer(atBeginning);
     }
 
+    /**
+     * Delegates to {@link ShopOfferEditor}.
+     *
+     * @param preset preset used by this operation.
+     * @param atBeginning atBeginning used by this operation.
+     * @return the operation result; absent objects may be null.
+     */
     public ShopOffer createOfferFromPreset(ShopOfferPreset preset, boolean atBeginning) {
-        if (draftShop == null || session == null || preset == null) {
-            return null;
-        }
-
-        ShopOffer offer = preset.createOffer();
-        if (offer == null) return null;
-
-        if (atBeginning) {
-            draftShop.getEntries().addEntryAt(offer, 0);
-        } else {
-            draftShop.getEntries().addEntry(offer);
-        }
-
-        ensureOfferDefaultsTracked(offer);
-        session.recordHistory("offer.create_preset", "ShopOffer", offer.getUUID(), null, "Created offer from preset: " + preset.name());
-        selectTarget(offer);
-        markDirty();
-        ShopToastHelper.success(Component.literal("Offer created from preset: " + preset.name()));
-        return offer;
+        return offerEditor.createOfferFromPreset(preset, atBeginning);
     }
 
+    /**
+     * Delegates to {@link ShopOfferEditor}.
+     *
+     * @param offer offer used by this operation.
+     */
     public void deleteOffer(ShopOffer offer) {
-        if (draftShop == null || session == null || offer == null) {
-            return;
-        }
-
-        draftShop.getEntries().removeEntry(offer.getUUID());
-        session.recordHistory("offer.delete", "ShopOffer", offer.getUUID(), null, "Deleted offer " + offer.getUUID());
-        if (selectedTarget == offer) {
-            selectedTarget = null;
-        }
-        markDirty();
+        offerEditor.deleteOffer(offer);
     }
 
+    /**
+     * Delegates to {@link ShopOfferEditor}.
+     *
+     * @param offer offer used by this operation.
+     * @param offset offset used by this operation.
+     * @return the operation result; absent objects may be null.
+     */
     public boolean moveOffer(ShopOffer offer, int offset) {
-        if (draftShop == null || session == null || offer == null || draftShop.getEntries() == null) {
-            return false;
-        }
-        boolean moved = draftShop.getEntries().moveEntry(offer.getUUID(), offset);
-        if (moved) {
-            session.recordHistory("offer.move", "ShopOffer", offer.getUUID(), null, "Moved offer offset " + offset);
-            markDirty();
-            return true;
-        }
-        return false;
+        return offerEditor.moveOffer(offer, offset);
     }
 
+    /**
+     * Delegates to {@link ShopOfferEditor}.
+     *
+     * @param offer offer used by this operation.
+     * @param targetIndex targetIndex used by this operation.
+     * @return the operation result; absent objects may be null.
+     */
     public boolean moveOfferToIndex(ShopOffer offer, int targetIndex) {
-        if (draftShop == null || session == null || offer == null || draftShop.getEntries() == null) {
-            return false;
-        }
-        boolean moved = draftShop.getEntries().moveEntryToIndex(offer.getUUID(), targetIndex);
-        if (moved) {
-            session.recordHistory("offer.reorder", "ShopOffer", offer.getUUID(), null, "Reordered offer to index " + targetIndex);
-            markDirty();
-            return true;
-        }
-        return false;
+        return offerEditor.moveOfferToIndex(offer, targetIndex);
     }
 
+    /**
+     * Delegates to {@link ShopOfferEditor}.
+     *
+     * @param offer offer used by this operation.
+     * @return the operation result; absent objects may be null.
+     */
     public ShopOffer duplicateOffer(ShopOffer offer) {
-        if (draftShop == null || session == null || offer == null || draftShop.getEntries() == null) {
-            return null;
-        }
-        try {
-            com.google.gson.JsonObject json = offer.serialize().getAsJsonObject();
-            UUID newUuid = UUID.randomUUID();
-            json.addProperty("uuid", newUuid.toString());
-            ShopOffer clone = ShopOffer.create(newUuid, false);
-            clone.deserialize(json);
-
-            NameComponent nameComp = clone.getComponent(NameComponent.class).orElse(null);
-            if (nameComp != null) {
-                try {
-                    var f = NameComponent.class.getDeclaredField("name");
-                    f.setAccessible(true);
-                    f.set(nameComp, nameComp.getName() + " (Copy)");
-                } catch (Exception ignored) {}
-            }
-
-            draftShop.getEntries().addEntryAfter(clone, offer.getUUID());
-            ensureOfferDefaultsTracked(clone);
-            session.recordHistory("offer.duplicate", "ShopOffer", newUuid, null, "Duplicated offer " + offer.getUUID());
-            selectTarget(clone);
-            markDirty();
-            ShopToastHelper.success(Component.literal("Offer duplicated"));
-            return clone;
-        } catch (Exception e) {
-            e.printStackTrace();
-            ShopToastHelper.error(Component.literal("Failed to duplicate offer: " + e.getMessage()));
-            return null;
-        }
+        return offerEditor.duplicateOffer(offer);
     }
 
-    // --- Управление компонентами оффера ---
-
+    /**
+     * Delegates to {@link ShopOfferEditor}.
+     *
+     * @param offer offer used by this operation.
+     * @param type type used by this operation.
+     */
     public void addComponent(ShopOffer offer, IComponentType<?> type) {
-        if (offer == null || type == null || session == null) {
-            return;
-        }
-
-        ShopComponent component = type.createDefault();
-        offer.addComponent(component);
-        session.recordHistory("component.add", "ShopOffer", offer.getUUID(), type.getId(), "Added component " + type.getId());
-        markDirty();
+        offerEditor.addComponent(offer, type);
     }
 
+    /**
+     * Delegates to {@link ShopOfferEditor}.
+     *
+     * @param offer offer used by this operation.
+     */
     public void ensureOfferDefaultsTracked(ShopOffer offer) {
-        if (offer == null || !initializedOfferDefaults.add(offer.getUUID())) {
-            return;
-        }
-        for (ShopComponent c : offer.getComponents()) {
-            if (c instanceof CatalogComponent || c instanceof NameComponent) {
-                defaultComponents.add(c);
-            }
-        }
+        offerEditor.ensureOfferDefaultsTracked(offer);
     }
 
+    /**
+     * Delegates to {@link ShopOfferEditor}.
+     *
+     * @param offer offer used by this operation.
+     * @param component component used by this operation.
+     * @return the operation result; absent objects may be null.
+     */
     public boolean isDefaultComponent(ShopOffer offer, ShopComponent component) {
-        if (offer == null || component == null) return false;
-        ensureOfferDefaultsTracked(offer);
-        return defaultComponents.contains(component);
+        return offerEditor.isDefaultComponent(offer, component);
     }
 
+    /**
+     * Delegates to {@link ShopOfferEditor}.
+     *
+     * @param offer offer used by this operation.
+     * @param component component used by this operation.
+     * @return the operation result; absent objects may be null.
+     */
     public boolean canDeleteComponent(ShopOffer offer, ShopComponent component) {
-        if (offer == null || component == null) return false;
-        // Компоненты по умолчанию sdm:catalog и sdm:name нельзя удалять.
-        // Но если через редактор добавлены новые или дубликаты, их удалять можно!
-        return !isDefaultComponent(offer, component);
+        return offerEditor.canDeleteComponent(offer, component);
     }
 
+    /**
+     * Delegates to {@link ShopOfferEditor}.
+     *
+     * @param offer offer used by this operation.
+     * @param component component used by this operation.
+     */
     public void removeComponent(ShopOffer offer, ShopComponent component) {
-        if (offer == null || component == null || session == null) {
-            return;
-        }
-
-        if (!canDeleteComponent(offer, component)) {
-            ShopToastHelper.warning(Component.literal("Default components (sdm:catalog, sdm:name) cannot be removed."));
-            return;
-        }
-
-        defaultComponents.remove(component);
-        offer.removeComponent(component);
-        session.recordHistory("component.delete", "ShopOffer", offer.getUUID(), component.getType() != null ? component.getType().getId() : null, "Removed component");
-        markDirty();
+        offerEditor.removeComponent(offer, component);
     }
 
+    /**
+     * Delegates to {@link ShopOfferEditor}.
+     *
+     * @param offer offer used by this operation.
+     * @param component component used by this operation.
+     * @param offset offset used by this operation.
+     * @return the operation result; absent objects may be null.
+     */
     public boolean moveComponent(ShopOffer offer, ShopComponent component, int offset) {
-        if (offer == null || component == null || session == null) {
-            return false;
-        }
-
-        if (offer.moveComponent(component, offset)) {
-            session.recordHistory("component.move", "ShopOffer", offer.getUUID(), component.getType() != null ? component.getType().getId() : null, "Moved component offset " + offset);
-            markDirty();
-            return true;
-        }
-        return false;
+        return offerEditor.moveComponent(offer, component, offset);
     }
 
+    /**
+     * Delegates to {@link ShopOfferEditor}.
+     *
+     * @param offer offer used by this operation.
+     * @param component component used by this operation.
+     * @param targetIndex targetIndex used by this operation.
+     * @return the operation result; absent objects may be null.
+     */
     public boolean moveComponentToIndex(ShopOffer offer, ShopComponent component, int targetIndex) {
-        if (offer == null || component == null || session == null) {
-            return false;
-        }
-
-        if (offer.moveComponentToIndex(component, targetIndex)) {
-            session.recordHistory("component.reorder", "ShopOffer", offer.getUUID(), component.getType() != null ? component.getType().getId() : null, "Reordered component to index " + targetIndex);
-            markDirty();
-            return true;
-        }
-        return false;
+        return offerEditor.moveComponentToIndex(offer, component, targetIndex);
     }
 
+    /**
+     * Delegates to {@link ShopOfferEditor}.
+     *
+     * @param offer offer used by this operation.
+     * @param component component used by this operation.
+     * @return the operation result; absent objects may be null.
+     */
     public ShopComponent duplicateComponent(ShopOffer offer, ShopComponent component) {
-        if (offer == null || component == null || session == null) {
-            return null;
-        }
-
-        try {
-            com.google.gson.JsonObject json = ShopComponentRegistry.toJson(component);
-            ShopComponent clone = ShopComponentRegistry.fromJson(json);
-            offer.addComponent(clone);
-            offer.moveComponentAfter(clone, component);
-            // Дубликат не является компонентом по умолчанию и может быть удален
-            defaultComponents.remove(clone);
-            session.recordHistory("component.duplicate", "ShopOffer", offer.getUUID(), component.getType() != null ? component.getType().getId() : null, "Duplicated component");
-            markDirty();
-            ShopToastHelper.success(Component.literal("Component duplicated"));
-            return clone;
-        } catch (Exception e) {
-            e.printStackTrace();
-            ShopToastHelper.error(Component.literal("Failed to duplicate component: " + e.getMessage()));
-            return null;
-        }
+        return offerEditor.duplicateComponent(offer, component);
     }
 
-    // --- Управление категориями (Categories) ---
-
+    /**
+     * Delegates to {@link ShopCategoryEditor}.
+     *
+     * @return the operation result; absent objects may be null.
+     */
     public CatalogComponent createNewCategory() {
-        if (draftShop == null || session == null) {
-            return null;
-        }
-
-        String catId = "cat_" + System.currentTimeMillis() % 10000;
-        CatalogComponent cat = new CatalogComponent(catId);
-        cat.setIconType(CatalogComponent.IconType.ITEM);
-        cat.setIconItem(Items.CHEST.getDefaultInstance());
-
-        draftShop.getCategories().addCategory(cat);
-        session.recordHistory("category.create", "CatalogComponent", cat.getUuid(), cat.getType().getId(), "Created category " + catId);
-        selectTarget(cat);
-        markDirty();
-        return cat;
+        return categoryEditor.createNewCategory();
     }
 
+    /**
+     * Delegates to {@link ShopCategoryEditor}.
+     *
+     * @param cat cat used by this operation.
+     */
     public void deleteCategory(CatalogComponent cat) {
-        if (draftShop == null || session == null || cat == null) {
-            return;
-        }
-
-        UUID catUuid = cat.getUuid();
-        String catId = cat.getId();
-
-        draftShop.getCategories().removeCategory(catUuid);
-
-        if (draftShop.getEntries() != null) {
-            String fallbackCatId = "resources";
-            UUID fallbackCatUuid = null;
-            if (draftShop.getCategories() != null && !draftShop.getCategories().getCatalogsComponents().isEmpty()) {
-                CatalogComponent fallback = draftShop.getCategories().getCatalogsComponents().get(0);
-                fallbackCatId = fallback.getId();
-                fallbackCatUuid = fallback.getUuid();
-            }
-
-            for (ShopOffer offer : draftShop.getEntries().getEntryMap().values()) {
-                CatalogComponent oCat = offer.getComponent(CatalogComponent.class).orElse(null);
-                if (oCat != null) {
-                    boolean match = (catUuid != null && catUuid.equals(oCat.getUuid()))
-                            || (catId != null && !catId.isBlank() && catId.equalsIgnoreCase(oCat.getId()));
-                    if (match) {
-                        oCat.setId(fallbackCatId);
-                        oCat.setUuid(fallbackCatUuid != null ? fallbackCatUuid : UUID.randomUUID());
-                    }
-                }
-            }
-        }
-
-        draftShop.getCategories().reindex();
-        session.recordHistory("category.delete", "CatalogComponent", catUuid, cat.getType().getId(), "Deleted category " + catId);
-        if (selectedTarget == cat) {
-            selectedTarget = null;
-        }
-        markDirty();
+        categoryEditor.deleteCategory(cat);
     }
 
+    /**
+     * Delegates to {@link ShopCategoryEditor}.
+     *
+     * @param cat cat used by this operation.
+     * @return the operation result; absent objects may be null.
+     */
     public CatalogComponent duplicateCategory(CatalogComponent cat) {
-        if (draftShop == null || session == null || cat == null) {
-            return null;
-        }
-
-        CatalogComponent copy = CatalogComponent.copyOf(cat);
-        copy.setUuid(UUID.randomUUID());
-        String baseId = cat.getId() != null ? cat.getId() : "cat";
-        String copyId = baseId + "_copy";
-        int suffix = 2;
-        while (isCategoryIdTaken(copyId)) {
-            copyId = baseId + "_copy_" + suffix++;
-        }
-        copy.setId(copyId);
-
-        draftShop.getCategories().addCategory(copy);
-        session.recordHistory("category.duplicate", "CatalogComponent", copy.getUuid(), copy.getType().getId(), "Duplicated category " + copy.getId());
-        ShopToastHelper.success(Component.literal("Category duplicated"));
-        selectTarget(copy);
-        markDirty();
-        return copy;
+        return categoryEditor.duplicateCategory(cat);
     }
 
-    private boolean isCategoryIdTaken(String id) {
-        if (id == null || draftShop == null || draftShop.getCategories() == null) return false;
-        for (CatalogComponent c : draftShop.getCategories().getCatalogsComponents()) {
-            if (id.equalsIgnoreCase(c.getId())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
+    /**
+     * Delegates to {@link ShopCategoryEditor}.
+     *
+     * @param cat cat used by this operation.
+     * @param offset offset used by this operation.
+     * @return the operation result; absent objects may be null.
+     */
     public boolean moveCategory(CatalogComponent cat, int offset) {
-        if (draftShop == null || session == null || cat == null || draftShop.getCategories() == null) {
-            return false;
-        }
-        boolean moved = draftShop.getCategories().moveCategory(cat.getUuid(), offset);
-        if (moved) {
-            session.recordHistory("category.move", "CatalogComponent", cat.getUuid(), null, "Moved category offset " + offset);
-            markDirty();
-            return true;
-        }
-        return false;
+        return categoryEditor.moveCategory(cat, offset);
     }
 
+    /**
+     * Delegates to {@link ShopCategoryEditor}.
+     *
+     * @param cat cat used by this operation.
+     * @param targetIndex targetIndex used by this operation.
+     * @return the operation result; absent objects may be null.
+     */
     public boolean moveCategoryToIndex(CatalogComponent cat, int targetIndex) {
-        if (draftShop == null || session == null || cat == null || draftShop.getCategories() == null) {
-            return false;
-        }
-        boolean moved = draftShop.getCategories().moveCategoryToIndex(cat.getUuid(), targetIndex);
-        if (moved) {
-            session.recordHistory("category.reorder", "CatalogComponent", cat.getUuid(), null, "Reordered category to index " + targetIndex);
-            markDirty();
-            return true;
-        }
-        return false;
+        return categoryEditor.moveCategoryToIndex(cat, targetIndex);
     }
 
-    // --- Управление валютами (Currencies) ---
-
+    /**
+     * Delegates to {@link ShopCurrencyEditor}.
+     *
+     * @return the operation result; absent objects may be null.
+     */
     public List<CurrencyDraft> getCurrencyDrafts() {
-        if (session == null) return List.of();
-        return Collections.unmodifiableList(session.currencyDrafts());
+        return currencyEditor.getCurrencyDrafts();
     }
 
+    /**
+     * Delegates to {@link ShopCurrencyEditor}.
+     *
+     * @param id id used by this operation.
+     * @return the operation result; absent objects may be null.
+     */
     public boolean isDefaultCurrency(@Nullable ResourceLocation id) {
-        if (id == null) return false;
-        return "sdm".equals(id.getNamespace()) && "coin".equals(id.getPath());
+        return currencyEditor.isDefaultCurrency(id);
     }
 
+    /**
+     * Delegates to {@link ShopCurrencyEditor}.
+     *
+     * @param id id used by this operation.
+     * @return the operation result; absent objects may be null.
+     */
     public boolean isCurrencyDeleted(@Nullable ResourceLocation id) {
-        if (session == null || id == null) return false;
-        for (CurrencyDraft d : session.currencyDrafts()) {
-            if (d.kind() == CurrencyDraft.Kind.DELETE && d.id().equals(id)) {
-                return true;
-            }
-        }
-        return false;
+        return currencyEditor.isCurrencyDeleted(id);
     }
 
+    /**
+     * Delegates to {@link ShopCurrencyEditor}.
+     *
+     * @param id id used by this operation.
+     * @return the operation result; absent objects may be null.
+     */
     public boolean hasCurrencyDraft(@Nullable ResourceLocation id) {
-        if (session == null || id == null) return false;
-        for (CurrencyDraft d : session.currencyDrafts()) {
-            if (d.kind() != CurrencyDraft.Kind.DELETE && d.id().equals(id)) {
-                return true;
-            }
-        }
-        return false;
+        return currencyEditor.hasCurrencyDraft(id);
     }
 
-    @Nullable
+    /**
+     * Delegates to {@link ShopCurrencyEditor}.
+     *
+     * @param id id used by this operation.
+     * @return the operation result; absent objects may be null.
+     */
     public CurrencyDraft findCurrencyDraft(@Nullable ResourceLocation id) {
-        if (session == null || id == null) return null;
-        for (CurrencyDraft d : session.currencyDrafts()) {
-            if (d.kind() != CurrencyDraft.Kind.DELETE && d.id().equals(id)) {
-                return d;
-            }
-        }
-        return null;
+        return currencyEditor.findCurrencyDraft(id);
     }
 
-    public CurrencyDraft getOrCreateCurrencyDraft(dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency currency) {
-        if (session == null || currency == null) return null;
-        CurrencyDraft existing = findCurrencyDraft(currency.getId());
-        if (existing != null) return existing;
-
-        CurrencyDraft draft = CurrencyDraft.fromCurrency(currency);
-        if (draft == null) {
-            draft = CurrencyDraft.text(currency.getId(), currency.getDisplayName().getString(), "$");
-        }
-        List<CurrencyDraft> list = new ArrayList<>(session.currencyDrafts());
-        list.add(draft);
-        session.setCurrencyDrafts(list);
-        session.recordHistory("currency.edit", "CurrencyDraft", null, draft.id(), "Started editing currency " + draft.id());
-        selectTarget(draft);
-        markDirty();
-        return draft;
+    /**
+     * Delegates to {@link ShopCurrencyEditor}.
+     *
+     * @param currency currency used by this operation.
+     * @return the operation result; absent objects may be null.
+     */
+    public CurrencyDraft getOrCreateCurrencyDraft(
+            dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency currency) {
+        return currencyEditor.getOrCreateCurrencyDraft(currency);
     }
 
+    /**
+     * Delegates to {@link ShopCurrencyEditor}.
+     *
+     * @param oldDraft oldDraft used by this operation.
+     * @param newDraft newDraft used by this operation.
+     */
     public void updateCurrencyDraft(CurrencyDraft oldDraft, CurrencyDraft newDraft) {
-        if (session == null || oldDraft == null || newDraft == null) return;
-        List<CurrencyDraft> list = new ArrayList<>(session.currencyDrafts());
-        int idx = -1;
-        for (int i = 0; i < list.size(); i++) {
-            if (list.get(i).id().equals(oldDraft.id())) {
-                idx = i;
-                break;
-            }
-        }
-        if (idx >= 0) {
-            list.set(idx, newDraft);
-        } else {
-            list.add(newDraft);
-        }
-        session.setCurrencyDrafts(list);
-        session.recordHistory("currency.update", "CurrencyDraft", null, newDraft.id(), "Updated currency draft " + newDraft.id());
-        if (selectedTarget == oldDraft || (selectedTarget instanceof CurrencyDraft cd && cd.id().equals(oldDraft.id()))
-                || (selectedTarget instanceof dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency ic && ic.getId().equals(oldDraft.id()))) {
-            selectedTarget = newDraft;
-        }
-        markDirty();
+        currencyEditor.updateCurrencyDraft(oldDraft, newDraft);
     }
 
+    /**
+     * Delegates to {@link ShopCurrencyEditor}.
+     *
+     * @return the operation result; absent objects may be null.
+     */
     public CurrencyDraft createNewCurrency() {
-        if (session == null) {
-            return null;
-        }
-
-        ResourceLocation id = new ResourceLocation("sdm", "currency_" + System.currentTimeMillis() % 10000);
-        CurrencyDraft draft = CurrencyDraft.text(id, "New Currency", "$");
-
-        List<CurrencyDraft> list = new ArrayList<>(session.currencyDrafts());
-        list.add(draft);
-        session.setCurrencyDrafts(list);
-        session.recordHistory("currency.create", "CurrencyDraft", null, id, "Created currency draft " + id);
-        selectTarget(draft);
-        markDirty();
-        return draft;
+        return currencyEditor.createNewCurrency();
     }
 
+    /**
+     * Delegates to {@link ShopCurrencyEditor}.
+     *
+     * @param currency currency used by this operation.
+     */
     public void deleteCurrency(CurrencyDraft currency) {
-        if (session == null || currency == null) {
-            return;
-        }
-        if (isDefaultCurrency(currency.id())) {
-            ShopToastHelper.warning(Component.literal("Default currency (sdm:coin) cannot be deleted."));
-            return;
-        }
-
-        List<CurrencyDraft> list = new ArrayList<>(session.currencyDrafts());
-        list.remove(currency);
-
-        boolean existsOnServer = dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient.getAllCurrencies().containsKey(currency.id());
-        if (existsOnServer) {
-            list.add(CurrencyDraft.delete(currency.id()));
-        }
-
-        session.setCurrencyDrafts(list);
-        session.recordHistory("currency.delete", "CurrencyDraft", null, currency.id(), "Deleted currency " + currency.id());
-        if (selectedTarget == currency) {
-            selectedTarget = null;
-        }
-        markDirty();
-        ShopToastHelper.info(Component.literal("Currency deleted"));
+        currencyEditor.deleteCurrency(currency);
     }
 
+    /**
+     * Delegates to {@link ShopCurrencyEditor}.
+     *
+     * @param currency currency used by this operation.
+     */
     public void deleteCurrency(dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency currency) {
-        if (session == null || currency == null) {
-            return;
-        }
-        if (isDefaultCurrency(currency.getId())) {
-            ShopToastHelper.warning(Component.literal("Default currency (sdm:coin) cannot be deleted."));
-            return;
-        }
-
-        List<CurrencyDraft> list = new ArrayList<>(session.currencyDrafts());
-        list.removeIf(d -> d.id().equals(currency.getId()));
-        list.add(CurrencyDraft.delete(currency.getId()));
-        session.setCurrencyDrafts(list);
-        session.recordHistory("currency.delete", "ICurrency", null, currency.getId(), "Marked currency for deletion: " + currency.getId());
-        if (selectedTarget == currency) {
-            selectedTarget = null;
-        }
-        markDirty();
-        ShopToastHelper.info(Component.literal("Currency marked for deletion"));
+        currencyEditor.deleteCurrency(currency);
     }
 
+    /**
+     * Delegates to {@link ShopCurrencyEditor}.
+     *
+     * @param currency currency used by this operation.
+     * @return the operation result; absent objects may be null.
+     */
     public CurrencyDraft duplicateCurrency(CurrencyDraft currency) {
-        if (session == null || currency == null) {
-            return null;
-        }
-
-        ResourceLocation oldId = currency.id();
-        ResourceLocation newId = new ResourceLocation(oldId.getNamespace(), oldId.getPath() + "_copy");
-        CurrencyDraft copy = CurrencyDraft.text(newId, currency.displayName() + " (Copy)", currency.iconText());
-
-        List<CurrencyDraft> list = new ArrayList<>(session.currencyDrafts());
-        list.add(copy);
-        session.setCurrencyDrafts(list);
-        session.recordHistory("currency.duplicate", "CurrencyDraft", null, newId, "Duplicated currency " + newId);
-        ShopToastHelper.success(Component.literal("Currency draft duplicated"));
-        selectTarget(copy);
-        markDirty();
-        return copy;
+        return currencyEditor.duplicateCurrency(currency);
     }
 
+    /**
+     * Delegates to {@link ShopCurrencyEditor}.
+     *
+     * @param currency currency used by this operation.
+     * @return the operation result; absent objects may be null.
+     */
     public CurrencyDraft duplicateCurrency(dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency currency) {
-        if (session == null || currency == null) {
-            return null;
-        }
-
-        ResourceLocation oldId = currency.getId();
-        ResourceLocation newId = new ResourceLocation(oldId != null ? oldId.getNamespace() : "sdm",
-                (oldId != null ? oldId.getPath() : "cur") + "_copy");
-        String name = currency.getDisplayName() != null ? currency.getDisplayName().getString() + " (Copy)" : "New Currency";
-        String symbol = "$";
-        try {
-            symbol = currency.format(java.math.BigDecimal.ONE).replaceAll("[0-9.,\\s]", "");
-            if (symbol.isEmpty()) symbol = "$";
-        } catch (Exception ignored) {}
-        CurrencyDraft copy = CurrencyDraft.text(newId, name, symbol);
-
-        List<CurrencyDraft> list = new ArrayList<>(session.currencyDrafts());
-        list.add(copy);
-        session.setCurrencyDrafts(list);
-        session.recordHistory("currency.duplicate", "CurrencyDraft", null, newId, "Duplicated currency " + newId);
-        ShopToastHelper.success(Component.literal("Currency duplicated as draft"));
-        selectTarget(copy);
-        markDirty();
-        return copy;
+        return currencyEditor.duplicateCurrency(currency);
     }
 }

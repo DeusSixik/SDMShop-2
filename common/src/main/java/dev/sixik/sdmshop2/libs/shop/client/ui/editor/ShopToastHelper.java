@@ -5,8 +5,7 @@ import net.minecraft.network.chat.Component;
 
 public final class ShopToastHelper {
 
-    private ShopToastHelper() {
-    }
+    private ShopToastHelper() {}
 
     public static void info(Component message) {
         send(message);

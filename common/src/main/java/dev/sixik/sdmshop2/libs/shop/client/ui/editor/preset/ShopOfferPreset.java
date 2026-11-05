@@ -4,38 +4,36 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.NameComponent;
 import dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodec;
+
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.item.Items;
 
 import java.util.UUID;
 
 public record ShopOfferPreset(
-        String id,
-        String name,
-        String description,
-        boolean builtIn,
-        JsonObject templateJson
-) {
+        String id, String name, String description, boolean builtIn, JsonObject templateJson) {
 
-    public static final FieldCodec<ShopOfferPreset> CODEC = FieldCodec.<ShopOfferPreset>builder()
-            .schema("shop_offer_preset")
-            .json(
-                    (json, key, value) -> {
-                        if (value != null) {
-                            json.add(key, toJsonElement(value));
-                        }
-                    },
-                    (json, key, defaultValue) -> json.has(key)
-                            ? fromJsonElement(json.get(key), defaultValue)
-                            : defaultValue
-            )
-            .jsonElement(ShopOfferPreset::toJsonElement, ShopOfferPreset::fromJsonElement)
-            .network(ShopOfferPreset::writeNetwork, ShopOfferPreset::readNetwork)
-            .build();
+    public static final FieldCodec<ShopOfferPreset> CODEC =
+            FieldCodec.<ShopOfferPreset>builder()
+                    .schema("shop_offer_preset")
+                    .json(
+                            (json, key, value) -> {
+                                if (value != null) {
+                                    json.add(key, toJsonElement(value));
+                                }
+                            },
+                            (json, key, defaultValue) ->
+                                    json.has(key)
+                                            ? fromJsonElement(json.get(key), defaultValue)
+                                            : defaultValue)
+                    .jsonElement(ShopOfferPreset::toJsonElement, ShopOfferPreset::fromJsonElement)
+                    .network(ShopOfferPreset::writeNetwork, ShopOfferPreset::readNetwork)
+                    .build();
 
     public ShopOfferPreset {
         id = id == null ? UUID.randomUUID().toString() : id;
@@ -86,27 +84,33 @@ public record ShopOfferPreset(
         return object;
     }
 
-    private static ShopOfferPreset fromJsonElement(JsonElement element, ShopOfferPreset defaultValue) {
+    private static ShopOfferPreset fromJsonElement(
+            JsonElement element, ShopOfferPreset defaultValue) {
         if (element == null || element.isJsonNull() || !element.isJsonObject()) {
             return defaultValue;
         }
 
         JsonObject object = element.getAsJsonObject();
-        String id = object.has("id") ? object.get("id").getAsString() : UUID.randomUUID().toString();
+        String id =
+                object.has("id") ? object.get("id").getAsString() : UUID.randomUUID().toString();
         String name = object.has("name") ? object.get("name").getAsString() : "Custom Preset";
-        String description = object.has("description") ? object.get("description").getAsString() : "";
+        String description =
+                object.has("description") ? object.get("description").getAsString() : "";
         boolean builtIn = object.has("built_in") && object.get("built_in").getAsBoolean();
-        JsonObject template = object.has("template") && object.get("template").isJsonObject()
-                ? object.getAsJsonObject("template")
-                : new JsonObject();
+        JsonObject template =
+                object.has("template") && object.get("template").isJsonObject()
+                        ? object.getAsJsonObject("template")
+                        : new JsonObject();
 
         return new ShopOfferPreset(id, name, description, builtIn, template);
     }
 
     private static void writeNetwork(FriendlyByteBuf buf, ShopOfferPreset value) {
-        ShopOfferPreset safe = value == null
-                ? new ShopOfferPreset(UUID.randomUUID().toString(), "", "", false, new JsonObject())
-                : value;
+        ShopOfferPreset safe =
+                value == null
+                        ? new ShopOfferPreset(
+                                UUID.randomUUID().toString(), "", "", false, new JsonObject())
+                        : value;
         buf.writeUtf(safe.id);
         buf.writeUtf(safe.name);
         buf.writeUtf(safe.description);

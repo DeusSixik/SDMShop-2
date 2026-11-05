@@ -1,6 +1,7 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.editor.preset;
 
 import com.google.gson.JsonObject;
+
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.cache.ShopClientCache;
@@ -11,8 +12,10 @@ import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.NameComponent;
 import dev.sixik.sdmshop2.libs.shop.components.money.MoneyCostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.money.MoneyRewardComponent;
+
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Items;
+
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
@@ -22,8 +25,7 @@ public final class ShopOfferPresetManager {
 
     private static final List<ShopOfferPreset> BUILT_IN_PRESETS = new CopyOnWriteArrayList<>();
 
-    private ShopOfferPresetManager() {
-    }
+    private ShopOfferPresetManager() {}
 
     public static List<ShopOfferPreset> getBuiltInPresets() {
         if (BUILT_IN_PRESETS.isEmpty()) {
@@ -46,7 +48,8 @@ public final class ShopOfferPresetManager {
         return all;
     }
 
-    public static ShopOfferPreset saveOfferAsPreset(String name, String description, @Nullable ShopOffer offer) {
+    public static ShopOfferPreset saveOfferAsPreset(
+            String name, String description, @Nullable ShopOffer offer) {
         String presetName = (name != null && !name.isBlank()) ? name.trim() : "Custom Preset";
         String presetDesc = (description != null) ? description.trim() : "";
 
@@ -62,7 +65,8 @@ public final class ShopOfferPresetManager {
         }
 
         String presetId = "custom_" + UUID.randomUUID();
-        ShopOfferPreset preset = new ShopOfferPreset(presetId, presetName, presetDesc, false, templateJson);
+        ShopOfferPreset preset =
+                new ShopOfferPreset(presetId, presetName, presetDesc, false, templateJson);
         ShopClientCache.addOfferPreset(preset);
         return preset;
     }
@@ -102,8 +106,7 @@ public final class ShopOfferPresetManager {
                 "Diamond for Coins",
                 "Buy 1 Diamond for 10 Coins",
                 true,
-                offer.serialize().getAsJsonObject()
-        );
+                offer.serialize().getAsJsonObject());
     }
 
     private static ShopOfferPreset createItemTradePreset() {
@@ -121,8 +124,7 @@ public final class ShopOfferPresetManager {
                 "Item Trade (Iron for Gold)",
                 "Trade 8 Iron Ingots for 2 Gold Ingots",
                 true,
-                offer.serialize().getAsJsonObject()
-        );
+                offer.serialize().getAsJsonObject());
     }
 
     private static ShopOfferPreset createSellItemPreset() {
@@ -140,8 +142,7 @@ public final class ShopOfferPresetManager {
                 "Sell Item for Coins",
                 "Sell 64 Cobblestone for 5 Coins",
                 true,
-                offer.serialize().getAsJsonObject()
-        );
+                offer.serialize().getAsJsonObject());
     }
 
     private static ShopOfferPreset createCommandRewardPreset() {
@@ -159,8 +160,7 @@ public final class ShopOfferPresetManager {
                 "Command Reward",
                 "Execute /time set day for 50 Coins",
                 true,
-                offer.serialize().getAsJsonObject()
-        );
+                offer.serialize().getAsJsonObject());
     }
 
     private static ShopOfferPreset createEmptyOfferPreset() {
@@ -176,8 +176,7 @@ public final class ShopOfferPresetManager {
                 "Empty Offer",
                 "Base offer skeleton without costs or rewards",
                 true,
-                offer.serialize().getAsJsonObject()
-        );
+                offer.serialize().getAsJsonObject());
     }
 
     private static JsonObject createDefaultTemplate(String name) {

@@ -2,9 +2,7 @@ package dev.sixik.sdmshop2.libs.shop.client.ui.theme;
 
 import dev.sixik.unigui.api.math.MutableColor;
 
-/**
- * Цветовые токены, скругления и размеры темы "Obsidian & Gold" для SDMShop-2.
- */
+/** Цветовые токены, скругления и размеры темы "Obsidian & Gold" для SDMShop-2. */
 public final class ShopTheme {
 
     private ShopTheme() {}

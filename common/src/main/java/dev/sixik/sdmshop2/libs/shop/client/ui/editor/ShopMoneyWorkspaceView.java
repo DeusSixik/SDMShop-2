@@ -6,14 +6,15 @@ import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
 import dev.sixik.sdmshop2.libs.sdmeconomy.custom_currency.ExternalItemCurrency;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.IconType;
-import dev.sixik.sdmshop2.libs.shop.client.ui.editor.unity.UnityIcons;
-import dev.sixik.sdmshop2.libs.shop.client.ui.editor.unity.UnityStyles;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUiSubscription;
+import dev.sixik.sdmshop2.libs.shop.client.ui.theme.ShopEditorStyles;
 import dev.sixik.sdmshop2.libs.shop.client.ui.theme.ShopTheme;
 import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopItemWidget;
 import dev.sixik.unigui.api.core.FrameContext;
 import dev.sixik.unigui.api.event.PointerPressedEvent;
 import dev.sixik.unigui.api.input.PointerButton;
 import dev.sixik.unigui.api.layout.*;
+import dev.sixik.unigui.api.render.SimpleTextureHandle;
 import dev.sixik.unigui.api.widget.Widget;
 import dev.sixik.unigui.widgets.containers.Box;
 import dev.sixik.unigui.widgets.containers.GridBox;
@@ -21,29 +22,35 @@ import dev.sixik.unigui.widgets.containers.LinearBox;
 import dev.sixik.unigui.widgets.containers.ScrollView;
 import dev.sixik.unigui.widgets.containers.VBox;
 import dev.sixik.unigui.widgets.core.Orientation;
-import dev.sixik.unigui.widgets.display.CanvasWidget;
 import dev.sixik.unigui.widgets.display.ImageView;
 import dev.sixik.unigui.widgets.display.Label;
-import net.minecraft.resources.ResourceLocation;
-import dev.sixik.unigui.api.render.SimpleTextureHandle;
 import dev.sixik.unigui.widgets.feedback.ContextMenu;
 import dev.sixik.unigui.widgets.feedback.OverlayLayer;
+
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
-import java.util.HashMap;
-import java.util.Map;
 import org.jetbrains.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
-
-/**
- * Центральная рабочая панель «Money» (список валют магазина).
- */
+/** Центральная рабочая панель «Money» (список валют магазина). */
 public class ShopMoneyWorkspaceView extends LinearBox {
+    /** Editor notification registration released with this view. */
+    private final ShopUiSubscription stateSubscription;
+
+    /** Releases editor notifications before disposing child widgets. */
+    @Override
+    public void dispose() {
+        stateSubscription.close();
+        super.dispose();
+    }
 
     private final GridBox grid = new GridBox();
     private ScrollView scrollView;
@@ -59,25 +66,30 @@ public class ShopMoneyWorkspaceView extends LinearBox {
         grid.columns(3);
         grid.horizontalSpacing(8.0f);
         grid.verticalSpacing(8.0f);
-        grid.layout(style -> style
-                .gridTemplateColumns(GridTrack.fr(1.0f), GridTrack.fr(1.0f), GridTrack.fr(1.0f))
-                .alignContent(AlignContent.START)
-                .gap(8.0f)
-                .widthPercent(100.0f)
-                .padding(8.0f)
-        );
+        grid.layout(
+                style ->
+                        style.gridTemplateColumns(
+                                        GridTrack.fr(1.0f), GridTrack.fr(1.0f), GridTrack.fr(1.0f))
+                                .alignContent(AlignContent.START)
+                                .gap(8.0f)
+                                .widthPercent(100.0f)
+                                .padding(8.0f));
 
         this.scrollView = new ScrollView(grid);
         this.scrollView.scrollStep(24.0f);
         this.scrollView.scrollbarGap(2.0f);
-        this.scrollView.scrollbarTrackColor().set(UnityStyles.BORDER_DEFAULT);
-        this.scrollView.scrollbarThumbColor().set(UnityStyles.TEXT_MUTED);
-        this.scrollView.layout(style -> style.sizePercent(100.0f, 100.0f)
-                .overflowX(Overflow.HIDDEN).overflowY(Overflow.AUTO)
-                .flexGrow(1.0f).flexShrink(1.0f));
+        this.scrollView.scrollbarTrackColor().set(ShopEditorStyles.BORDER_DEFAULT);
+        this.scrollView.scrollbarThumbColor().set(ShopEditorStyles.TEXT_MUTED);
+        this.scrollView.layout(
+                style ->
+                        style.sizePercent(100.0f, 100.0f)
+                                .overflowX(Overflow.HIDDEN)
+                                .overflowY(Overflow.AUTO)
+                                .flexGrow(1.0f)
+                                .flexShrink(1.0f));
         addChild(this.scrollView);
 
-        ShopEditorState.get().addListener(this::refreshView);
+        stateSubscription = ShopEditorState.get().subscribe(this::refreshView);
         refreshView();
     }
 
@@ -88,36 +100,39 @@ public class ShopMoneyWorkspaceView extends LinearBox {
         // 1. Карточка "+ Add New Currency"
         VBox addCard = new VBox();
         addCard.spacing(4.0f);
-        addCard.layout(style -> style
-                .height(96.0f)
-                .padding(6.0f)
-                .alignItems(Align.CENTER)
-                .justifyContent(Justify.CENTER)
-                .flexNone()
-        );
+        addCard.layout(
+                style ->
+                        style.height(96.0f)
+                                .padding(6.0f)
+                                .alignItems(Align.CENTER)
+                                .justifyContent(Justify.CENTER)
+                                .flexNone());
+        addCard.themeEnabled(false);
         addCard.boxVisualEnabled(true);
         addCard.backgroundVisible(true);
-        addCard.background(UnityStyles.BG_PANEL);
+        addCard.background(ShopEditorStyles.BG_PANEL);
         addCard.borderVisible(true);
-        addCard.border(UnityStyles.SELECTION_BLUE);
+        addCard.border(ShopEditorStyles.SELECTION_BLUE);
         addCard.borderWidth(1.0f);
         addCard.radius(ShopTheme.RADIUS_CARD);
 
         Label plus = new Label("+");
-        plus.color(UnityStyles.SELECTION_BLUE);
+        plus.color(ShopEditorStyles.SELECTION_BLUE);
         Label addLbl = new Label("Add New Currency");
-        addLbl.color(UnityStyles.TEXT_PRIMARY);
+        addLbl.color(ShopEditorStyles.TEXT_PRIMARY);
 
         addCard.addChild(plus);
         addCard.addChild(addLbl);
-        addCard.on(PointerPressedEvent.TYPE, event -> {
-            if (event.button() == PointerButton.PRIMARY) {
-                CurrencyDraft draft = ShopEditorState.get().createNewCurrency();
-                ShopEditorState.get().selectTarget(draft);
-                refreshView();
-                event.cancel();
-            }
-        });
+        addCard.on(
+                PointerPressedEvent.TYPE,
+                event -> {
+                    if (event.button() == PointerButton.PRIMARY) {
+                        CurrencyDraft draft = ShopEditorState.get().createNewCurrency();
+                        ShopEditorState.get().selectTarget(draft);
+                        refreshView();
+                        event.cancel();
+                    }
+                });
         grid.addChild(addCard);
 
         Object currentTarget = ShopEditorState.get().getSelectedTarget();
@@ -172,30 +187,32 @@ public class ShopMoneyWorkspaceView extends LinearBox {
             ResourceLocation id,
             @Nullable CurrencyDraft draft,
             @Nullable ICurrency liveCur,
-            Object currentTarget
-    ) {
+            Object currentTarget) {
         VBox card = new VBox();
         card.spacing(3.0f);
-        card.layout(style -> style
-                .height(96.0f)
-                .padding(6.0f)
-                .alignItems(Align.CENTER)
-                .justifyContent(Justify.CENTER)
-                .flexNone()
-        );
+        card.layout(
+                style ->
+                        style.height(96.0f)
+                                .padding(6.0f)
+                                .alignItems(Align.CENTER)
+                                .justifyContent(Justify.CENTER)
+                                .flexNone());
 
-        boolean isSelected = (currentTarget != null) && (
-                currentTarget == draft ||
-                currentTarget == liveCur ||
-                (currentTarget instanceof CurrencyDraft cd && cd.id().equals(id)) ||
-                (currentTarget instanceof ICurrency ic && ic.getId().equals(id))
-        );
+        boolean isSelected =
+                (currentTarget != null)
+                        && (currentTarget == draft
+                                || currentTarget == liveCur
+                                || (currentTarget instanceof CurrencyDraft cd && cd.id().equals(id))
+                                || (currentTarget instanceof ICurrency ic
+                                        && ic.getId().equals(id)));
+
+        card.themeEnabled(false);
 
         card.boxVisualEnabled(true);
         card.backgroundVisible(true);
-        card.background(isSelected ? UnityStyles.BG_HEADER_HOVER : UnityStyles.BG_PANEL);
+        card.background(isSelected ? ShopEditorStyles.BG_HEADER_HOVER : ShopEditorStyles.BG_PANEL);
         card.borderVisible(true);
-        card.border(isSelected ? UnityStyles.SELECTION_BLUE : UnityStyles.BORDER_DEFAULT);
+        card.border(isSelected ? ShopEditorStyles.SELECTION_BLUE : ShopEditorStyles.BORDER_DEFAULT);
         card.borderWidth(isSelected ? 2.0f : 1.0f);
         card.radius(ShopTheme.RADIUS_CARD);
 
@@ -206,40 +223,49 @@ public class ShopMoneyWorkspaceView extends LinearBox {
         }
 
         // 2. Название
-        String displayName = draft != null ? draft.displayName() : (liveCur != null ? liveCur.getDisplayName().getString() : id.getPath());
+        String displayName =
+                draft != null
+                        ? draft.displayName()
+                        : (liveCur != null ? liveCur.getDisplayName().getString() : id.getPath());
         if (draft != null && liveCur != null) {
             displayName = displayName + " [Draft]";
         }
         Label nameLbl = new Label(displayName);
-        nameLbl.color(isSelected ? UnityStyles.TEXT_BOLD : UnityStyles.TEXT_PRIMARY);
+        nameLbl.color(isSelected ? ShopEditorStyles.TEXT_BOLD : ShopEditorStyles.TEXT_PRIMARY);
         card.addChild(nameLbl);
 
         // 3. ID
         Label idLbl = new Label(id.toString());
-        idLbl.color(UnityStyles.TEXT_MUTED);
+        idLbl.color(ShopEditorStyles.TEXT_MUTED);
         card.addChild(idLbl);
 
         // 4. Обработчик клика (позиция в сетке не меняется)
-        card.on(PointerPressedEvent.TYPE, event -> {
-            if (event.button() == PointerButton.PRIMARY) {
-                Object targetToSelect;
-                if (draft != null) {
-                    targetToSelect = draft;
-                } else if (liveCur != null) {
-                    targetToSelect = ShopEditorState.get().getOrCreateCurrencyDraft(liveCur);
-                } else {
-                    targetToSelect = id;
-                }
-                ShopEditorState.get().selectTarget(targetToSelect);
-                refreshView();
-                event.cancel();
-            } else if (event.button() == PointerButton.SECONDARY) {
-                Object targetToSelect = draft != null ? draft : liveCur;
-                ShopEditorState.get().selectTarget(targetToSelect);
-                openCurrencyContextMenu(event.rootX(), event.rootY(), targetToSelect != null ? targetToSelect : id);
-                event.cancel();
-            }
-        });
+        card.on(
+                PointerPressedEvent.TYPE,
+                event -> {
+                    if (event.button() == PointerButton.PRIMARY) {
+                        Object targetToSelect;
+                        if (draft != null) {
+                            targetToSelect = draft;
+                        } else if (liveCur != null) {
+                            targetToSelect =
+                                    ShopEditorState.get().getOrCreateCurrencyDraft(liveCur);
+                        } else {
+                            targetToSelect = id;
+                        }
+                        ShopEditorState.get().selectTarget(targetToSelect);
+                        refreshView();
+                        event.cancel();
+                    } else if (event.button() == PointerButton.SECONDARY) {
+                        Object targetToSelect = draft != null ? draft : liveCur;
+                        ShopEditorState.get().selectTarget(targetToSelect);
+                        openCurrencyContextMenu(
+                                event.rootX(),
+                                event.rootY(),
+                                targetToSelect != null ? targetToSelect : id);
+                        event.cancel();
+                    }
+                });
 
         if (draft != null) currencyCards.put(draft, card);
         if (liveCur != null) currencyCards.put(liveCur, card);
@@ -250,9 +276,12 @@ public class ShopMoneyWorkspaceView extends LinearBox {
 
     private Widget buildCardIconWidget(@Nullable CurrencyDraft draft, @Nullable ICurrency liveCur) {
         if (draft != null) {
-            if (draft.kind() == CurrencyDraft.Kind.ITEM && draft.itemStack() != null && !draft.itemStack().isEmpty()) {
-                ShopItemWidget itemSlot = new ShopItemWidget(draft.itemStack(), 20.0f).asSlot(24.0f, 24.0f);
-                itemSlot.background().set(UnityStyles.BG_INPUT);
+            if (draft.kind() == CurrencyDraft.Kind.ITEM
+                    && draft.itemStack() != null
+                    && !draft.itemStack().isEmpty()) {
+                ShopItemWidget itemSlot =
+                        new ShopItemWidget(draft.itemStack(), 20.0f).asSlot(24.0f, 24.0f);
+                itemSlot.background().set(ShopEditorStyles.BG_INPUT);
                 itemSlot.borderWidth(1.0f);
                 itemSlot.radius(3.0f);
                 itemSlot.layout(s -> s.fixed(24.0f, 24.0f).flexNone());
@@ -264,24 +293,35 @@ public class ShopMoneyWorkspaceView extends LinearBox {
                 return img;
             } else {
                 Box badge = new Box();
+                badge.themeEnabled(false);
                 badge.boxVisualEnabled(true);
                 badge.backgroundVisible(true);
-                badge.background(UnityStyles.BG_INPUT);
+                badge.background(ShopEditorStyles.BG_INPUT);
                 badge.borderVisible(true);
-                badge.border(UnityStyles.BORDER_DEFAULT);
+                badge.border(ShopEditorStyles.BORDER_DEFAULT);
                 badge.borderWidth(1.0f);
                 badge.radius(3.0f);
-                badge.layout(s -> s.size(24.0f, 24.0f).alignItems(Align.CENTER).justifyContent(Justify.CENTER).flexNone());
-                Label sym = new Label(draft.iconText() != null && !draft.iconText().isBlank() ? draft.iconText() : "$");
-                sym.color().set(UnityStyles.WARNING_YELLOW);
+                badge.layout(
+                        s ->
+                                s.size(24.0f, 24.0f)
+                                        .alignItems(Align.CENTER)
+                                        .justifyContent(Justify.CENTER)
+                                        .flexNone());
+                Label sym =
+                        new Label(
+                                draft.iconText() != null && !draft.iconText().isBlank()
+                                        ? draft.iconText()
+                                        : "$");
+                sym.color().set(ShopEditorStyles.WARNING_YELLOW);
                 badge.addChild(sym);
                 return badge;
             }
         }
 
         if (liveCur instanceof ExternalItemCurrency eic && !eic.getItemType().isEmpty()) {
-            ShopItemWidget itemSlot = new ShopItemWidget(eic.getItemType(), 20.0f).asSlot(24.0f, 24.0f);
-            itemSlot.background().set(UnityStyles.BG_INPUT);
+            ShopItemWidget itemSlot =
+                    new ShopItemWidget(eic.getItemType(), 20.0f).asSlot(24.0f, 24.0f);
+            itemSlot.background().set(ShopEditorStyles.BG_INPUT);
             itemSlot.borderWidth(1.0f);
             itemSlot.radius(3.0f);
             itemSlot.layout(s -> s.fixed(24.0f, 24.0f).flexNone());
@@ -290,19 +330,24 @@ public class ShopMoneyWorkspaceView extends LinearBox {
 
         if (liveCur != null && liveCur.getIcon() != null) {
             CurrencyIcon curIcon = liveCur.getIcon();
-            if (curIcon.type() == IconType.ITEM && curIcon.icon() instanceof ItemStack stack && !stack.isEmpty()) {
+            if (curIcon.type() == IconType.ITEM
+                    && curIcon.icon() instanceof ItemStack stack
+                    && !stack.isEmpty()) {
                 ShopItemWidget itemSlot = new ShopItemWidget(stack, 20.0f).asSlot(24.0f, 24.0f);
-                itemSlot.background().set(UnityStyles.BG_INPUT);
+                itemSlot.background().set(ShopEditorStyles.BG_INPUT);
                 itemSlot.borderWidth(1.0f);
                 itemSlot.radius(3.0f);
                 itemSlot.layout(s -> s.fixed(24.0f, 24.0f).flexNone());
                 return itemSlot;
-            } else if (curIcon.type() == IconType.TEXTURE && curIcon.icon() instanceof ResourceLocation loc) {
+            } else if (curIcon.type() == IconType.TEXTURE
+                    && curIcon.icon() instanceof ResourceLocation loc) {
                 String tex = loc.toString();
                 ImageView img = new ImageView(new SimpleTextureHandle(tex, 24, 24, tex));
                 img.layout(s -> s.size(24.0f, 24.0f).flexNone());
                 return img;
-            } else if (curIcon.type() == IconType.TEXTURE && curIcon.icon() instanceof String str && (str.contains(":") || str.contains("/") || str.endsWith(".png"))) {
+            } else if (curIcon.type() == IconType.TEXTURE
+                    && curIcon.icon() instanceof String str
+                    && (str.contains(":") || str.contains("/") || str.endsWith(".png"))) {
                 ImageView img = new ImageView(new SimpleTextureHandle(str, 24, 24, str));
                 img.layout(s -> s.size(24.0f, 24.0f).flexNone());
                 return img;
@@ -311,25 +356,35 @@ public class ShopMoneyWorkspaceView extends LinearBox {
 
         // Text symbol fallback
         String symbol = "$";
-        if (liveCur != null && liveCur.getIcon() != null && liveCur.getIcon().icon() instanceof String s && !s.isBlank()) {
+        if (liveCur != null
+                && liveCur.getIcon() != null
+                && liveCur.getIcon().icon() instanceof String s
+                && !s.isBlank()) {
             symbol = s;
         } else if (liveCur != null) {
             try {
                 symbol = liveCur.format(java.math.BigDecimal.ONE).replaceAll("[0-9.,\\s]", "");
                 if (symbol.isEmpty()) symbol = "$";
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
         Box badge = new Box();
+        badge.themeEnabled(false);
         badge.boxVisualEnabled(true);
         badge.backgroundVisible(true);
-        badge.background(UnityStyles.BG_INPUT);
+        badge.background(ShopEditorStyles.BG_INPUT);
         badge.borderVisible(true);
-        badge.border(UnityStyles.BORDER_DEFAULT);
+        badge.border(ShopEditorStyles.BORDER_DEFAULT);
         badge.borderWidth(1.0f);
         badge.radius(3.0f);
-        badge.layout(s -> s.size(24.0f, 24.0f).alignItems(Align.CENTER).justifyContent(Justify.CENTER).flexNone());
+        badge.layout(
+                s ->
+                        s.size(24.0f, 24.0f)
+                                .alignItems(Align.CENTER)
+                                .justifyContent(Justify.CENTER)
+                                .flexNone());
         Label sym = new Label(symbol);
-        sym.color().set(UnityStyles.WARNING_YELLOW);
+        sym.color().set(ShopEditorStyles.WARNING_YELLOW);
         badge.addChild(sym);
         return badge;
     }
@@ -345,30 +400,43 @@ public class ShopMoneyWorkspaceView extends LinearBox {
 
         float menuWidth = 140.0f;
         ContextMenu menu = new ContextMenu();
-        UnityStyles.styleContextMenu(menu);
+        ShopEditorStyles.styleContextMenu(menu);
 
-        boolean canDelete = !(target instanceof ICurrency cur && ShopEditorState.get().isDefaultCurrency(cur.getId()))
-                && !(target instanceof CurrencyDraft draft && ShopEditorState.get().isDefaultCurrency(draft.id()));
+        boolean canDelete =
+                !(target instanceof ICurrency cur
+                                && ShopEditorState.get().isDefaultCurrency(cur.getId()))
+                        && !(target instanceof CurrencyDraft draft
+                                && ShopEditorState.get().isDefaultCurrency(draft.id()));
 
         // 1. Duplicate
-        UnityStyles.addContextMenuItem(menu, "Duplicate", true, menuWidth, () -> {
-            if (target instanceof CurrencyDraft draft) {
-                ShopEditorState.get().duplicateCurrency(draft);
-            } else if (target instanceof ICurrency cur) {
-                ShopEditorState.get().duplicateCurrency(cur);
-            }
-            refreshView();
-        });
+        ShopEditorStyles.addContextMenuItem(
+                menu,
+                "Duplicate",
+                true,
+                menuWidth,
+                () -> {
+                    if (target instanceof CurrencyDraft draft) {
+                        ShopEditorState.get().duplicateCurrency(draft);
+                    } else if (target instanceof ICurrency cur) {
+                        ShopEditorState.get().duplicateCurrency(cur);
+                    }
+                    refreshView();
+                });
 
         // 2. Delete
-        UnityStyles.addContextMenuItem(menu, "Delete", canDelete, menuWidth, () -> {
-            if (target instanceof CurrencyDraft draft) {
-                ShopEditorState.get().deleteCurrency(draft);
-            } else if (target instanceof ICurrency cur) {
-                ShopEditorState.get().deleteCurrency(cur);
-            }
-            refreshView();
-        });
+        ShopEditorStyles.addContextMenuItem(
+                menu,
+                "Delete",
+                canDelete,
+                menuWidth,
+                () -> {
+                    if (target instanceof CurrencyDraft draft) {
+                        ShopEditorState.get().deleteCurrency(draft);
+                    } else if (target instanceof ICurrency cur) {
+                        ShopEditorState.get().deleteCurrency(cur);
+                    }
+                    refreshView();
+                });
 
         menu.openAt(x, y);
         overlay.addOverlay(menu);

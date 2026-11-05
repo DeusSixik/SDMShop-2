@@ -2,16 +2,14 @@ package dev.sixik.sdmshop2.libs.shop.client.ui.editor;
 
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
-import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
 import dev.sixik.sdmshop2.libs.shop.client.ui.ShopScreenController;
 import dev.sixik.sdmshop2.libs.shop.client.ui.editor.unity.UnityIcons;
-import dev.sixik.sdmshop2.libs.shop.client.ui.editor.unity.UnityStyles;
+import dev.sixik.sdmshop2.libs.shop.client.ui.theme.ShopEditorStyles;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
+import dev.sixik.sdmshop2.utils.ShopUtils;
 import dev.sixik.unigui.api.core.UnityLikeUIScaleProvider;
 import dev.sixik.unigui.api.layout.Align;
-import dev.sixik.unigui.api.layout.Justify;
 import dev.sixik.unigui.api.layout.Overflow;
-import dev.sixik.unigui.api.math.RectView;
 import dev.sixik.unigui.api.render.UiRenderPolicy;
 import dev.sixik.unigui.api.screen.UniScreen;
 import dev.sixik.unigui.api.text.Fonts;
@@ -24,7 +22,7 @@ import dev.sixik.unigui.widgets.docking.*;
 import dev.sixik.unigui.widgets.feedback.ContextMenu;
 import dev.sixik.unigui.widgets.feedback.OverlayLayer;
 import dev.sixik.unigui.widgets.interaction.Button;
-import dev.sixik.sdmshop2.utils.ShopUtils;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.player.Player;
 
@@ -33,12 +31,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Полноэкранный редактор магазина SDMShop-2 в стиле Unity Editor.
- * Воспроизводит компоновку Unity:
- * - Сверху: Toolbar с выпадающими меню (File, Window), заголовком и быстрыми действиями
- * - Слева: Hierarchy (поиск и дерево категорий, товаров, валют)
- * - По центру: 3 вкладки вместо Scene/Game — Catalog, Category, Money
- * - Справа: Inspector (компоненты, свойства и кнопка Add Component)
+ * Полноэкранный редактор магазина SDMShop-2 в стиле Unity Editor. Воспроизводит компоновку Unity: -
+ * Сверху: Toolbar с выпадающими меню (File, Window), заголовком и быстрыми действиями - Слева:
+ * Hierarchy (поиск и дерево категорий, товаров, валют) - По центру: 3 вкладки вместо Scene/Game —
+ * Catalog, Category, Money - Справа: Inspector (компоненты, свойства и кнопка Add Component)
  */
 public final class ShopEditorScreen {
 
@@ -46,6 +42,9 @@ public final class ShopEditorScreen {
         FILE,
         WINDOW
     }
+
+    /** Whether the current description was opened through the game backend. */
+    private static boolean guiOpened;
 
     private static UniScreen currentScreen;
     private static OverlayLayer activeOverlay;
@@ -56,6 +55,11 @@ public final class ShopEditorScreen {
     private static ShopInspectorView inspectorView;
     private static DockingRoot dockingRoot;
     private static final Map<String, DockPane> paneRegistry = new HashMap<>();
+
+    /** Toolbar listener registration owned by the current editor window. */
+    private static dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUiSubscription
+            toolbarSubscription;
+
     private static ContextMenu activeMenu = null;
     private static MenuId lastOpenedMenuId = null;
 
@@ -68,23 +72,47 @@ public final class ShopEditorScreen {
             return;
         }
         createScreen().openGui();
+        guiOpened = true;
     }
 
+    /** Closes the backend GUI and releases its UI resources. */
     public static void close() {
-        closeActiveMenu();
-        if (currentScreen != null) {
+        UniScreen closing = currentScreen;
+        if (closing != null) {
+            closing.onClose(null);
             try {
-                currentScreen.closeGui();
-            } catch (Exception ignored) {}
-            currentScreen = null;
+                if (guiOpened) closing.closeGui();
+            } finally {
+                disposeUi();
+            }
+        } else {
+            disposeUi();
+        }
+    }
+
+    /** Releases subscriptions and widgets without invoking the game backend. */
+    private static void disposeUi() {
+        guiOpened = false;
+        closeActiveMenu();
+        if (toolbarSubscription != null) {
+            toolbarSubscription.close();
+            toolbarSubscription = null;
+        }
+        UniScreen closing = currentScreen;
+        currentScreen = null;
+        if (hierarchyView != null) hierarchyView.setOnTabSwitchRequested(null);
+        // Hidden docking panes are not necessarily children of the mounted root.
+        if (hierarchyView != null) hierarchyView.dispose();
+        if (catalogView != null) catalogView.dispose();
+        if (categoryView != null) categoryView.dispose();
+        if (moneyView != null) moneyView.dispose();
+        if (inspectorView != null) inspectorView.dispose();
+        if (closing != null) {
+            closing.onClose(null);
+            closing.root().dispose();
         }
         activeOverlay = null;
-        if (hierarchyView != null) {
-            try {
-                hierarchyView.setOnTabSwitchRequested(null);
-            } catch (Exception ignored) {}
-            hierarchyView = null;
-        }
+        hierarchyView = null;
         catalogView = null;
         categoryView = null;
         moneyView = null;
@@ -122,7 +150,7 @@ public final class ShopEditorScreen {
     }
 
     public static Map<String, DockPane> getPaneRegistry() {
-        return paneRegistry;
+        return java.util.Collections.unmodifiableMap(paneRegistry);
     }
 
     public static void closeActiveMenu() {
@@ -132,11 +160,13 @@ public final class ShopEditorScreen {
             lastOpenedMenuId = null;
             try {
                 m.close();
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
             if (activeOverlay != null) {
                 try {
                     activeOverlay.removeOverlay(m);
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
         }
     }
@@ -156,18 +186,22 @@ public final class ShopEditorScreen {
     }
 
     public static UniScreen createScreen() {
+        disposeUi();
         DefaultUIContext context = new DefaultUIContext();
-        context.scaleProvider(new UnityLikeUIScaleProvider()
-                .referenceResolution(1920.0f, 1080.0f)
-                .matchBalanced()
-                .scaleRange(0.75f, 6.0f)
-                .userScale(1.8f));
+        context.scaleProvider(
+                new UnityLikeUIScaleProvider()
+                        .referenceResolution(1920.0f, 1080.0f)
+                        .matchBalanced()
+                        .scaleRange(0.75f, 6.0f)
+                        .userScale(1.8f));
 
         Widget root = buildRoot();
-        currentScreen = new UniScreen("SDMShop Editor", root, context)
-                .scaleWithGameGui(false)
-                .renderPolicy(UiRenderPolicy.vsync())
-                .defaultFont(Fonts.defaultFace());
+        currentScreen =
+                new UniScreen("SDMShop Editor", root, context)
+                        .scaleWithGameGui(false)
+                        .renderPolicy(UiRenderPolicy.vsync())
+                        .defaultFont(Fonts.defaultFace())
+                        .onClose(ShopEditorScreen::disposeUi);
         return currentScreen;
     }
 
@@ -179,7 +213,7 @@ public final class ShopEditorScreen {
         Box bg = new Box();
         bg.themeEnabled(false);
         bg.backgroundVisible(true);
-        bg.background().set(UnityStyles.BG_WORKSPACE);
+        bg.background().set(ShopEditorStyles.BG_WORKSPACE);
         bg.borderVisible(false);
         bg.layout(style -> style.sizePercent(100.0f, 100.0f));
         viewport.addChild(bg);
@@ -201,25 +235,29 @@ public final class ShopEditorScreen {
 
         // 2. Создание DockingRoot и настройка темы Unity
         DockingRoot root = new DockingRoot();
-        root.layout(style -> style.widthPercent(100.0f).heightPercent(100.0f)
-                .flexGrow(1.0f).flexShrink(1.0f));
+        root.layout(
+                style ->
+                        style.widthPercent(100.0f)
+                                .heightPercent(100.0f)
+                                .flexGrow(1.0f)
+                                .flexShrink(1.0f));
 
         DockTheme theme = DockTheme.editor();
-        theme.color(DockColor.STRIP_BACKGROUND).set(UnityStyles.BG_WORKSPACE);
-        theme.color(DockColor.STRIP_BORDER).set(UnityStyles.BORDER_DEFAULT);
-        theme.color(DockColor.TAB_BACKGROUND).set(UnityStyles.BG_TAB_INACTIVE);
-        theme.color(DockColor.TAB_HOVER).set(UnityStyles.BG_TAB_ACTIVE);
-        theme.color(DockColor.TAB_SELECTED).set(UnityStyles.BG_TAB_ACTIVE);
-        theme.color(DockColor.TAB_SELECTED_INACTIVE).set(UnityStyles.BG_TAB_INACTIVE);
-        theme.color(DockColor.TAB_ACCENT).set(UnityStyles.TAB_ACCENT);
-        theme.color(DockColor.TAB_ACCENT_INACTIVE).set(UnityStyles.TAB_ACCENT);
-        theme.color(DockColor.TAB_TEXT).set(UnityStyles.TEXT_PRIMARY);
-        theme.color(DockColor.TAB_TEXT_MUTED).set(UnityStyles.TEXT_MUTED);
-        theme.color(DockColor.CONTENT_BACKGROUND).set(UnityStyles.BG_WINDOW);
-        theme.color(DockColor.PANE_BORDER).set(UnityStyles.BORDER_DEFAULT);
-        theme.color(DockColor.SPLIT).set(UnityStyles.BORDER_DEFAULT);
-        theme.color(DockColor.SPLIT_HOVER).set(UnityStyles.SELECTION_BLUE);
-        theme.color(DockColor.SPLIT_PRESSED).set(UnityStyles.SELECTION_BLUE);
+        theme.color(DockColor.STRIP_BACKGROUND).set(ShopEditorStyles.BG_WORKSPACE);
+        theme.color(DockColor.STRIP_BORDER).set(ShopEditorStyles.BORDER_DEFAULT);
+        theme.color(DockColor.TAB_BACKGROUND).set(ShopEditorStyles.BG_TAB_INACTIVE);
+        theme.color(DockColor.TAB_HOVER).set(ShopEditorStyles.BG_TAB_ACTIVE);
+        theme.color(DockColor.TAB_SELECTED).set(ShopEditorStyles.BG_TAB_ACTIVE);
+        theme.color(DockColor.TAB_SELECTED_INACTIVE).set(ShopEditorStyles.BG_TAB_INACTIVE);
+        theme.color(DockColor.TAB_ACCENT).set(ShopEditorStyles.TAB_ACCENT);
+        theme.color(DockColor.TAB_ACCENT_INACTIVE).set(ShopEditorStyles.TAB_ACCENT);
+        theme.color(DockColor.TAB_TEXT).set(ShopEditorStyles.TEXT_PRIMARY);
+        theme.color(DockColor.TAB_TEXT_MUTED).set(ShopEditorStyles.TEXT_MUTED);
+        theme.color(DockColor.CONTENT_BACKGROUND).set(ShopEditorStyles.BG_WINDOW);
+        theme.color(DockColor.PANE_BORDER).set(ShopEditorStyles.BORDER_DEFAULT);
+        theme.color(DockColor.SPLIT).set(ShopEditorStyles.BORDER_DEFAULT);
+        theme.color(DockColor.SPLIT_HOVER).set(ShopEditorStyles.SELECTION_BLUE);
+        theme.color(DockColor.SPLIT_PRESSED).set(ShopEditorStyles.SELECTION_BLUE);
         theme.splitStyle(DockingRoot.SplitHandleStyle.SEAM);
         theme.splitThickness(3.0f);
         theme.tabHeight(22.0f);
@@ -231,16 +269,20 @@ public final class ShopEditorScreen {
         root.tearOffOnDragOut(false);
 
         // Регистрация панелей
-        DockPane hierarchyPane = DockPane.tool("hierarchy", "Hierarchy", hierarchyView)
-                .icon(UnityIcons.HIERARCHY_TAB_ICON);
-        DockPane catalogPane = DockPane.document("catalog", "Catalog", catalogView)
-                .icon(UnityIcons.SCENE_TAB_ICON);
-        DockPane categoryPane = DockPane.document("category", "Category", categoryView)
-                .icon(UnityIcons.GAME_TAB_ICON);
-        DockPane moneyPane = DockPane.document("money", "Money", moneyView)
-                .icon(UnityIcons.CONSOLE_TAB_ICON);
-        DockPane inspectorPane = DockPane.tool("inspector", "Inspector", inspectorView)
-                .icon(UnityIcons.INSPECTOR_TAB_ICON);
+        DockPane hierarchyPane =
+                DockPane.tool("hierarchy", "Hierarchy", hierarchyView)
+                        .icon(UnityIcons.HIERARCHY_TAB_ICON);
+        DockPane catalogPane =
+                DockPane.document("catalog", "Catalog", catalogView)
+                        .icon(UnityIcons.SCENE_TAB_ICON);
+        DockPane categoryPane =
+                DockPane.document("category", "Category", categoryView)
+                        .icon(UnityIcons.GAME_TAB_ICON);
+        DockPane moneyPane =
+                DockPane.document("money", "Money", moneyView).icon(UnityIcons.CONSOLE_TAB_ICON);
+        DockPane inspectorPane =
+                DockPane.tool("inspector", "Inspector", inspectorView)
+                        .icon(UnityIcons.INSPECTOR_TAB_ICON);
 
         dockingRoot = root;
         paneRegistry.clear();
@@ -253,15 +295,16 @@ public final class ShopEditorScreen {
         dockingRoot.restoreLayout(buildDefaultLayoutSnapshot(), paneRegistry);
 
         // Связывание Hierarchy с переключением вкладок в центре
-        hierarchyView.setOnTabSwitchRequested(tabId -> {
-            if (dockingRoot != null && dockingRoot.findPane(tabId) != null) {
-                dockingRoot.selectPane(tabId);
-            }
-        });
+        hierarchyView.setOnTabSwitchRequested(
+                tabId -> {
+                    if (dockingRoot != null && dockingRoot.findPane(tabId) != null) {
+                        dockingRoot.selectPane(tabId);
+                    }
+                });
 
         // 3. Верхний тулбар Unity
         editorRoot.addChild(buildTopToolbar());
-        editorRoot.addChild(UnityStyles.separatorLine());
+        editorRoot.addChild(ShopEditorStyles.separatorLine());
 
         // 4. Область докинга
         editorRoot.addChild(dockingRoot);
@@ -273,35 +316,78 @@ public final class ShopEditorScreen {
     }
 
     public static DockLayoutSnapshot buildDefaultLayoutSnapshot() {
-        DockLayoutSnapshot.Node centerDocs = new DockLayoutSnapshot.Node(
-                DockNode.Kind.LEAF, null, 1.0f, List.of("catalog", "category", "money"), "catalog", null, null);
-        DockLayoutSnapshot.Node inspectorLeaf = new DockLayoutSnapshot.Node(
-                DockNode.Kind.LEAF, null, 1.0f, List.of("inspector"), "inspector", null, null);
-        DockLayoutSnapshot.Node centerRightSplit = new DockLayoutSnapshot.Node(
-                DockNode.Kind.SPLIT, DockSplitOrientation.HORIZONTAL, 0.75f, List.of(), "", centerDocs, inspectorLeaf);
-        DockLayoutSnapshot.Node hierarchyLeaf = new DockLayoutSnapshot.Node(
-                DockNode.Kind.LEAF, null, 1.0f, List.of("hierarchy"), "hierarchy", null, null);
-        DockLayoutSnapshot.Node rootNode = new DockLayoutSnapshot.Node(
-                DockNode.Kind.SPLIT, DockSplitOrientation.HORIZONTAL, 0.20f, List.of(), "", hierarchyLeaf, centerRightSplit);
+        DockLayoutSnapshot.Node centerDocs =
+                new DockLayoutSnapshot.Node(
+                        DockNode.Kind.LEAF,
+                        null,
+                        1.0f,
+                        List.of("catalog", "category", "money"),
+                        "catalog",
+                        null,
+                        null);
+        DockLayoutSnapshot.Node inspectorLeaf =
+                new DockLayoutSnapshot.Node(
+                        DockNode.Kind.LEAF,
+                        null,
+                        1.0f,
+                        List.of("inspector"),
+                        "inspector",
+                        null,
+                        null);
+        DockLayoutSnapshot.Node centerRightSplit =
+                new DockLayoutSnapshot.Node(
+                        DockNode.Kind.SPLIT,
+                        DockSplitOrientation.HORIZONTAL,
+                        0.75f,
+                        List.of(),
+                        "",
+                        centerDocs,
+                        inspectorLeaf);
+        DockLayoutSnapshot.Node hierarchyLeaf =
+                new DockLayoutSnapshot.Node(
+                        DockNode.Kind.LEAF,
+                        null,
+                        1.0f,
+                        List.of("hierarchy"),
+                        "hierarchy",
+                        null,
+                        null);
+        DockLayoutSnapshot.Node rootNode =
+                new DockLayoutSnapshot.Node(
+                        DockNode.Kind.SPLIT,
+                        DockSplitOrientation.HORIZONTAL,
+                        0.20f,
+                        List.of(),
+                        "",
+                        hierarchyLeaf,
+                        centerRightSplit);
         return new DockLayoutSnapshot(rootNode, "catalog");
     }
 
     private static HBox buildTopToolbar() {
         HBox toolbar = new HBox();
         toolbar.spacing(8.0f);
-        toolbar.layout(style -> style.widthPercent(100.0f).height(24.0f)
-                .padding(6.0f, 0.0f, 6.0f, 0.0f)
-                .alignItems(Align.CENTER)
-                .flexGrow(0.0f).flexShrink(0.0f));
+        toolbar.layout(
+                style ->
+                        style.widthPercent(100.0f)
+                                .height(24.0f)
+                                .padding(6.0f, 0.0f, 6.0f, 0.0f)
+                                .alignItems(Align.CENTER)
+                                .flexGrow(0.0f)
+                                .flexShrink(0.0f));
 
         // Иконка куба Unity / лого магазина
         CanvasWidget cubeIcon = new CanvasWidget();
         cubeIcon.layout(style -> style.size(16.0f, 16.0f).flexNone());
-        cubeIcon.onDraw(context -> {
-            UnityIcons.drawProjectSceneCube(
-                    new dev.sixik.unigui.api.render.DrawScope(context, cubeIcon.transform(), cubeIcon.layoutBounds()),
-                    cubeIcon.layoutBounds().x(), cubeIcon.layoutBounds().y(), 16.0f);
-        });
+        cubeIcon.onDraw(
+                context -> {
+                    UnityIcons.drawProjectSceneCube(
+                            new dev.sixik.unigui.api.render.DrawScope(
+                                    context, cubeIcon.transform(), cubeIcon.layoutBounds()),
+                            cubeIcon.layoutBounds().x(),
+                            cubeIcon.layoutBounds().y(),
+                            16.0f);
+                });
         toolbar.addChild(cubeIcon);
 
         // Кнопка меню File
@@ -322,7 +408,7 @@ public final class ShopEditorScreen {
         Box menuDivider = new Box();
         menuDivider.themeEnabled(false);
         menuDivider.backgroundVisible(true);
-        menuDivider.background().set(UnityStyles.BORDER_DEFAULT);
+        menuDivider.background().set(ShopEditorStyles.BORDER_DEFAULT);
         menuDivider.borderVisible(false);
         menuDivider.layout(style -> style.width(1.0f).height(14.0f).margin(2.0f, 0.0f).flexNone());
         toolbar.addChild(menuDivider);
@@ -330,21 +416,28 @@ public final class ShopEditorScreen {
         ShopInstance shop = ShopEditorState.get().getDraftShop();
         String shopIdStr = shop != null && shop.getId() != null ? shop.getId().toString() : "Shop";
         Label titleLbl = new Label("SDMShop Editor — " + shopIdStr);
-        titleLbl.color().set(UnityStyles.TEXT_BOLD);
+        titleLbl.color().set(ShopEditorStyles.TEXT_BOLD);
         toolbar.addChild(titleLbl);
 
         Label changesBadge = new Label("");
-        changesBadge.color().set(UnityStyles.WARNING_YELLOW);
+        changesBadge.color().set(ShopEditorStyles.WARNING_YELLOW);
         toolbar.addChild(changesBadge);
 
-        ShopEditorState.get().addListener(() -> {
-            int changes = ShopEditorState.get().getChangeCount();
-            if (changes > 0) {
-                changesBadge.text("• " + changes + " change" + (changes > 1 ? "s" : ""));
-            } else {
-                changesBadge.text("");
-            }
-        });
+        toolbarSubscription =
+                ShopEditorState.get()
+                        .subscribe(
+                                () -> {
+                                    int changes = ShopEditorState.get().getChangeCount();
+                                    if (changes > 0) {
+                                        changesBadge.text(
+                                                "• "
+                                                        + changes
+                                                        + " change"
+                                                        + (changes > 1 ? "s" : ""));
+                                    } else {
+                                        changesBadge.text("");
+                                    }
+                                });
 
         // Распорка по центру
         Box spacer = new Box();
@@ -353,22 +446,22 @@ public final class ShopEditorScreen {
 
         // Кнопка Reset Session
         Button resetBtn = new Button("Reset Session");
-        UnityStyles.styleButton(resetBtn);
+        ShopEditorStyles.styleButton(resetBtn);
         resetBtn.layout(style -> style.height(20.0f).flexNone());
         resetBtn.onClick(e -> openResetSessionModal());
         toolbar.addChild(resetBtn);
 
         // Кнопка Send Changes (обычный цвет текста)
         Button sendChangesBtn = new Button("Send Changes");
-        UnityStyles.styleButton(sendChangesBtn);
-        sendChangesBtn.textColor().set(UnityStyles.TEXT_PRIMARY);
+        ShopEditorStyles.styleButton(sendChangesBtn);
+        sendChangesBtn.textColor().set(ShopEditorStyles.TEXT_PRIMARY);
         sendChangesBtn.layout(style -> style.height(20.0f).flexNone());
         sendChangesBtn.onClick(e -> ShopEditorState.get().sendChanges());
         toolbar.addChild(sendChangesBtn);
 
         // Кнопка Close
         Button closeBtn = new Button("Close");
-        UnityStyles.styleButton(closeBtn);
+        ShopEditorStyles.styleButton(closeBtn);
         closeBtn.layout(style -> style.height(20.0f).flexNone());
         closeBtn.onClick(e -> closeEditor());
         toolbar.addChild(closeBtn);
@@ -377,10 +470,10 @@ public final class ShopEditorScreen {
     }
 
     private static void styleToolbarMenuButton(Button button) {
-        UnityStyles.styleButton(button);
+        ShopEditorStyles.styleButton(button);
         button.borderVisible(false);
-        button.background().set(UnityStyles.BG_WORKSPACE);
-        button.textColor().set(UnityStyles.TEXT_PRIMARY);
+        button.background().set(ShopEditorStyles.BG_WORKSPACE);
+        button.textColor().set(ShopEditorStyles.TEXT_PRIMARY);
     }
 
     private static void openFileMenu(Button anchor) {
@@ -392,24 +485,39 @@ public final class ShopEditorScreen {
 
         float menuWidth = 160.0f;
         ContextMenu menu = new ContextMenu();
-        UnityStyles.styleContextMenu(menu);
+        ShopEditorStyles.styleContextMenu(menu);
 
-        UnityStyles.addContextMenuItem(menu, "Reset Session", true, menuWidth, () -> {
-            closeActiveMenu();
-            openResetSessionModal();
-        });
+        ShopEditorStyles.addContextMenuItem(
+                menu,
+                "Reset Session",
+                true,
+                menuWidth,
+                () -> {
+                    closeActiveMenu();
+                    openResetSessionModal();
+                });
 
-        UnityStyles.addContextMenuItem(menu, "Send Changes", true, menuWidth, () -> {
-            closeActiveMenu();
-            ShopEditorState.get().sendChanges();
-        });
+        ShopEditorStyles.addContextMenuItem(
+                menu,
+                "Send Changes",
+                true,
+                menuWidth,
+                () -> {
+                    closeActiveMenu();
+                    ShopEditorState.get().sendChanges();
+                });
 
-        UnityStyles.addContextMenuSeparator(menu, menuWidth);
+        ShopEditorStyles.addContextMenuSeparator(menu, menuWidth);
 
-        UnityStyles.addContextMenuItem(menu, "Close", true, menuWidth, () -> {
-            closeActiveMenu();
-            closeEditor();
-        });
+        ShopEditorStyles.addContextMenuItem(
+                menu,
+                "Close",
+                true,
+                menuWidth,
+                () -> {
+                    closeActiveMenu();
+                    closeEditor();
+                });
 
         float rootX = getRootX(anchor);
         float rootY = getRootY(anchor) + anchor.layoutBounds().height() + 2.0f;
@@ -430,7 +538,7 @@ public final class ShopEditorScreen {
 
         float menuWidth = 190.0f;
         ContextMenu menu = new ContextMenu();
-        UnityStyles.styleContextMenu(menu);
+        ShopEditorStyles.styleContextMenu(menu);
 
         addWindowMenuItem(menu, "Hierarchy", "hierarchy", menuWidth);
         addWindowMenuItem(menu, "Catalog", "catalog", menuWidth);
@@ -438,12 +546,17 @@ public final class ShopEditorScreen {
         addWindowMenuItem(menu, "Money", "money", menuWidth);
         addWindowMenuItem(menu, "Inspector", "inspector", menuWidth);
 
-        UnityStyles.addContextMenuSeparator(menu, menuWidth);
+        ShopEditorStyles.addContextMenuSeparator(menu, menuWidth);
 
-        UnityStyles.addContextMenuItem(menu, "Restore Default Layout", true, menuWidth, () -> {
-            closeActiveMenu();
-            restoreDefaultLayout();
-        });
+        ShopEditorStyles.addContextMenuItem(
+                menu,
+                "Restore Default Layout",
+                true,
+                menuWidth,
+                () -> {
+                    closeActiveMenu();
+                    restoreDefaultLayout();
+                });
 
         float rootX = getRootX(anchor);
         float rootY = getRootY(anchor) + anchor.layoutBounds().height() + 2.0f;
@@ -455,12 +568,19 @@ public final class ShopEditorScreen {
         lastOpenedMenuId = MenuId.WINDOW;
     }
 
-    private static void addWindowMenuItem(ContextMenu menu, String title, String paneId, float menuWidth) {
+    private static void addWindowMenuItem(
+            ContextMenu menu, String title, String paneId, float menuWidth) {
         boolean isOpen = dockingRoot != null && dockingRoot.findPane(paneId) != null;
-        UnityStyles.addToggleContextMenuItem(menu, title, isOpen, true, menuWidth, () -> {
-            closeActiveMenu();
-            togglePane(paneId);
-        });
+        ShopEditorStyles.addToggleContextMenuItem(
+                menu,
+                title,
+                isOpen,
+                true,
+                menuWidth,
+                () -> {
+                    closeActiveMenu();
+                    togglePane(paneId);
+                });
     }
 
     public static void togglePane(String paneId) {
@@ -481,7 +601,8 @@ public final class ShopEditorScreen {
             tabId = "catalog";
         } else if (target instanceof CatalogComponent) {
             tabId = "category";
-        } else if (target instanceof dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency || target instanceof dev.sixik.sdmshop2.libs.sdmeconomy.CurrencyDraft) {
+        } else if (target instanceof dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency
+                || target instanceof dev.sixik.sdmshop2.libs.sdmeconomy.CurrencyDraft) {
             tabId = "money";
         }
 

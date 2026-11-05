@@ -1,8 +1,7 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.editor;
 
 import dev.sixik.sdmshop2.libs.shop.client.ui.ShopScreenController;
-import dev.sixik.sdmshop2.libs.shop.client.ui.editor.unity.UnityStyles;
-import dev.sixik.sdmshop2.libs.shop.client.ui.theme.ShopTheme;
+import dev.sixik.sdmshop2.libs.shop.client.ui.theme.ShopEditorStyles;
 import dev.sixik.unigui.api.layout.Align;
 import dev.sixik.unigui.api.layout.Justify;
 import dev.sixik.unigui.api.layout.LayoutContext;
@@ -18,9 +17,7 @@ import dev.sixik.unigui.widgets.feedback.OverlayHostAware;
 import dev.sixik.unigui.widgets.feedback.OverlayLayer;
 import dev.sixik.unigui.widgets.interaction.Button;
 
-/**
- * Модальное окно подтверждения сброса несохраненной сессии редактора.
- */
+/** Модальное окно подтверждения сброса несохраненной сессии редактора. */
 public class ShopResetSessionModal extends Box implements OverlayHostAware {
 
     private static final float MODAL_WIDTH = 380.0f;
@@ -34,11 +31,7 @@ public class ShopResetSessionModal extends Box implements OverlayHostAware {
         backgroundVisible(true);
         background(new MutableColor(0.0f, 0.0f, 0.0f, 0.70f));
 
-        layout(style -> style
-                .position(PositionType.ABSOLUTE)
-                .inset(0.0f)
-                .fill()
-        );
+        layout(style -> style.position(PositionType.ABSOLUTE).inset(0.0f).fill());
 
         buildWindow();
     }
@@ -64,26 +57,26 @@ public class ShopResetSessionModal extends Box implements OverlayHostAware {
 
     private void buildWindow() {
         window.spacing(12.0f);
-        window.layout(style -> style
-                .fixed(MODAL_WIDTH, MODAL_HEIGHT)
-                .padding(14.0f)
-                .alignItems(Align.CENTER)
-                .justifyContent(Justify.SPACE_BETWEEN)
-                .flexNone()
-        );
+        window.layout(
+                style ->
+                        style.fixed(MODAL_WIDTH, MODAL_HEIGHT)
+                                .padding(14.0f)
+                                .alignItems(Align.CENTER)
+                                .justifyContent(Justify.SPACE_BETWEEN)
+                                .flexNone());
 
         window.themeEnabled(false);
         window.boxVisualEnabled(true);
         window.backgroundVisible(true);
-        window.background().set(UnityStyles.BG_WINDOW);
+        window.background().set(ShopEditorStyles.BG_WINDOW);
         window.borderVisible(true);
-        window.border(UnityStyles.BORDER_DEFAULT);
+        window.border(ShopEditorStyles.BORDER_DEFAULT);
         window.borderWidth(1.0f);
         window.radius(4.0f);
 
         // Заголовок
         Label title = new Label("Reset Edit Session");
-        title.color().set(UnityStyles.TEXT_BOLD);
+        title.color().set(ShopEditorStyles.TEXT_BOLD);
         title.layout(style -> style.alignSelf(Align.CENTER));
         window.addChild(title);
 
@@ -94,11 +87,11 @@ public class ShopResetSessionModal extends Box implements OverlayHostAware {
         messageBox.layout(style -> style.alignItems(Align.CENTER));
 
         Label line1 = new Label("All unsaved modifications (" + changeCount + " changes)");
-        line1.color().set(UnityStyles.TEXT_PRIMARY);
+        line1.color().set(ShopEditorStyles.TEXT_PRIMARY);
         Label line2 = new Label("will be permanently discarded.");
-        line2.color().set(UnityStyles.TEXT_LABEL);
+        line2.color().set(ShopEditorStyles.TEXT_LABEL);
         Label line3 = new Label("Are you sure you want to revert to server state?");
-        line3.color().set(UnityStyles.TEXT_MUTED);
+        line3.color().set(ShopEditorStyles.TEXT_MUTED);
 
         messageBox.addChild(line1);
         messageBox.addChild(line2);
@@ -108,26 +101,27 @@ public class ShopResetSessionModal extends Box implements OverlayHostAware {
         // Кнопки
         HBox buttonRow = new HBox();
         buttonRow.spacing(12.0f);
-        buttonRow.layout(style -> style
-                .widthPercent(100.0f)
-                .justifyContent(Justify.CENTER)
-                .alignItems(Align.CENTER)
-                .flexNone()
-        );
+        buttonRow.layout(
+                style ->
+                        style.widthPercent(100.0f)
+                                .justifyContent(Justify.CENTER)
+                                .alignItems(Align.CENTER)
+                                .flexNone());
 
         Button cancelBtn = new Button("Cancel");
-        UnityStyles.styleButton(cancelBtn);
+        ShopEditorStyles.styleButton(cancelBtn);
         cancelBtn.layout(style -> style.fixed(110.0f, 24.0f));
         cancelBtn.onClick(event -> closeSelf());
 
         Button resetBtn = new Button("Reset Session");
-        UnityStyles.styleButton(resetBtn);
-        resetBtn.textColor().set(UnityStyles.AXIS_X);
+        ShopEditorStyles.styleButton(resetBtn);
+        resetBtn.textColor().set(ShopEditorStyles.AXIS_X);
         resetBtn.layout(style -> style.fixed(110.0f, 24.0f));
-        resetBtn.onClick(event -> {
-            ShopEditorState.get().resetSession();
-            closeSelf();
-        });
+        resetBtn.onClick(
+                event -> {
+                    ShopEditorState.get().resetSession();
+                    closeSelf();
+                });
 
         buttonRow.addChild(cancelBtn);
         buttonRow.addChild(resetBtn);

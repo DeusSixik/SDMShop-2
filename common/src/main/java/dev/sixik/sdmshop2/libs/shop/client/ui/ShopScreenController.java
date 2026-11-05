@@ -1,109 +1,116 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui;
 
-import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopScreenElement;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUiContext;
 import dev.sixik.sdmshop2.libs.shop.client.ui.root.ShopRootPanel;
 import dev.sixik.sdmshop2.libs.shop.client.ui.root.ShopToolPanel;
-import dev.sixik.unigui.api.layout.FlexDirection;
-import dev.sixik.unigui.api.screen.UniScreen;
 import dev.sixik.unigui.api.widget.Widget;
-import dev.sixik.unigui.widgets.containers.VBox;
 import dev.sixik.unigui.widgets.feedback.OverlayLayer;
 
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.UUID;
 
-public class ShopScreenController {
+/** Compatibility entry point for network/cache callbacks and the default shop window. */
+public final class ShopScreenController {
+    /** Default window; each open replaces it with a fresh instance. */
+    private static ShopScreen current = new ShopScreen();
 
-    private static OverlayLayer activeOverlay;
+    /** Prevents instantiation. */
+    private ShopScreenController() {}
 
-    private static final ShopRootPanel ROOT_PANEL = new ShopRootPanel();
-    private static final ShopToolPanel TOOL_PANEL = new ShopToolPanel();
+    /**
+     * @return actions for the default shop window.
+     */
+    public static ShopUiContext context() {
+        return current;
+    }
 
-    private static final ShopScreenElement[] ELEMENTS = {
-        ROOT_PANEL,
-        TOOL_PANEL
-    };
-
+    /**
+     * @return the default window's catalog.
+     */
     public static ShopRootPanel getRootPanel() {
-        return ROOT_PANEL;
+        return current.rootPanel();
     }
 
+    /**
+     * @return the default window's toolbar.
+     */
     public static ShopToolPanel getToolPanel() {
-        return TOOL_PANEL;
+        return current.toolPanel();
     }
 
+    /** Opens a fresh default window. */
     public static void openShop() {
-        ROOT_PANEL.resetViewState();
-        UniScreen screen = new UniScreen(root());
-        screen.openGui();
+        current.close();
+        current = new ShopScreen();
+        current.open();
     }
 
-    private static Widget root() {
-        // VBox для вертикального размещения: шапка сверху, контент под ней
-        final VBox mainLayout = new VBox();
-        mainLayout.layout(style -> style
-                .fill()                              // Растягивает корень на 100% экрана
-                .flexDirection(FlexDirection.COLUMN) // Сверху вниз
-                .padding(4.0f)
-                .gap(4.0f)                           // Зазор между тулбаром и нижней панелью
-        );
-
-        // activeOverlay инициализируется ДО элементов, чтобы тултипы и оверлеи могли безопасно регистрироваться
-        activeOverlay = new OverlayLayer(mainLayout);
-
-        Arrays.stream(ELEMENTS)
-                .sorted(Comparator.comparingInt(ShopScreenElement::priority))
-                .forEach(element -> element.initWidget(mainLayout));
-
-        return activeOverlay;
-    }
-
+    /**
+     * @return default window's overlay, or null while unmounted.
+     */
     public static OverlayLayer getActiveOverlay() {
-        return activeOverlay;
+        return current.overlay();
     }
 
+    /**
+     * @param modal widget to show; null is ignored.
+     */
     public static void openModal(Widget modal) {
-        if (activeOverlay != null && modal != null) {
-            activeOverlay.addOverlay(modal);
-        }
+        current.openModal(modal);
     }
 
+    /**
+     * @param modal widget to remove; null is ignored.
+     */
     public static void closeModal(Widget modal) {
-        if (activeOverlay != null && modal != null) {
-            activeOverlay.removeOverlay(modal);
-        }
+        current.closeModal(modal);
     }
 
+    /**
+     * @param query search text; null clears search.
+     */
     public static void onSearchQueryChanged(String query) {
-        ROOT_PANEL.setSearchQuery(query);
+        current.search(query);
     }
 
+    /** Toggles favorite-first ordering and updates the toolbar. */
     public static void toggleFavoritesFirst() {
-        boolean active = ROOT_PANEL.toggleFavoritesFirst();
-        TOOL_PANEL.setFavoritesActive(active);
+        current.toggleFavorites();
     }
 
+    /** Refreshes visible currency balances. */
     public static void invokeRefreshCurrencies() {
-        ROOT_PANEL.refreshCurrencies();
+        getRootPanel().refreshCurrencies();
     }
 
-    public static void invokeFavoritesChanged(UUID offerId, boolean favorite, LinkedHashSet<UUID> uuids) {
-        ROOT_PANEL.onFavoritesChanged(offerId, favorite);
+    /**
+     * Updates the visible favorite state.
+     *
+     * @param offerId affected offer identifier.
+     * @param favorite new favorite state.
+     * @param uuids cache snapshot retained for compatibility.
+     */
+    public static void invokeFavoritesChanged(
+            UUID offerId, boolean favorite, LinkedHashSet<UUID> uuids) {
+        getRootPanel().onFavoritesChanged(offerId, favorite);
     }
 
+    /** Refreshes the visible catalog. */
     public static void invokeRefreshOffers() {
-        ROOT_PANEL.refreshOffers();
+        getRootPanel().refreshOffers();
     }
 
+    /** Refreshes categories, catalog and balances. */
     public static void invokeRefreshAll() {
-        ROOT_PANEL.buildCategoriesList();
-        ROOT_PANEL.refreshOffers();
-        ROOT_PANEL.refreshCurrencies();
+        getRootPanel().buildCategoriesList();
+        getRootPanel().refreshOffers();
+        getRootPanel().refreshCurrencies();
     }
 
+    /**
+     * @param entityId changed offer identifier.
+     */
     public static void invokeRefreshOffer(UUID entityId) {
-        ROOT_PANEL.refreshOffer(entityId);
+        getRootPanel().refreshOffer(entityId);
     }
 }
