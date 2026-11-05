@@ -49,8 +49,8 @@ public final class ShopCatalogQuery {
     private static boolean matches(ShopCatalogItem item, String query) {
         if (query.isEmpty()) return true;
         if (item.title != null && item.title.toLowerCase(Locale.ROOT).contains(query)) return true;
-        if (item.rewards == null) return false;
-        for (ItemStack reward : item.rewards) {
+        if (item.offer == null) return false;
+        for (ItemStack reward : ShopOfferPresentation.resolveRewardItems(item.offer)) {
             if (reward.getHoverName().getString().toLowerCase(Locale.ROOT).contains(query))
                 return true;
             if (BuiltInRegistries.ITEM

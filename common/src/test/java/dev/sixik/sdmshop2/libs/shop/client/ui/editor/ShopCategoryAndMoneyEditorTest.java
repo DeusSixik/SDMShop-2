@@ -1,19 +1,22 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.editor;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import dev.sixik.sdmshop2.libs.sdmeconomy.CurrencyDraft;
-import dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency;
 import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyCurrencyRegistry;
 import dev.sixik.sdmshop2.libs.sdmeconomy.custom_currency.SimpleTextCurrency;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
-import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.cache.ClientCache;
 import dev.sixik.sdmshop2.libs.shop.client.cache.ShopClientCache;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopItemWidget;
 import dev.sixik.sdmshop2.libs.shop.components.misc.CatalogComponent;
-import dev.sixik.sdmshop2.libs.shop.components.misc.NameComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.ShopCategoriesContainerComponent;
+import dev.sixik.sdmshop2.libs.shop.components.money.MoneyCostComponent;
 import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
 import dev.sixik.sdmshop2.libs.shop.register.ShopRegister;
+
 import net.minecraft.resources.ResourceLocation;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,8 +25,6 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 public class ShopCategoryAndMoneyEditorTest {
 
@@ -138,9 +139,10 @@ public class ShopCategoryAndMoneyEditorTest {
 
         // Reindex does not create duplicate categories for matching IDs
         container.reindex();
-        long copyCount = container.getCatalogsComponents().stream()
-                .filter(c -> "cat_1_copy".equalsIgnoreCase(c.getId()))
-                .count();
+        long copyCount =
+                container.getCatalogsComponents().stream()
+                        .filter(c -> "cat_1_copy".equalsIgnoreCase(c.getId()))
+                        .count();
         assertEquals(1, copyCount);
     }
 
@@ -181,8 +183,12 @@ public class ShopCategoryAndMoneyEditorTest {
         ShopEditorState.get().deleteCurrency(serverCurrency);
 
         assertTrue(ShopEditorState.get().isCurrencyDeleted(customId));
-        boolean hasDeleteDraft = ShopEditorState.get().getSession().currencyDrafts().stream()
-                .anyMatch(d -> d.kind() == CurrencyDraft.Kind.DELETE && d.id().equals(customId));
+        boolean hasDeleteDraft =
+                ShopEditorState.get().getSession().currencyDrafts().stream()
+                        .anyMatch(
+                                d ->
+                                        d.kind() == CurrencyDraft.Kind.DELETE
+                                                && d.id().equals(customId));
         assertTrue(hasDeleteDraft);
     }
 
@@ -203,7 +209,8 @@ public class ShopCategoryAndMoneyEditorTest {
         assertTrue(ShopEditorState.get().hasCurrencyDraft(bronzeId));
 
         // Update draft
-        CurrencyDraft updated = new CurrencyDraft(bronzeId, CurrencyDraft.Kind.TEXT, "Updated Bronze", "UB", null);
+        CurrencyDraft updated =
+                new CurrencyDraft(bronzeId, CurrencyDraft.Kind.TEXT, "Updated Bronze", "UB", null);
         ShopEditorState.get().updateCurrencyDraft(draft, updated);
 
         CurrencyDraft fetched = ShopEditorState.get().findCurrencyDraft(bronzeId);
@@ -219,7 +226,9 @@ public class ShopCategoryAndMoneyEditorTest {
         ResourceLocation id = draft.id();
 
         // 1. Update display name
-        CurrencyDraft step1 = new CurrencyDraft(id, draft.kind(), "Renamed Currency", draft.iconText(), draft.itemStack());
+        CurrencyDraft step1 =
+                new CurrencyDraft(
+                        id, draft.kind(), "Renamed Currency", draft.iconText(), draft.itemStack());
         ShopEditorState.get().updateCurrencyDraft(draft, step1);
 
         CurrencyDraft fetched1 = ShopEditorState.get().findCurrencyDraft(id);
@@ -227,7 +236,9 @@ public class ShopCategoryAndMoneyEditorTest {
         assertEquals("Renamed Currency", fetched1.displayName());
 
         // 2. Update symbol using latest draft
-        CurrencyDraft step2 = new CurrencyDraft(id, fetched1.kind(), fetched1.displayName(), "€", fetched1.itemStack());
+        CurrencyDraft step2 =
+                new CurrencyDraft(
+                        id, fetched1.kind(), fetched1.displayName(), "€", fetched1.itemStack());
         ShopEditorState.get().updateCurrencyDraft(fetched1, step2);
 
         CurrencyDraft fetched2 = ShopEditorState.get().findCurrencyDraft(id);
@@ -236,8 +247,15 @@ public class ShopCategoryAndMoneyEditorTest {
         assertEquals("€", fetched2.iconText());
 
         // 3. Switch to ITEM kind with diamond
-        net.minecraft.world.item.ItemStack diamond = net.minecraft.world.item.Items.DIAMOND.getDefaultInstance();
-        CurrencyDraft step3 = new CurrencyDraft(id, CurrencyDraft.Kind.ITEM, fetched2.displayName(), fetched2.iconText(), diamond);
+        net.minecraft.world.item.ItemStack diamond =
+                net.minecraft.world.item.Items.DIAMOND.getDefaultInstance();
+        CurrencyDraft step3 =
+                new CurrencyDraft(
+                        id,
+                        CurrencyDraft.Kind.ITEM,
+                        fetched2.displayName(),
+                        fetched2.iconText(),
+                        diamond);
         ShopEditorState.get().updateCurrencyDraft(fetched2, step3);
 
         CurrencyDraft fetched3 = ShopEditorState.get().findCurrencyDraft(id);
@@ -251,18 +269,31 @@ public class ShopCategoryAndMoneyEditorTest {
     void testOfferCostResolvesCurrencyDraftVisual() {
         CurrencyDraft draft = ShopEditorState.get().createNewCurrency();
         assertNotNull(draft);
-        net.minecraft.world.item.ItemStack emerald = net.minecraft.world.item.Items.EMERALD.getDefaultInstance();
-        CurrencyDraft itemDraft = new CurrencyDraft(draft.id(), CurrencyDraft.Kind.ITEM, "Emerald Money", "", emerald);
+        net.minecraft.world.item.ItemStack emerald =
+                net.minecraft.world.item.Items.EMERALD.getDefaultInstance();
+        CurrencyDraft itemDraft =
+                new CurrencyDraft(
+                        draft.id(), CurrencyDraft.Kind.ITEM, "Emerald Money", "", emerald);
         ShopEditorState.get().updateCurrencyDraft(draft, itemDraft);
 
-        dev.sixik.sdmshop2.libs.shop.components.money.MoneyCostComponent costComp =
-                new dev.sixik.sdmshop2.libs.shop.components.money.MoneyCostComponent(draft.id(), 10.0);
+        MoneyCostComponent costComp = new MoneyCostComponent(draft.id(), 10.0);
 
         dev.sixik.sdmshop2.libs.shop.client.ui.root.ShopCatalogElement.CostEntry costEntry =
-                dev.sixik.sdmshop2.libs.shop.client.ui.root.ShopCatalogElement.resolveCostEntry(costComp);
+                dev.sixik.sdmshop2.libs.shop.client.ui.root.ShopCatalogElement.resolveCostEntry(
+                        costComp);
 
         assertNotNull(costEntry);
         assertEquals("10", costEntry.amount());
-        assertEquals(emerald.getItem(), costEntry.icon().getItem());
+        // The currency component owns its visual; the DTO no longer reduces it to an item icon.
+        var rendered =
+                new dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopComponentPanel(
+                        List.of(costEntry::createRender));
+        var row = (dev.sixik.unigui.widgets.containers.PanelWidget) rendered.children().get(0);
+        row.applyQueuedMutations();
+        row = (dev.sixik.unigui.widgets.containers.PanelWidget) row.children().get(0);
+        row.applyQueuedMutations();
+        var icon = (ShopItemWidget) row.children().get(0);
+        assertEquals(emerald.getItem(), icon.item().getItem());
+        rendered.dispose();
     }
 }

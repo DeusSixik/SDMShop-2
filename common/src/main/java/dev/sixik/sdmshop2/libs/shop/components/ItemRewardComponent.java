@@ -1,9 +1,8 @@
 package dev.sixik.sdmshop2.libs.shop.components;
 
-import dev.sixik.unigui.api.widget.Widget;
-import dev.sixik.unigui.widgets.display.Label;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.IconType;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopRenderWidgets;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
@@ -12,7 +11,10 @@ import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
 import dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs;
 import dev.sixik.sdmshop2.utils.ShopItemHelper;
+import dev.sixik.unigui.api.widget.Widget;
+
 import lombok.Getter;
+
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.network.chat.Component;
@@ -21,7 +23,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import org.apache.commons.lang3.NotImplementedException;
+
 import org.jetbrains.annotations.Nullable;
 
 public class ItemRewardComponent extends RewardComponent {
@@ -63,22 +65,31 @@ public class ItemRewardComponent extends RewardComponent {
     @Override
     @Environment(EnvType.CLIENT)
     public @Nullable Widget createRender() {
-        final ItemStack item = rewardItem.copyWithCount(amount);
-//        return ShopItemPreviewFactory.create("shop:item_reward:" + getType().getId(), item);
-        throw new NotImplementedException();
+        return ShopRenderWidgets.item(rewardItem.copyWithCount(amount));
     }
 
     @Override
     public @Nullable Component getDisplayTitle() {
-        return Component.empty().append(rewardItem.getHoverName()).withStyle(rewardItem.getRarity().color);
+        return Component.empty()
+                .append(rewardItem.getHoverName())
+                .withStyle(rewardItem.getRarity().color);
     }
 
     private static class Type extends SerializedComponentType<ItemRewardComponent> {
 
         private static final ResourceLocation ID = ResourceLocation.tryBuild("sdm", "reward_item");
-        private static final ComponentSerializer<ItemRewardComponent> SERIALIZER = ComponentSerializer.<ItemRewardComponent>create()
-                .addRequired("item", FieldCodecs.ITEM_STACK_ID_NBT, ItemRewardComponent::getRewardItem, (component, value) -> component.rewardItem = value)
-                .addDefaultedInt("amount", ItemRewardComponent::getAmount, (component, value) -> component.amount = Math.max(1, value), 1);
+        private static final ComponentSerializer<ItemRewardComponent> SERIALIZER =
+                ComponentSerializer.<ItemRewardComponent>create()
+                        .addRequired(
+                                "item",
+                                FieldCodecs.ITEM_STACK_ID_NBT,
+                                ItemRewardComponent::getRewardItem,
+                                (component, value) -> component.rewardItem = value)
+                        .addDefaultedInt(
+                                "amount",
+                                ItemRewardComponent::getAmount,
+                                (component, value) -> component.amount = Math.max(1, value),
+                                1);
 
         private Type() {
             super(ItemRewardComponent::new, SERIALIZER);
@@ -91,15 +102,17 @@ public class ItemRewardComponent extends RewardComponent {
 
         @Override
         public ItemRewardComponent createFromBuilder(Object... args) {
-            if(args.length != 2)
-                throw new IllegalArgumentException("ItemRewardComponent.createFromBuilder() takes 2 arguments (ItemStack, int)");
+            if (args.length != 2)
+                throw new IllegalArgumentException(
+                        "ItemRewardComponent.createFromBuilder() takes 2 arguments (ItemStack,"
+                            + " int)");
 
             return new ItemRewardComponent((ItemStack) args[0], (int) args[1]);
         }
 
         @Override
         public CurrencyIcon getIcon() {
-           return new CurrencyIcon(IconType.ITEM, Items.DIAMOND);
+            return new CurrencyIcon(IconType.ITEM, Items.DIAMOND);
         }
     }
 }

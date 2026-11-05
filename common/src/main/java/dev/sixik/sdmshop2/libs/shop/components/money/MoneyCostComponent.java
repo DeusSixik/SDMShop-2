@@ -2,27 +2,24 @@ package dev.sixik.sdmshop2.libs.shop.components.money;
 
 import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.sdmeconomy.*;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopCurrencyWidgets;
 import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
-import dev.sixik.sdmshop2.libs.sdmeconomy.icons.IconType;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfigOptions;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentNumberRange;
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
-import dev.sixik.sdmshop2.utils.ShopClientUtils;
 import dev.sixik.unigui.api.widget.Widget;
-import dev.sixik.unigui.widgets.display.Label;
+
 import lombok.Getter;
+
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import org.apache.commons.lang3.NotImplementedException;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -59,19 +56,22 @@ public class MoneyCostComponent extends CostComponent {
             return false;
         }
 
-        final Map<ResourceLocation, IExternalCurrency> currencies = player.isLocalPlayer() ?
-                SDMEconomyServiceClient.getAllExternalCurrencies()
-                : SDMEconomyCurrencyRegistry.getCurrenciesMap();
+        final Map<ResourceLocation, IExternalCurrency> currencies =
+                player.isLocalPlayer()
+                        ? SDMEconomyServiceClient.getAllExternalCurrencies()
+                        : SDMEconomyCurrencyRegistry.getCurrenciesMap();
 
         if (currencies.containsKey(moneyId))
             /*
-                Проверяем, хватает ли баланса на актуальную цену (actualPrice), а не на базовую (amount)
-             */
+               Проверяем, хватает ли баланса на актуальную цену (actualPrice), а не на базовую (amount)
+            */
             return currencies.get(moneyId).getBalance(player).doubleValue() >= actualPrice;
 
-        final BankAccount account = player.isLocalPlayer()
-                ? SDMEconomyServiceClient.getInstanceClient().getBankAccount()
-                : SDMEconomyService.getInstance().getAccount(player.getGameProfile().getId());
+        final BankAccount account =
+                player.isLocalPlayer()
+                        ? SDMEconomyServiceClient.getInstanceClient().getBankAccount()
+                        : SDMEconomyService.getInstance()
+                                .getAccount(player.getGameProfile().getId());
 
         return account.getBalance(storedCurrency(moneyId)).doubleValue() >= actualPrice;
     }
@@ -97,11 +97,12 @@ public class MoneyCostComponent extends CostComponent {
         }
 
         /*
-            Мы конвертируем в BigDecimal именно actualPrice,
-            Чтобы списать ровно ту сумму, которую насчитал процессор скидок.
-         */
+           Мы конвертируем в BigDecimal именно actualPrice,
+           Чтобы списать ровно ту сумму, которую насчитал процессор скидок.
+        */
         final BigDecimal value = BigDecimal.valueOf(actualPrice);
-        Map<ResourceLocation, IExternalCurrency> currencies = SDMEconomyCurrencyRegistry.getCurrenciesMap();
+        Map<ResourceLocation, IExternalCurrency> currencies =
+                SDMEconomyCurrencyRegistry.getCurrenciesMap();
 
         if (currencies.containsKey(moneyId)) {
             return currencies.get(moneyId).withdraw((ServerPlayer) player, value);
@@ -120,7 +121,8 @@ public class MoneyCostComponent extends CostComponent {
         }
 
         final BigDecimal value = BigDecimal.valueOf(actualPrice);
-        Map<ResourceLocation, IExternalCurrency> currencies = SDMEconomyCurrencyRegistry.getCurrenciesMap();
+        Map<ResourceLocation, IExternalCurrency> currencies =
+                SDMEconomyCurrencyRegistry.getCurrenciesMap();
 
         if (currencies.containsKey(moneyId)) {
             currencies.get(moneyId).deposit((ServerPlayer) player, value);
@@ -145,27 +147,13 @@ public class MoneyCostComponent extends CostComponent {
     @Override
     @Environment(EnvType.CLIENT)
     public Widget getRenderIcon() {
-        final ICurrency money = SDMEconomyServiceClient.getCurrency(moneyId);
-        if (money == null) {
-            SDMShop2.LOGGER.error("Can't find money with id '{}' and can't create render widget", moneyId);
-            return null;
-        }
-
-        var icon = money.getIcon();
-//        if (icon != null && icon.type() == IconType.ITEM) {
-//            if (icon.icon() instanceof ItemStack stack) return ShopItemPreviewFactory.create("money:" + moneyId, stack);
-//            if (icon.icon() instanceof Item item)
-//                return ShopItemPreviewFactory.create("money:" + moneyId, item.getDefaultInstance());
-//        }
-//        return new Label(money.getDisplayName().getString().substring(0, Math.min(1, money.getDisplayName().getString().length())));
-        throw new NotImplementedException();
+        return ShopCurrencyWidgets.icon(moneyId);
     }
 
     @Override
     public Component getDisplayName() {
         final ICurrency money = SDMEconomyServiceClient.getCurrency(moneyId);
-        if (money == null)
-            return Component.empty();
+        if (money == null) return Component.empty();
 
         return money.getDisplayName();
     }
@@ -178,9 +166,20 @@ public class MoneyCostComponent extends CostComponent {
     private static class Type extends SerializedComponentType<MoneyCostComponent> {
 
         private static final ResourceLocation ID = new ResourceLocation("sdm", "cost_money");
-        private static final ComponentSerializer<MoneyCostComponent> SERIALIZER = ComponentSerializer.<MoneyCostComponent>create()
-                .addRequired("money_id", dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs.RESOURCE_LOCATION, MoneyCostComponent::getMoneyId, (component, value) -> component.moneyId = value == null ? EMPTY : value)
-                .addRequired("amount", dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs.DOUBLE, MoneyCostComponent::getAmount, (component, value) -> component.amount = value);
+        private static final ComponentSerializer<MoneyCostComponent> SERIALIZER =
+                ComponentSerializer.<MoneyCostComponent>create()
+                        .addRequired(
+                                "money_id",
+                                dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs
+                                        .RESOURCE_LOCATION,
+                                MoneyCostComponent::getMoneyId,
+                                (component, value) ->
+                                        component.moneyId = value == null ? EMPTY : value)
+                        .addRequired(
+                                "amount",
+                                dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs.DOUBLE,
+                                MoneyCostComponent::getAmount,
+                                (component, value) -> component.amount = value);
 
         private Type() {
             super(MoneyCostComponent::new, SERIALIZER);
@@ -194,12 +193,18 @@ public class MoneyCostComponent extends CostComponent {
         @Override
         public MoneyCostComponent createFromBuilder(Object... args) {
             if (args.length != 2 && args.length != 3)
-                throw new IllegalArgumentException("MoneyCostComponent.createFromBuilder() takes 2 or 3 arguments (String/ResourceLocation, double, (Optional) String)");
+                throw new IllegalArgumentException(
+                        "MoneyCostComponent.createFromBuilder() takes 2 or 3 arguments"
+                            + " (String/ResourceLocation, double, (Optional) String)");
 
             Object obj = args[0];
-            final var component = new MoneyCostComponent(obj instanceof ResourceLocation ? (ResourceLocation) obj : ResourceLocation.tryParse((String) obj), (double) args[1]);
-            if (args.length == 3)
-                component.setGroupId((String) args[2]);
+            final var component =
+                    new MoneyCostComponent(
+                            obj instanceof ResourceLocation
+                                    ? (ResourceLocation) obj
+                                    : ResourceLocation.tryParse((String) obj),
+                            (double) args[1]);
+            if (args.length == 3) component.setGroupId((String) args[2]);
 
             return component;
         }

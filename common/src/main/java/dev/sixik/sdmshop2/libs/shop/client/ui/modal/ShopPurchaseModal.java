@@ -5,11 +5,15 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.ShopScreenController;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopModalHost;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopOfferPresentation;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopPurchasePolicy;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopRenderElement;
 import dev.sixik.sdmshop2.libs.shop.client.ui.root.ShopCatalogElement;
 import dev.sixik.sdmshop2.libs.shop.client.ui.theme.ShopStyles;
 import dev.sixik.sdmshop2.libs.shop.client.ui.theme.ShopTheme;
-import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopItemWidget;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopComponentPanel;
+import dev.sixik.sdmshop2.libs.shop.components.ItemCostComponent;
+import dev.sixik.sdmshop2.libs.shop.components.ItemTagCostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.ConditionComponent;
+import dev.sixik.sdmshop2.libs.shop.components.money.MoneyCostComponent;
 import dev.sixik.sdmshop2.libs.shop.limiter.ShopLimiters;
 import dev.sixik.sdmshop2.libs.shop.network.ShopNetworkManager;
 import dev.sixik.unigui.api.layout.*;
@@ -19,7 +23,6 @@ import dev.sixik.unigui.api.math.MutableRect;
 import dev.sixik.unigui.api.math.RectView;
 import dev.sixik.unigui.api.render.DrawScope;
 import dev.sixik.unigui.api.render.RenderContext;
-import dev.sixik.unigui.api.render.SimpleTextureHandle;
 import dev.sixik.unigui.api.widget.Visibility;
 import dev.sixik.unigui.impl.widget.WidgetBase;
 import dev.sixik.unigui.widgets.containers.Box;
@@ -27,7 +30,6 @@ import dev.sixik.unigui.widgets.containers.HBox;
 import dev.sixik.unigui.widgets.containers.ScrollView;
 import dev.sixik.unigui.widgets.containers.VBox;
 import dev.sixik.unigui.widgets.core.Orientation;
-import dev.sixik.unigui.widgets.display.ImageView;
 import dev.sixik.unigui.widgets.display.Label;
 import dev.sixik.unigui.widgets.display.Separator;
 import dev.sixik.unigui.widgets.feedback.OverlayHostAware;
@@ -36,9 +38,6 @@ import dev.sixik.unigui.widgets.interaction.Button;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.TooltipFlag;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -58,17 +57,20 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
     /** Modal host captured at creation rather than looked up on close. */
     private final ShopModalHost host;
 
-    /** Every item tooltip created by this dialog. */
-    private final List<ShopItemWidget> tooltipSlots = new ArrayList<>();
-
-    /** Slots rebuilt when quantity or payment group changes. */
-    private final List<ShopItemWidget> dynamicTooltipSlots = new ArrayList<>();
-
     private final ShopCatalogElement sourceCard;
     private final @Nullable ShopOffer offer;
-    private final List<ItemStack> rewards;
+
+    /** Factories from the source offer; no widgets are shared with the catalog. */
+    private final List<ShopRenderElement> renderElements;
+
+    private ShopComponentPanel componentPanel;
+    private final List<ShopComponentPanel> costPanels = new ArrayList<>();
+
+    /** Prevents duplicate disposal when the host and dialog both close. */
+    private boolean closed;
+
     private final List<ShopCatalogElement.CostGroup> costGroups;
-    private final double discountPercent;
+
     private int activeGroupIndex = 0;
     private int quantity = 1;
     private int maxQuantity = 64;
@@ -77,7 +79,6 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
     private Label quantityLabel;
     private Button buyButton;
     private Label limitLabel;
-    private ShopItemWidget mainSlot;
 
     /**
      * Creates a purchase dialog in the default shop window.
@@ -98,9 +99,9 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
         this.host = java.util.Objects.requireNonNull(host, "host");
         this.sourceCard = sourceCard;
         this.offer = sourceCard.getOffer();
-        this.rewards = sourceCard.getRewards();
+        this.renderElements = sourceCard.getRenderElements();
         this.costGroups = sourceCard.getCostGroups();
-        this.discountPercent = sourceCard.getDiscountPercent();
+
         this.activeGroupIndex =
                 Math.min(
                         Math.max(0, sourceCard.getActiveCostGroupIndex()),
@@ -181,50 +182,17 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
         // ==========================================
         HBox productRow = new HBox();
         productRow.layout(style -> style.alignItems(Align.CENTER).gap(12.0f).flexNone());
-        ItemStack primaryItem =
-                rewards.isEmpty() ? Items.BARRIER.getDefaultInstance() : rewards.get(0);
-        mainSlot = new ShopItemWidget(primaryItem, 32.0f).asSlot(42.0f, 42.0f);
-        mainSlot.decorations(true);
-        attachTooltip(mainSlot, false);
-        productRow.addChild(mainSlot);
         VBox productDetails = new VBox();
-        productDetails.spacing(3.0f);
+        productDetails.spacing(3);
         productDetails.layout(style -> style.expand());
-        Label nameLabel = new Label(sourceCard.getTitle());
-        nameLabel.color(ShopTheme.color(ShopTheme.TEXT_PRIMARY));
-        productDetails.addChild(nameLabel);
-        if (rewards.size() > 1) {
-            Label bundleInfo = new Label("Набор из " + rewards.size() + " предметов");
-            bundleInfo.color(ShopTheme.color(ShopTheme.TEXT_GOLD));
-            productDetails.addChild(bundleInfo);
-        }
-        if (discountPercent > 0) {
-            Label discountLabel = new Label("Скидка: -" + (int) discountPercent + "%");
-            discountLabel.color(ShopTheme.color(ShopTheme.DISCOUNT_BADGE));
-            productDetails.addChild(discountLabel);
-        }
+        productDetails.addChild(new Label(sourceCard.getTitle()));
+        componentPanel = new ShopComponentPanel(renderElements);
+        componentPanel.attachTooltips(host.overlay());
         limitLabel = new Label("Лимит: без ограничений");
         limitLabel.color(ShopTheme.color(ShopTheme.TEXT_MUTED));
         productDetails.addChild(limitLabel);
         productRow.addChild(productDetails);
         dialogCard.addChild(productRow);
-        // Если это набор, показываем слоты предметов
-        if (rewards.size() > 1) {
-            HBox bundleRow = new HBox();
-            bundleRow.layout(
-                    style ->
-                            style.gap(6.0f)
-                                    .alignItems(Align.CENTER)
-                                    .padding(2.0f, 0.0f)
-                                    .flexNone());
-            for (ItemStack stack : rewards) {
-                ShopItemWidget p = new ShopItemWidget(stack, 18.0f).asSlot(24.0f, 24.0f);
-                p.decorations(true);
-                attachTooltip(p, false);
-                bundleRow.addChild(p);
-            }
-            dialogCard.addChild(bundleRow);
-        }
         dialogCard.addChild(createSeparator());
         // ==========================================
         // 3. СРЕДНИЙ БЛОК: Скроллируемая область Description
@@ -233,8 +201,12 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
         scrollableContent = new VBox();
         scrollableContent.spacing(8.0f);
         scrollableContent.layout(style -> style.widthPercent(100.0f).padding(2.0f, 2.0f));
+        VBox detailsContent = new VBox();
+        detailsContent.layout(style -> style.widthPercent(100).flexNone().gap(8));
+        detailsContent.addChild(componentPanel);
+        detailsContent.addChild(scrollableContent);
         ScrollView descriptionScroll =
-                new ScrollView(scrollableContent).scrollStep(20.0f).scrollbarGap(2.0f);
+                new ScrollView(detailsContent).scrollStep(20.0f).scrollbarGap(2.0f);
         descriptionScroll.layout(
                 style ->
                         style.expand()
@@ -305,9 +277,8 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
     }
 
     private void refreshDynamicContent() {
-        for (ShopItemWidget slot : dynamicTooltipSlots) slot.detachTooltip(host.overlay());
-        tooltipSlots.removeAll(dynamicTooltipSlots);
-        dynamicTooltipSlots.clear();
+        for (ShopComponentPanel panel : costPanels) panel.dispose();
+        costPanels.clear();
         scrollableContent.clearChildren();
         // 1. Если есть несколько групп оплаты, добавляем переключатель вариантов
         if (costGroups.size() > 1) {
@@ -357,116 +328,9 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
             }
             scrollableContent.addChild(groupTabs);
         }
-        // 2. Расчет общей стоимости по выбранной группе
-        if (costGroups.isEmpty()) {
-            return;
-        }
-        ShopCatalogElement.CostGroup currentGroup =
-                costGroups.get(Math.min(activeGroupIndex, costGroups.size() - 1));
-        boolean canAffordAll = true;
-        Label costsTitle = new Label("Стоимость и баланс:");
-        costsTitle.color(ShopTheme.color(ShopTheme.TEXT_SECONDARY));
-        scrollableContent.addChild(costsTitle);
-        VBox costsList = new VBox();
-        costsList.spacing(5.0f);
-        for (ShopCatalogElement.CostEntry cost : currentGroup.costs()) {
-            double unitAmount = parseAmount(cost.amount());
-            double totalAmount = unitAmount * quantity;
-            Box costCard = new Box();
-            costCard.themeEnabled(false);
-            costCard.boxVisualEnabled(true);
-            costCard.backgroundVisible(true);
-            costCard.background(ShopTheme.color(ShopTheme.BG_INPUT));
-            costCard.borderVisible(true);
-            costCard.border(ShopTheme.color(ShopTheme.BORDER_SLOT));
-            costCard.borderWidth(ShopTheme.BORDER_WIDTH_THIN);
-            costCard.radius(ShopTheme.RADIUS_BUTTON);
-            costCard.layout(style -> style.padding(5.0f, 8.0f).widthPercent(100.0f).flexNone());
-            HBox costRow = new HBox();
-            costRow.layout(
-                    style ->
-                            style.alignItems(Align.CENTER)
-                                    .justifyContent(Justify.SPACE_BETWEEN)
-                                    .widthPercent(100.0f));
-            HBox leftPart = new HBox();
-            leftPart.layout(style -> style.alignItems(Align.CENTER).gap(5.0f));
-            if (cost.itemIcon() != null && !cost.itemIcon().isEmpty()) {
-                ShopItemWidget costIcon = new ShopItemWidget(cost.itemIcon(), 16.0f);
-                costIcon.decorations(false);
-                attachTooltip(costIcon, true);
-                costIcon.layout(style -> style.fixed(16.0f, 16.0f));
-                leftPart.addChild(costIcon);
-            } else if (cost.textureIcon() != null) {
-                String tex = cost.textureIcon().toString();
-                ImageView texIcon = new ImageView(new SimpleTextureHandle(tex, 16, 16, tex));
-                texIcon.layout(style -> style.fixed(16.0f, 16.0f));
-                leftPart.addChild(texIcon);
-            } else if (cost.textIcon() != null && !cost.textIcon().isBlank()) {
-                Label textIcon = new Label(cost.textIcon());
-                textIcon.color(ShopTheme.color(ShopTheme.GOLD_PRIMARY));
-                leftPart.addChild(textIcon);
-            } else {
-                ShopItemWidget coinIcon =
-                        new ShopItemWidget(new ItemStack(Items.GOLD_NUGGET), 16.0f);
-                coinIcon.decorations(false);
-                coinIcon.layout(style -> style.fixed(16.0f, 16.0f));
-                leftPart.addChild(coinIcon);
-            }
-            Label calcLabel =
-                    new Label(
-                            formatAmount(unitAmount)
-                                    + " × "
-                                    + quantity
-                                    + " = "
-                                    + formatAmount(totalAmount));
-            calcLabel.color(ShopTheme.color(ShopTheme.TEXT_PRIMARY));
-            leftPart.addChild(calcLabel);
-            costRow.addChild(leftPart);
-            // Проверка баланса игрока
-            double playerBalance = checkCostBalance(cost);
-            boolean enough = playerBalance >= totalAmount;
-            if (!enough) {
-                canAffordAll = false;
-            }
-            double missing = Math.max(0.0, totalAmount - playerBalance);
-            CostStatusBadge balanceStatus = new CostStatusBadge(enough, missing);
-            costRow.addChild(balanceStatus);
-            costCard.addChild(costRow);
-            costsList.addChild(costCard);
-        }
-        scrollableContent.addChild(costsList);
-        // 3. Дополнительное описание и свойства предмета (Lore / Tooltips)
-        ItemStack primaryItem =
-                rewards.isEmpty() ? Items.BARRIER.getDefaultInstance() : rewards.get(0);
+        // Обновляем лимит и максимальное количество
         Minecraft mc = Minecraft.getInstance();
         Player player = mc != null ? mc.player : null;
-        if (player != null && !primaryItem.isEmpty()) {
-            List<Component> tooltipLines = primaryItem.getTooltipLines(player, TooltipFlag.NORMAL);
-            if (tooltipLines.size() > 1) {
-                Label descHeader = new Label("Описание предмета:");
-                descHeader.color(ShopTheme.color(ShopTheme.TEXT_SECONDARY));
-                scrollableContent.addChild(descHeader);
-                VBox loreBox = new VBox();
-                loreBox.themeEnabled(false);
-                loreBox.boxVisualEnabled(true);
-                loreBox.backgroundVisible(true);
-                loreBox.background(ShopTheme.color(ShopTheme.BG_INPUT));
-                loreBox.borderVisible(true);
-                loreBox.border(ShopTheme.color(ShopTheme.BORDER_SLOT));
-                loreBox.borderWidth(ShopTheme.BORDER_WIDTH_THIN);
-                loreBox.radius(ShopTheme.RADIUS_BUTTON);
-                loreBox.spacing(2.0f);
-                loreBox.layout(style -> style.padding(5.0f, 8.0f).widthPercent(100.0f));
-                for (int i = 1; i < tooltipLines.size(); i++) {
-                    Component line = tooltipLines.get(i);
-                    Label loreLabel = new Label(line.getString());
-                    loreLabel.color(ShopTheme.color(ShopTheme.TEXT_MUTED));
-                    loreBox.addChild(loreLabel);
-                }
-                scrollableContent.addChild(loreBox);
-            }
-        }
-        // Обновляем лимит и максимальное количество
         ShopLimiters.LimitSnapshot snapshot = ShopLimiters.getSnapshot(offer, player);
         if (snapshot.isLimited()) {
             int available = snapshot.getAvailable();
@@ -489,6 +353,78 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
                 limitLabel.color(ShopTheme.color(ShopTheme.TEXT_MUTED));
             }
         }
+        // 2. Расчет общей стоимости по выбранной группе
+        ShopCatalogElement.CostGroup currentGroup =
+                costGroups.isEmpty()
+                        ? new ShopCatalogElement.CostGroup("", List.of())
+                        : costGroups.get(Math.min(activeGroupIndex, costGroups.size() - 1));
+        boolean canAffordAll = true;
+        Label costsTitle = new Label("Стоимость и баланс:");
+        costsTitle.color(ShopTheme.color(ShopTheme.TEXT_SECONDARY));
+        scrollableContent.addChild(costsTitle);
+        VBox costsList = new VBox();
+        costsList.spacing(5.0f);
+        for (ShopCatalogElement.CostEntry cost : currentGroup.costs()) {
+            double unitAmount =
+                    cost.component() != null
+                            ? cost.component().getBaseAmount()
+                            : parseAmount(cost.amount());
+            double totalAmount = unitAmount * quantity;
+            Box costCard = new Box();
+            costCard.themeEnabled(false);
+            costCard.boxVisualEnabled(true);
+            costCard.backgroundVisible(true);
+            costCard.background(ShopTheme.color(ShopTheme.BG_INPUT));
+            costCard.borderVisible(true);
+            costCard.border(ShopTheme.color(ShopTheme.BORDER_SLOT));
+            costCard.borderWidth(ShopTheme.BORDER_WIDTH_THIN);
+            costCard.radius(ShopTheme.RADIUS_BUTTON);
+            costCard.layout(style -> style.padding(5.0f, 8.0f).widthPercent(100.0f).flexNone());
+            HBox costRow = new HBox();
+            costRow.layout(
+                    style ->
+                            style.alignItems(Align.CENTER)
+                                    .justifyContent(Justify.SPACE_BETWEEN)
+                                    .widthPercent(100.0f));
+            HBox leftPart = new HBox();
+            leftPart.layout(style -> style.alignItems(Align.CENTER).gap(5.0f));
+            ShopComponentPanel costView = new ShopComponentPanel(List.of(cost::createRender));
+            costView.attachTooltips(host.overlay());
+            costPanels.add(costView);
+            leftPart.addChild(costView);
+            Label calcLabel =
+                    new Label(
+                            formatAmount(unitAmount)
+                                    + " × "
+                                    + quantity
+                                    + " = "
+                                    + formatAmount(totalAmount));
+            calcLabel.color(ShopTheme.color(ShopTheme.TEXT_PRIMARY));
+            leftPart.addChild(calcLabel);
+            costRow.addChild(leftPart);
+            // Проверка баланса игрока
+            double playerBalance = checkCostBalance(cost);
+            boolean enough =
+                    cost.component() != null
+                            ? player != null && cost.component().canPay(player, totalAmount)
+                            : playerBalance >= totalAmount;
+            if (!enough) {
+                canAffordAll = false;
+            }
+            double missing = Math.max(0.0, totalAmount - playerBalance);
+            if (cost.component() == null
+                    || cost.component() instanceof ItemCostComponent
+                    || cost.component() instanceof ItemTagCostComponent
+                    || cost.component() instanceof MoneyCostComponent) {
+                costRow.addChild(new CostStatusBadge(enough, missing));
+            } else {
+                costRow.addChild(new Label(enough ? "✓" : "✗"));
+            }
+            costCard.addChild(costRow);
+            costsList.addChild(costCard);
+        }
+        scrollableContent.addChild(costsList);
+        // 3. Дополнительное описание и свойства предмета (Lore / Tooltips)
         // Проверка условий (conditions)
         boolean conditionsMet = true;
         if (offer != null && player != null) {
@@ -505,7 +441,7 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
                         || player == null
                         || ShopLimiters.canPurchase(offer, player, quantity);
         // Обновляем кнопку покупки
-        boolean canBuy = canAffordAll && conditionsMet && limiterOk;
+        boolean canBuy = player != null && canAffordAll && conditionsMet && limiterOk;
         buyButton.enabled(canBuy);
         buyButton.textColor(
                 ShopTheme.color(canBuy ? ShopTheme.TEXT_PRIMARY : ShopTheme.TEXT_MUTED));
@@ -549,29 +485,19 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
 
     /** Closes this dialog and releases all reward and cost tooltips. */
     public void close() {
-        for (ShopItemWidget slot : tooltipSlots) slot.detachTooltip(host.overlay());
-        tooltipSlots.clear();
-        dynamicTooltipSlots.clear();
+        if (closed) return;
+        closed = true;
+        componentPanel.dispose();
+        for (ShopComponentPanel panel : costPanels) panel.dispose();
+        costPanels.clear();
         host.closeModal(this);
+        super.dispose();
     }
 
     /** Releases owned tooltips when the containing screen is disposed. */
     @Override
     public void dispose() {
         close();
-        super.dispose();
-    }
-
-    /**
-     * Registers an item tooltip with this dialog.
-     *
-     * @param slot item widget to register.
-     * @param dynamic whether the widget is rebuilt on a quantity change.
-     */
-    private void attachTooltip(ShopItemWidget slot, boolean dynamic) {
-        tooltipSlots.add(slot);
-        if (dynamic) dynamicTooltipSlots.add(slot);
-        slot.attachTooltip(host.overlay());
     }
 
     private Button createSmallButton(String text, Runnable action) {

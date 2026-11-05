@@ -1,9 +1,9 @@
 package dev.sixik.sdmshop2.libs.shop.components.money;
 
-import dev.sixik.unigui.api.widget.Widget;
-import dev.sixik.unigui.widgets.display.Label;
-import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.sdmeconomy.*;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopOfferPresentation;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopCurrencyWidgets;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopRenderWidgets;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
@@ -12,13 +12,15 @@ import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentNumberRan
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
 import dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs;
-import dev.sixik.sdmshop2.utils.ShopClientUtils;
+import dev.sixik.unigui.api.widget.Widget;
+
 import lombok.Getter;
+
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+
 import org.jetbrains.annotations.Nullable;
 
 import java.math.BigDecimal;
@@ -50,7 +52,8 @@ public class MoneyRewardComponent extends RewardComponent {
     @Override
     public void reward(ServerPlayer player, int inAmount) {
         final BigDecimal value = BigDecimal.valueOf(amount * inAmount);
-        Map<ResourceLocation, IExternalCurrency> currencies = SDMEconomyCurrencyRegistry.getCurrenciesMap();
+        Map<ResourceLocation, IExternalCurrency> currencies =
+                SDMEconomyCurrencyRegistry.getCurrenciesMap();
 
         if (currencies.containsKey(moneyId)) {
             currencies.get(moneyId).deposit(player, value);
@@ -70,23 +73,25 @@ public class MoneyRewardComponent extends RewardComponent {
     @Override
     @Environment(EnvType.CLIENT)
     public @Nullable Widget createRender() {
-        final ICurrency money = SDMEconomyServiceClient.getCurrency(moneyId);
-        if(money == null) {
-            SDMShop2.LOGGER.error("Can't find money with id '{}' and can't create render widget", moneyId);
-            return null;
-        }
-
-        return new Label(Component.translatable(
-                "shop.component.reward.money.render.tooltip", money.getDisplayName(),
-                money.format(BigDecimal.valueOf(amount))).getString());
+        return ShopRenderWidgets.cost(
+                ShopCurrencyWidgets.icon(moneyId), ShopOfferPresentation.formatAmount(amount));
     }
 
     private static class Type extends SerializedComponentType<MoneyRewardComponent> {
 
         private static final ResourceLocation ID = new ResourceLocation("sdm", "reward_money");
-        private static final ComponentSerializer<MoneyRewardComponent> SERIALIZER = ComponentSerializer.<MoneyRewardComponent>create()
-                .addRequired("money_id", FieldCodecs.RESOURCE_LOCATION, MoneyRewardComponent::getMoneyId, (component, value) -> component.moneyId = value)
-                .addRequired("amount", FieldCodecs.DOUBLE, MoneyRewardComponent::getAmount, (component, value) -> component.amount = value);
+        private static final ComponentSerializer<MoneyRewardComponent> SERIALIZER =
+                ComponentSerializer.<MoneyRewardComponent>create()
+                        .addRequired(
+                                "money_id",
+                                FieldCodecs.RESOURCE_LOCATION,
+                                MoneyRewardComponent::getMoneyId,
+                                (component, value) -> component.moneyId = value)
+                        .addRequired(
+                                "amount",
+                                FieldCodecs.DOUBLE,
+                                MoneyRewardComponent::getAmount,
+                                (component, value) -> component.amount = value);
 
         private Type() {
             super(MoneyRewardComponent::new, SERIALIZER);
@@ -99,11 +104,17 @@ public class MoneyRewardComponent extends RewardComponent {
 
         @Override
         public MoneyRewardComponent createFromBuilder(Object... args) {
-            if(args.length != 2)
-                throw new IllegalArgumentException("MoneyRewardComponent.createFromBuilder() takes 2 arguments (String/ResourceLocation, double)");
+            if (args.length != 2)
+                throw new IllegalArgumentException(
+                        "MoneyRewardComponent.createFromBuilder() takes 2 arguments"
+                            + " (String/ResourceLocation, double)");
 
             Object obj = args[0];
-            return new MoneyRewardComponent(obj instanceof ResourceLocation ? (ResourceLocation) obj : ResourceLocation.tryParse((String) obj), (double) args[1]);
+            return new MoneyRewardComponent(
+                    obj instanceof ResourceLocation
+                            ? (ResourceLocation) obj
+                            : ResourceLocation.tryParse((String) obj),
+                    (double) args[1]);
         }
     }
 }

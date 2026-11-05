@@ -1,5 +1,7 @@
 package dev.sixik.sdmshop2.libs.shop.components.promo.effects;
 
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopOfferPresentation;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopRenderWidgets;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.PromoEffectComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.PromoPriceContext;
@@ -8,7 +10,12 @@ import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentNumberRan
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
 import dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs;
+import dev.sixik.unigui.api.widget.Widget;
+
 import lombok.Getter;
+
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.Collection;
@@ -23,8 +30,7 @@ public class DiscountComponent extends PromoEffectComponent {
     @ComponentNumberRange(doubleMin = 0)
     private double discount;
 
-    public DiscountComponent() {
-    }
+    public DiscountComponent() {}
 
     public DiscountComponent(double discount) {
         this.discount = discount;
@@ -33,6 +39,21 @@ public class DiscountComponent extends PromoEffectComponent {
     @Override
     public IComponentType<?> getType() {
         return TYPE;
+    }
+
+    /**
+     * Creates this promotion's badge without requiring the card to know discount semantics. The
+     * stored fraction is converted to percentage points: percent = discount * 100.
+     *
+     * @return fresh discount badge, or null for a zero discount.
+     */
+    @Override
+    @Environment(EnvType.CLIENT)
+    public Widget createRender() {
+        return discount > 0
+                ? ShopRenderWidgets.badge(
+                        "-" + ShopOfferPresentation.formatAmount(discount * 100) + "%")
+                : null;
     }
 
     @Override
@@ -49,8 +70,13 @@ public class DiscountComponent extends PromoEffectComponent {
     private static class Type extends SerializedComponentType<DiscountComponent> {
 
         private static final ResourceLocation ID = ResourceLocation.tryBuild("sdm", "discount");
-        private static final ComponentSerializer<DiscountComponent> SERIALIZER = ComponentSerializer.<DiscountComponent>create()
-                .addRequired("discount", FieldCodecs.DOUBLE, DiscountComponent::getDiscount, (component, value) -> component.discount = value);
+        private static final ComponentSerializer<DiscountComponent> SERIALIZER =
+                ComponentSerializer.<DiscountComponent>create()
+                        .addRequired(
+                                "discount",
+                                FieldCodecs.DOUBLE,
+                                DiscountComponent::getDiscount,
+                                (component, value) -> component.discount = value);
 
         private Type() {
             super(DiscountComponent::new, SERIALIZER);
@@ -64,7 +90,9 @@ public class DiscountComponent extends PromoEffectComponent {
         @Override
         public DiscountComponent createFromBuilder(Object... args) {
             if (args.length < 1 || !(args[0] instanceof Number value)) {
-                throw new IllegalArgumentException("[DiscountComponent.createFromBuilder()] requires at least 1 number argument (discount amount).");
+                throw new IllegalArgumentException(
+                        "[DiscountComponent.createFromBuilder()] requires at least 1 number"
+                            + " argument (discount amount).");
             }
 
             DiscountComponent component = new DiscountComponent(value.doubleValue());
@@ -80,7 +108,9 @@ public class DiscountComponent extends PromoEffectComponent {
                 } else if (arg instanceof Collection<?> groups) {
                     groups.forEach(group -> component.applyGroup(String.valueOf(group)));
                 } else {
-                    throw new IllegalArgumentException("[DiscountComponent.createFromBuilder()] Invalid group format at index " + i);
+                    throw new IllegalArgumentException(
+                            "[DiscountComponent.createFromBuilder()] Invalid group format at index "
+                                    + i);
                 }
             }
 

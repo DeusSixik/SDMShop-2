@@ -415,26 +415,11 @@ public class ShopRootPanel implements ShopScreenElement {
         } else {
             for (CatalogItemModel item : filtered) {
                 ShopCatalogElement card;
-                if (item.offer != null) {
-                    card =
-                            new ShopCatalogElement(
-                                    item.offer,
-                                    c -> {
-                                        context().openModal(new ShopPurchaseModal(c, context()));
-                                    });
-                } else {
-                    card =
-                            new ShopCatalogElement(
-                                    item.uuid,
-                                    item.title,
-                                    item.rewards,
-                                    item.costGroups,
-                                    item.discountPercent,
-                                    item.isFavorite(),
-                                    c -> {
-                                        context().openModal(new ShopPurchaseModal(c, context()));
-                                    });
-                }
+                card =
+                        new ShopCatalogElement(
+                                item,
+                                item.isFavorite(),
+                                c -> context().openModal(new ShopPurchaseModal(c, context())));
                 card.attachTooltips(overlay);
                 currentCards.add(card);
                 itemsGrid.addChild(card);

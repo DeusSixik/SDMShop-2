@@ -58,6 +58,11 @@ public final class ShopPurchasePolicy {
         int currentGroupIdx = Math.min(Math.max(0, activeCostGroupIndex), costGroups.size() - 1);
         CostGroup currentGroup = costGroups.get(currentGroupIdx);
         for (CostEntry cost : currentGroup.costs()) {
+            if (cost.component() != null) {
+                if (!cost.component().canPay(player, cost.component().getBaseAmount()))
+                    return false;
+                continue;
+            }
             double needed = parseAmount(cost.amount());
             double balance = checkCostBalance(cost, player);
             if (balance < needed) {

@@ -1,6 +1,8 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.api;
 
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopRenderWidgets;
 import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
+import dev.sixik.unigui.api.widget.Widget;
 
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -17,9 +19,9 @@ public interface ShopOfferView {
     String getTitle();
 
     /**
-     * @return rewards in display order. Item stacks are treated as read-only.
+     * @return factories for visible components in offer order; widgets are never cached here.
      */
-    List<ItemStack> getRewards();
+    List<ShopRenderElement> getRenderElements();
 
     /**
      * @return alternative payment groups in display order.
@@ -27,12 +29,8 @@ public interface ShopOfferView {
     List<CostGroup> getCostGroups();
 
     /**
-     * @return discount percentage used by the preview.
-     */
-    double getDiscountPercent();
-
-    /**
-     * Display cost, with exactly the icon forms understood by the shop renderer.
+     * Payment metadata. Real component visuals come from createRender; icon fields only adapt
+     * legacy previews.
      *
      * @param itemIcon item icon, or null.
      * @param textureIcon texture icon, or null.
@@ -64,6 +62,15 @@ public interface ShopOfferView {
 
         public CostEntry(ItemStack itemIcon, @Nullable String textIcon, String amount) {
             this(itemIcon, null, textIcon, amount, null);
+        }
+
+        /**
+         * @return a fresh component-owned payment widget, or null to omit its visuals.
+         */
+        public Widget createRender() {
+            return component != null
+                    ? component.createRender()
+                    : ShopRenderWidgets.legacyCost(this);
         }
 
         public ItemStack icon() {

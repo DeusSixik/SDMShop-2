@@ -1,28 +1,19 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui.api;
 
-import dev.sixik.sdmshop2.libs.sdmeconomy.CurrencyDraft;
-import dev.sixik.sdmshop2.libs.sdmeconomy.ICurrency;
-import dev.sixik.sdmshop2.libs.sdmeconomy.SDMEconomyServiceClient;
-import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
-import dev.sixik.sdmshop2.libs.sdmeconomy.icons.IconType;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopOfferView.CostEntry;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopOfferView.CostGroup;
-import dev.sixik.sdmshop2.libs.shop.client.ui.editor.ShopEditorState;
-import dev.sixik.sdmshop2.libs.shop.components.ItemCostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.ItemRewardComponent;
-import dev.sixik.sdmshop2.libs.shop.components.ItemTagCostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
+import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.components.misc.NameComponent;
-import dev.sixik.sdmshop2.libs.shop.components.money.MoneyCostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.promo.effects.DiscountComponent;
 
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+
 import net.minecraft.client.resources.language.I18n;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
@@ -32,6 +23,21 @@ import java.util.*;
 public final class ShopOfferPresentation {
     /** Prevents instantiation. */
     private ShopOfferPresentation() {}
+
+    /**
+     * Captures factories for all non-payment components, including add-on types. Payment components
+     * are presented inside their respective payment groups.
+     *
+     * @param offer offer whose components determine the display order.
+     * @return immutable factory list; factories create widgets only when a view is mounted.
+     */
+    public static List<ShopRenderElement> resolveRenderElements(ShopOffer offer) {
+        List<ShopRenderElement> elements = new ArrayList<>();
+        for (ShopComponent component : offer.getComponents()) {
+            if (!(component instanceof CostComponent)) elements.add(component::createRender);
+        }
+        return List.copyOf(elements);
+    }
 
     /**
      * Formats a numbered summary of the payment group.
@@ -90,7 +96,7 @@ public final class ShopOfferPresentation {
      * @return ordered result list; never null.
      */
     public static List<ItemStack> resolveRewardItems(ShopOffer offer) {
-        List<ItemStack> list = new ArrayList<>();
+        List<ItemStack> list = new ObjectArrayList<>();
         for (RewardComponent reward : offer.getComponents(RewardComponent.class)) {
             if (reward instanceof ItemRewardComponent itemReward) {
                 list.add(itemReward.getRewardItem().copyWithCount(itemReward.getAmount()));
@@ -123,80 +129,13 @@ public final class ShopOfferPresentation {
     }
 
     /**
-     * Resolves the cost amount and its item, texture or text icon.
+     * Captures payment metadata without interpreting the component's visual representation.
      *
-     * @param cost display cost with its optional backing component.
-     * @return resulting draft object, or null when no session or source is available.
+     * @param cost component owning the payment presentation and numeric amount.
+     * @return payment metadata retaining the component's render factory; never null.
      */
     public static CostEntry resolveCostEntry(CostComponent cost) {
-        String formatted = formatAmount(cost.getBaseAmount());
-        if (cost instanceof ItemCostComponent itemCost) {
-            return new CostEntry(itemCost.getItem(), null, formatted, cost);
-        } else if (cost instanceof MoneyCostComponent moneyCost) {
-            if (ShopEditorState.get().isEditorMode()) {
-                CurrencyDraft draft =
-                        ShopEditorState.get().findCurrencyDraft(moneyCost.getMoneyId());
-                if (draft != null) {
-                    if (draft.kind() == CurrencyDraft.Kind.ITEM
-                            && draft.itemStack() != null
-                            && !draft.itemStack().isEmpty()) {
-                        return new CostEntry(draft.itemStack(), null, null, formatted, cost);
-                    } else if (draft.kind() == CurrencyDraft.Kind.TEXTURE
-                            && draft.iconTexture() != null) {
-                        return new CostEntry(null, draft.iconTexture(), null, formatted, cost);
-                    } else if (draft.kind() == CurrencyDraft.Kind.TEXT) {
-                        String sym = draft.iconText();
-                        return new CostEntry(
-                                null,
-                                null,
-                                sym != null && !sym.isBlank() ? sym : "$",
-                                formatted,
-                                cost);
-                    }
-                }
-            }
-            ICurrency currency = SDMEconomyServiceClient.getCurrency(moneyCost.getMoneyId());
-            if (currency != null) {
-                CurrencyIcon curIcon = currency.getIcon();
-                if (curIcon != null) {
-                    if (curIcon.type() == IconType.ITEM) {
-                        if (curIcon.icon() instanceof ItemStack s)
-                            return new CostEntry(s, null, null, formatted, cost);
-                        if (curIcon.icon() instanceof Item item)
-                            return new CostEntry(
-                                    item.getDefaultInstance(), null, null, formatted, cost);
-                    } else if (curIcon.type() == IconType.TEXTURE) {
-                        if (curIcon.icon() instanceof ResourceLocation loc) {
-                            return new CostEntry(null, loc, null, formatted, cost);
-                        } else if (curIcon.icon() instanceof String str) {
-                            if (str.contains(":") || str.contains("/") || str.endsWith(".png")) {
-                                ResourceLocation loc = ResourceLocation.tryParse(str);
-                                if (loc != null)
-                                    return new CostEntry(null, loc, null, formatted, cost);
-                            }
-                            return new CostEntry(null, null, str, formatted, cost);
-                        }
-                    } else if (curIcon.type() == IconType.TEXT) {
-                        if (curIcon.icon() instanceof String text) {
-                            return new CostEntry(null, null, text, formatted, cost);
-                        }
-                    }
-                }
-            }
-            return new CostEntry(new ItemStack(Items.GOLD_NUGGET), null, null, formatted, cost);
-        } else if (cost instanceof ItemTagCostComponent tagCost) {
-            ItemStack stack =
-                    BuiltInRegistries.ITEM
-                            .getTag(tagCost.getTagKey())
-                            .flatMap(
-                                    tag ->
-                                            tag.stream()
-                                                    .findFirst()
-                                                    .map(h -> h.value().getDefaultInstance()))
-                            .orElse(Items.NAME_TAG.getDefaultInstance());
-            return new CostEntry(stack, null, formatted, cost);
-        }
-        return new CostEntry(Items.EMERALD.getDefaultInstance(), null, formatted, cost);
+        return new CostEntry(null, null, null, formatAmount(cost.getBaseAmount()), cost);
     }
 
     /**

@@ -2,15 +2,17 @@ package dev.sixik.sdmshop2.libs.shop.client.ui.root;
 
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.client.cache.ShopClientCache;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopCatalogItem;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopOfferPresentation;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopOfferView;
 import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopPurchasePolicy;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopRenderElement;
 import dev.sixik.sdmshop2.libs.shop.client.ui.assets.ShopIcons;
 import dev.sixik.sdmshop2.libs.shop.client.ui.editor.ShopEditorScreen;
 import dev.sixik.sdmshop2.libs.shop.client.ui.editor.ShopEditorState;
 import dev.sixik.sdmshop2.libs.shop.client.ui.theme.ShopTheme;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopComponentPanel;
 import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopContentButton;
-import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopItemWidget;
 import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
 import dev.sixik.sdmshop2.libs.shop.network.ShopNetworkManager;
 import dev.sixik.unigui.api.event.EventPhase;
@@ -22,13 +24,13 @@ import dev.sixik.unigui.api.input.PointerButton;
 import dev.sixik.unigui.api.layout.Align;
 import dev.sixik.unigui.api.layout.Alignment;
 import dev.sixik.unigui.api.layout.Justify;
-import dev.sixik.unigui.api.render.SimpleTextureHandle;
 import dev.sixik.unigui.api.widget.Visibility;
 import dev.sixik.unigui.api.widget.Widget;
 import dev.sixik.unigui.widgets.containers.Box;
 import dev.sixik.unigui.widgets.containers.HBox;
 import dev.sixik.unigui.widgets.containers.LinearBox;
 import dev.sixik.unigui.widgets.containers.ScrollView;
+import dev.sixik.unigui.widgets.containers.VBox;
 import dev.sixik.unigui.widgets.core.Orientation;
 import dev.sixik.unigui.widgets.display.ImageView;
 import dev.sixik.unigui.widgets.display.Label;
@@ -41,7 +43,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -49,18 +50,24 @@ import java.util.*;
 import java.util.function.Consumer;
 
 /**
- * Карточка торгового предложения в каталоге магазина в стиле "Obsidian & Gold". Точно воспроизводит
- * эталонный дизайн LDLib (Shop_1.png): - Аккуратный слот 38x38 с предметом 32x32 и vanilla-тултипом
- * - Иконки валют (предметы 14x14 или золотой символ ◎ для монет) - Звезда избранного без уродливых
- * серых рамок кнопок - Золотая кнопка покупки Buy
+ * Catalog card owning a fresh component widget tree, favorite action and payment-group selection.
+ * Component content controls its appearance within a centered horizontal scroll viewport.
  */
 public class ShopCatalogElement extends LinearBox implements ShopOfferView {
+    /** Fixed product viewport height in logical UI pixels, including scrollbar space. */
+    private static final float PRODUCT_VIEWPORT_HEIGHT = 46;
+
     private final @Nullable ShopOffer offer;
     private final @Nullable UUID offerUuid;
     private final String title;
-    private final List<ItemStack> rewards;
+
+    /** Component-driven presentation shared as factories, never as widget instances. */
+    private final ShopCatalogItem presentation;
+
+    private ShopComponentPanel componentPanel;
+    private final List<ShopComponentPanel> costPanels = new ArrayList<>();
     private final List<CostGroup> costGroups;
-    private final double discountPercent;
+
     private boolean favorite;
     private boolean selected = false;
     private boolean showFavorite = true;
@@ -68,14 +75,12 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
     private ImageView favoriteIcon;
     private @Nullable Consumer<ShopCatalogElement> onOpenPurchase;
 
-    /** Item slots and their screen-local tooltip owner. */
-    private final List<ShopItemWidget> itemSlots = new ArrayList<>();
-
+    /** Actual overlay hosting the component tree's nested item tooltips. */
     private @Nullable OverlayLayer tooltipOverlay;
 
     private int activeCostGroupIndex = 0;
     private HBox pricesBox;
-    private final List<ShopItemWidget> priceSlots = new ArrayList<>();
+
     private float lastClickRootX = -1.0f;
     private float lastClickRootY = -1.0f;
     private boolean cardPressed = false;
@@ -84,12 +89,7 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
     public ShopCatalogElement(
             ShopOffer offer, @Nullable Consumer<ShopCatalogElement> onOpenPurchase) {
         this(
-                offer,
-                offer.getUUID(),
-                resolveTitle(offer),
-                resolveRewardItems(offer),
-                resolveCostGroups(offer),
-                resolveDiscount(offer),
+                new ShopCatalogItem(offer),
                 ShopClientCache.isFavorite(offer.getUUID()),
                 onOpenPurchase);
     }
@@ -162,16 +162,29 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
             double discountPercent,
             boolean favorite,
             @Nullable Consumer<ShopCatalogElement> onOpenPurchase) {
+        this(
+                new ShopCatalogItem(offerUuid, "ALL", title, rewards, costGroups, discountPercent),
+                favorite,
+                onOpenPurchase);
+    }
+
+    /**
+     * Creates a card from component factories without restricting the rendered widget types.
+     *
+     * @param presentation offer presentation containing component factories and payment groups.
+     * @param favorite initial favorite state.
+     * @param onOpenPurchase purchase or selection action; null disables the action.
+     */
+    public ShopCatalogElement(
+            ShopCatalogItem presentation,
+            boolean favorite,
+            @Nullable Consumer<ShopCatalogElement> onOpenPurchase) {
         super(Orientation.VERTICAL);
-        this.offer = offer;
-        this.offerUuid = offer != null ? offer.getUUID() : offerUuid;
-        this.title = title;
-        this.rewards =
-                rewards == null || rewards.isEmpty()
-                        ? List.of(Items.BARRIER.getDefaultInstance())
-                        : rewards;
-        this.costGroups = costGroups == null || costGroups.isEmpty() ? List.of() : costGroups;
-        this.discountPercent = discountPercent;
+        this.presentation = presentation;
+        this.offer = presentation.offer;
+        this.offerUuid = presentation.uuid;
+        this.title = presentation.title;
+        this.costGroups = presentation.costGroups;
         this.favorite = favorite;
         this.onOpenPurchase = onOpenPurchase;
         boxVisualEnabled(true);
@@ -182,7 +195,7 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
         borderWidth(ShopTheme.BORDER_WIDTH_THIN);
         radius(ShopTheme.RADIUS_CARD);
         spacing(4.0f);
-        layout(style -> style.height(96.0f).flexNone().padding(6.0f, 8.0f));
+        layout(style -> style.minHeight(96.0f).flexNone().padding(6.0f, 8.0f));
         on(
                 PointerPressedEvent.TYPE,
                 event -> {
@@ -216,40 +229,24 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
         HBox header = new HBox();
         header.layout(
                 style ->
-                        style.height(14.0f)
+                        style.minHeight(14.0f)
                                 .alignItems(Align.CENTER)
                                 .justifyContent(Justify.SPACE_BETWEEN)
                                 .flexNone());
-        // Левая часть: скидка или бейдж набора, либо пустая распорка для симметрии
-        if (discountPercent > 0) {
-            Box discountBadge = new Box();
-            discountBadge.themeEnabled(false);
-            discountBadge.boxVisualEnabled(true);
-            discountBadge.backgroundVisible(true);
-            discountBadge.background(ShopTheme.color(ShopTheme.DISCOUNT_BADGE));
-            discountBadge.radius(ShopTheme.RADIUS_BADGE);
-            discountBadge.layout(style -> style.padding(2.0f, 0.0f).flexNone());
-            Label dLabel = new Label("-" + (int) discountPercent + "%");
-            dLabel.color(ShopTheme.color(ShopTheme.TEXT_PRIMARY));
-            discountBadge.addChild(dLabel);
-            header.addChild(discountBadge);
-        } else if (rewards.size() > 1) {
-            Box bundleBadge = new Box();
-            bundleBadge.themeEnabled(false);
-            bundleBadge.boxVisualEnabled(true);
-            bundleBadge.backgroundVisible(true);
-            bundleBadge.background(ShopTheme.color(ShopTheme.BUNDLE_BADGE));
-            bundleBadge.radius(ShopTheme.RADIUS_BADGE);
-            bundleBadge.layout(style -> style.padding(2.0f, 0.0f).flexNone());
-            Label bLabel = new Label("x" + rewards.size());
-            bLabel.color(ShopTheme.color(ShopTheme.TEXT_PRIMARY));
-            bundleBadge.addChild(bLabel);
-            header.addChild(bundleBadge);
-        } else {
-            Box leftSpacer = new Box();
-            leftSpacer.layout(style -> style.fixed(12.0f, 12.0f).flexNone());
-            header.addChild(leftSpacer);
-        }
+        VBox separatorRow = new VBox();
+        separatorRow.layout(
+                style -> style.widthPercent(100).minWidth(0).gap(3).margin(2, 0).flexNone());
+        Separator separator = new Separator();
+        separator.orientation(Orientation.HORIZONTAL);
+        separator.thickness(1);
+        separator.color().setArgb(ShopTheme.BORDER_SEPARATOR);
+        separator.layout(
+                style -> style.widthPercent(100).height(1).verticalAlignment(Alignment.CENTER));
+        componentPanel =
+                new ShopComponentPanel(
+                        presentation.getRenderElements(), separatorRow, PRODUCT_VIEWPORT_HEIGHT);
+        separatorRow.addChild(separator);
+        componentPanel.layout(style -> style.widthPercent(100).minWidth(0));
         Label titleLabel = new Label(title);
         titleLabel.color(ShopTheme.color(ShopTheme.TEXT_PRIMARY));
         titleLabel.textAlignment(Alignment.CENTER);
@@ -284,67 +281,13 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
             favoriteButton.visibility(Visibility.HIDDEN);
         }
         addChild(header);
-        // --- 2. Центр (Слот с предметом строго по центру слота) ---
-        if (rewards.size() == 1) {
-            ShopItemWidget itemSlot =
-                    new ShopItemWidget(rewards.get(0), 32.0f).asSlot(38.0f, 38.0f);
-            itemSlot.decorations(true);
-            itemSlots.add(itemSlot);
-
-            addChild(itemSlot);
-        } else {
-            HBox bundleRow = new HBox();
-            bundleRow.layout(
-                    style ->
-                            style.alignSelf(Align.CENTER)
-                                    .alignItems(Align.CENTER)
-                                    .gap(4.0f)
-                                    .height(38.0f)
-                                    .flexNone());
-            int maxDisplay = Math.min(4, rewards.size());
-            for (int i = 0; i < maxDisplay; i++) {
-                ShopItemWidget miniSlot =
-                        new ShopItemWidget(rewards.get(i), 18.0f).asSlot(26.0f, 26.0f);
-                miniSlot.decorations(true);
-                itemSlots.add(miniSlot);
-
-                bundleRow.addChild(miniSlot);
-            }
-            if (rewards.size() > 4) {
-                Box moreSlot = new Box();
-                moreSlot.themeEnabled(false);
-                moreSlot.boxVisualEnabled(true);
-                moreSlot.backgroundVisible(true);
-                moreSlot.background(ShopTheme.color(ShopTheme.BG_SLOT));
-                moreSlot.borderVisible(true);
-                moreSlot.border(ShopTheme.color(ShopTheme.BORDER_SLOT));
-                moreSlot.borderWidth(ShopTheme.BORDER_WIDTH_THIN);
-                moreSlot.radius(ShopTheme.RADIUS_SLOT);
-                moreSlot.layout(
-                        s ->
-                                s.fixed(26.0f, 26.0f)
-                                        .alignItems(Align.CENTER)
-                                        .justifyContent(Justify.CENTER));
-                Label moreLabel = new Label("+" + (rewards.size() - 4));
-                moreLabel.color(ShopTheme.color(ShopTheme.TEXT_SECONDARY));
-                moreSlot.addChild(moreLabel);
-                bundleRow.addChild(moreSlot);
-            }
-            addChild(bundleRow);
-        }
-        // --- 3. Разделитель ---
-        Separator separator = new Separator();
-        separator.orientation(Orientation.HORIZONTAL);
-        separator.thickness(1.0f);
-        separator.color().setArgb(ShopTheme.BORDER_SEPARATOR);
-        separator.layout(
-                style -> style.widthPercent(100.0f).height(1.0f).margin(2.0f, 0.0f).flexNone());
-        addChild(separator);
+        addChild(componentPanel);
+        addChild(separatorRow);
         // --- 4. Подвал (Цены и золотая кнопка покупки) ---
         HBox footer = new HBox();
         footer.layout(
                 style ->
-                        style.height(18.0f)
+                        style.minHeight(18.0f)
                                 .alignItems(Align.CENTER)
                                 .justifyContent(Justify.SPACE_BETWEEN)
                                 .flexNone());
@@ -356,7 +299,7 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
         buyBtn.backgroundVisible(true);
         buyBtn.focusRingVisible(false);
         buyBtn.textPadding(8.0f, 2.0f);
-        buyBtn.layout(style -> style.height(18.0f).flexNone());
+        buyBtn.layout(style -> style.minHeight(18.0f).flexNone());
         buyBtn.onClick(
                 event -> {
                     if (ShopEditorState.get().isEditorMode()) {
@@ -378,6 +321,8 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
     @Override
     public void dispose() {
         detachTooltips(tooltipOverlay);
+        componentPanel.dispose();
+        for (ShopComponentPanel panel : costPanels) panel.dispose();
         super.dispose();
     }
 
@@ -402,16 +347,16 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
 
     public void attachTooltips(@Nullable OverlayLayer overlayLayer) {
         tooltipOverlay = overlayLayer;
-        for (ShopItemWidget slot : itemSlots) {
-            slot.attachTooltip(overlayLayer);
-        }
+        componentPanel.attachTooltips(overlayLayer);
+        for (ShopComponentPanel panel : costPanels) panel.attachTooltips(overlayLayer);
     }
 
     public void detachTooltips(@Nullable OverlayLayer overlayLayer) {
-        for (ShopItemWidget slot : itemSlots) {
-            slot.detachTooltip(overlayLayer);
-        }
+        componentPanel.attachTooltips(null);
+        for (ShopComponentPanel panel : costPanels) panel.attachTooltips(null);
         detachDropdownTooltips(overlayLayer);
+        for (ShopComponentPanel panel : activeDropdownPanels) panel.dispose();
+        activeDropdownPanels.clear();
         if (activeCostDropdown != null) {
             activeCostDropdown.close();
             if (tooltipOverlay != null) tooltipOverlay.removeOverlay(activeCostDropdown);
@@ -451,16 +396,26 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
         return title;
     }
 
+    /**
+     * @return component factories used by this card; each view mounts fresh widgets.
+     */
+    @Override
+    public List<ShopRenderElement> getRenderElements() {
+        return presentation.getRenderElements();
+    }
+
+    @Deprecated
     public List<ItemStack> getRewards() {
-        return rewards;
+        return presentation.getRewards();
     }
 
     public List<CostGroup> getCostGroups() {
         return costGroups;
     }
 
+    @Deprecated
     public double getDiscountPercent() {
-        return discountPercent;
+        return presentation.getDiscountPercent();
     }
 
     public void setOnOpenPurchase(@Nullable Consumer<ShopCatalogElement> onOpenPurchase) {
@@ -483,15 +438,9 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
 
     public void refreshPrices() {
         if (pricesBox == null) return;
+        for (ShopComponentPanel panel : costPanels) panel.dispose();
+        costPanels.clear();
         pricesBox.clearChildren();
-        OverlayLayer activeOverlay = tooltipOverlay;
-        for (ShopItemWidget slot : priceSlots) {
-            if (activeOverlay != null) {
-                slot.detachTooltip(activeOverlay);
-            }
-            itemSlots.remove(slot);
-        }
-        priceSlots.clear();
         if (costGroups.isEmpty()) {
             return;
         }
@@ -510,13 +459,12 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
         pricePanel.radius(ShopTheme.RADIUS_SLOT);
         pricePanel.layout(
                 style ->
-                        style.height(18.0f)
+                        style.minHeight(18.0f)
                                 .alignItems(Align.CENTER)
                                 .padding(4.0f, 1.0f)
                                 .gap(3.0f)
                                 .flexNone());
-        int maxVisible = 3;
-        int displayCount = Math.min(costs.size(), maxVisible);
+        int displayCount = costs.size();
         for (int i = 0; i < displayCount; i++) {
             if (i > 0) {
                 Label plusLabel = new Label("+");
@@ -525,45 +473,11 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
                 pricePanel.addChild(plusLabel);
             }
             CostEntry cost = costs.get(i);
-            if (cost.itemIcon() != null && !cost.itemIcon().isEmpty()) {
-                ShopItemWidget costIcon = new ShopItemWidget(cost.itemIcon(), 12.0f);
-                costIcon.decorations(false);
-                priceSlots.add(costIcon);
-                itemSlots.add(costIcon);
-                if (activeOverlay != null) {
-                    costIcon.attachTooltip(activeOverlay);
-                }
-                costIcon.layout(style -> style.fixed(12.0f, 12.0f).flexNone());
-                pricePanel.addChild(costIcon);
-            } else if (cost.textureIcon() != null) {
-                String tex = cost.textureIcon().toString();
-                ImageView texIcon = new ImageView(new SimpleTextureHandle(tex, 12, 12, tex));
-                texIcon.layout(style -> style.fixed(12.0f, 12.0f).flexNone());
-                pricePanel.addChild(texIcon);
-            } else if (cost.textIcon() != null && !cost.textIcon().isBlank()) {
-                Label textIcon = new Label(cost.textIcon());
-                textIcon.color(ShopTheme.color(ShopTheme.GOLD_PRIMARY));
-                pricePanel.addChild(textIcon);
-            } else {
-                ShopItemWidget coinIcon =
-                        new ShopItemWidget(new ItemStack(Items.GOLD_NUGGET), 12.0f);
-                coinIcon.decorations(false);
-                priceSlots.add(coinIcon);
-                itemSlots.add(coinIcon);
-                if (activeOverlay != null) {
-                    coinIcon.attachTooltip(activeOverlay);
-                }
-                coinIcon.layout(style -> style.fixed(12.0f, 12.0f).flexNone());
-                pricePanel.addChild(coinIcon);
-            }
-            Label amountLabel = new Label(cost.amount());
-            amountLabel.color(ShopTheme.color(ShopTheme.TEXT_PRIMARY));
-            pricePanel.addChild(amountLabel);
-        }
-        if (costs.size() > maxVisible) {
-            Label moreLabel = new Label("+" + (costs.size() - maxVisible));
-            moreLabel.color(ShopTheme.color(ShopTheme.TEXT_MUTED));
-            pricePanel.addChild(moreLabel);
+            ShopComponentPanel costView = new ShopComponentPanel(List.of(cost::createRender));
+            costView.layout(style -> style.flexNone());
+            costView.attachTooltips(tooltipOverlay);
+            costPanels.add(costView);
+            pricePanel.addChild(costView);
         }
         pricesBox.addChild(pricePanel);
         // 2. Переключение способов оплаты:
@@ -618,15 +532,12 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
     }
 
     private @Nullable ContextMenu activeCostDropdown = null;
-    private final List<ShopItemWidget> activeDropdownSlots = new ArrayList<>();
+
+    /** Component trees owned by the payment menu. */
+    private final List<ShopComponentPanel> activeDropdownPanels = new ArrayList<>();
 
     private void detachDropdownTooltips(@Nullable OverlayLayer layer) {
-        if (layer != null) {
-            for (ShopItemWidget slot : activeDropdownSlots) {
-                slot.detachTooltip(layer);
-            }
-        }
-        activeDropdownSlots.clear();
+        for (ShopComponentPanel panel : activeDropdownPanels) panel.attachTooltips(null);
     }
 
     /** Payment row with decorative content and one pointer target. */
@@ -656,6 +567,8 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
                 return;
             }
         }
+        for (ShopComponentPanel panel : activeDropdownPanels) panel.dispose();
+        activeDropdownPanels.clear();
         ContextMenu menu = new ContextMenu();
         menu.themeEnabled(false);
         menu.boxVisualEnabled(true);
@@ -697,31 +610,10 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
                     row.addChild(plusLabel);
                 }
                 CostEntry cost = costs.get(j);
-                if (cost.itemIcon() != null && !cost.itemIcon().isEmpty()) {
-                    ShopItemWidget costIcon = new ShopItemWidget(cost.itemIcon(), 12.0f);
-                    costIcon.decorations(false);
-                    costIcon.layout(s -> s.fixed(12.0f, 12.0f).flexNone());
-                    row.addChild(costIcon);
-                } else if (cost.textureIcon() != null) {
-                    String tex = cost.textureIcon().toString();
-                    ImageView texIcon = new ImageView(new SimpleTextureHandle(tex, 12, 12, tex));
-                    texIcon.layout(s -> s.fixed(12.0f, 12.0f).flexNone());
-                    row.addChild(texIcon);
-                } else if (cost.textIcon() != null && !cost.textIcon().isBlank()) {
-                    Label textIcon = new Label(cost.textIcon());
-                    textIcon.color(ShopTheme.color(ShopTheme.GOLD_PRIMARY));
-                    row.addChild(textIcon);
-                } else {
-                    ShopItemWidget coinIcon =
-                            new ShopItemWidget(new ItemStack(Items.GOLD_NUGGET), 12.0f);
-                    coinIcon.decorations(false);
-                    coinIcon.layout(s -> s.fixed(12.0f, 12.0f).flexNone());
-                    row.addChild(coinIcon);
-                }
-                Label amountLabel = new Label(cost.amount());
-                amountLabel.color(
-                        ShopTheme.color(isSelected ? ShopTheme.TEXT_GOLD : ShopTheme.TEXT_PRIMARY));
-                row.addChild(amountLabel);
+                ShopComponentPanel costView = new ShopComponentPanel(List.of(cost::createRender));
+                costView.layout(style -> style.flexNone());
+                activeDropdownPanels.add(costView);
+                row.addChild(costView);
             }
             row.applyQueuedMutations();
             CostOptionButton btn = new CostOptionButton(row);
@@ -745,9 +637,13 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
                         activeCostGroupIndex = idx;
                         refreshPrices();
                         detachDropdownTooltips(layer);
+                        for (ShopComponentPanel panel : activeDropdownPanels) panel.dispose();
+                        activeDropdownPanels.clear();
+                        menu.close();
+                        layer.removeOverlay(menu);
                         activeCostDropdown = null;
                     });
-            btn.layout(s -> s.height(20.0f).minWidth(80.0f).flexNone().margin(1.0f, 0.0f));
+            btn.layout(s -> s.minHeight(20.0f).minWidth(80.0f).flexNone().margin(1.0f, 0.0f));
         }
         float openX = lastClickRootX >= 0.0f ? lastClickRootX : getWidgetScreenX(triggerBtn);
         float openY =
