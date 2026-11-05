@@ -1,5 +1,7 @@
 package dev.sixik.sdmshop2.libs.shop.components.promo.effects;
 
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopOfferPresentation;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopRenderWidgets;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.PromoEffectComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.PromoPriceContext;
@@ -8,7 +10,12 @@ import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentNumberRan
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
 import dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs;
+import dev.sixik.unigui.api.widget.Widget;
+
 import lombok.Getter;
+
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.Collection;
@@ -20,11 +27,11 @@ public class DiscountComponent extends PromoEffectComponent {
 
     @Getter
     @ComponentConfig(translationKey = "shop.component.promo.effects.discount.discount")
-    @ComponentNumberRange(doubleMin = 0)
+    @ComponentNumberRange(doubleMin = 0, doubleMax = 100)
+    /** Скидка в процентных пунктах: 25 означает -25% от цены. Значение зажато в [0, 100]. */
     private double discount;
 
-    public DiscountComponent() {
-    }
+    public DiscountComponent() {}
 
     public DiscountComponent(double discount) {
         this.discount = discount;
@@ -35,22 +42,56 @@ public class DiscountComponent extends PromoEffectComponent {
         return TYPE;
     }
 
+    /**
+     * Creates this promotion's badge without requiring the card to know discount semantics. The
+     * stored value is already in percentage points and is shown as is (clamped to 0..100).
+     *
+     * @return fresh discount badge, or null for a zero discount.
+     */
+    @Override
+    @Environment(EnvType.CLIENT)
+    public Widget createRender() {
+        double percent = percent();
+        return percent > 0
+                ? ShopRenderWidgets.badge("-" + ShopOfferPresentation.formatAmount(percent) + "%")
+                : null;
+    }
+
+    /**
+     * @return discount in percentage points, limited to the valid range 0..100.
+     */
+    private double percent() {
+        return Math.max(0.0, Math.min(100.0, discount));
+    }
+
+    /**
+     * @return multiplier applied to the price: 1 - percent / 100.
+     */
+    private double priceFactor() {
+        return 1.0 - percent() / 100.0;
+    }
+
     @Override
     public double applyPrice(PromoPriceContext context) {
-        return context.currentPrice() * (1 - discount);
+        return context.currentPrice() * priceFactor();
     }
 
     @Override
     @Deprecated
     public double applyPrice(double input, Set<String> activePromo, Set<String> activeGroups) {
-        return input * (1 - discount);
+        return input * priceFactor();
     }
 
     private static class Type extends SerializedComponentType<DiscountComponent> {
 
         private static final ResourceLocation ID = ResourceLocation.tryBuild("sdm", "discount");
-        private static final ComponentSerializer<DiscountComponent> SERIALIZER = ComponentSerializer.<DiscountComponent>create()
-                .addRequired("discount", FieldCodecs.DOUBLE, DiscountComponent::getDiscount, (component, value) -> component.discount = value);
+        private static final ComponentSerializer<DiscountComponent> SERIALIZER =
+                ComponentSerializer.<DiscountComponent>create()
+                        .addRequired(
+                                "discount",
+                                FieldCodecs.DOUBLE,
+                                DiscountComponent::getDiscount,
+                                (component, value) -> component.discount = value);
 
         private Type() {
             super(DiscountComponent::new, SERIALIZER);
@@ -64,7 +105,9 @@ public class DiscountComponent extends PromoEffectComponent {
         @Override
         public DiscountComponent createFromBuilder(Object... args) {
             if (args.length < 1 || !(args[0] instanceof Number value)) {
-                throw new IllegalArgumentException("[DiscountComponent.createFromBuilder()] requires at least 1 number argument (discount amount).");
+                throw new IllegalArgumentException(
+                        "[DiscountComponent.createFromBuilder()] requires at least 1 number"
+                            + " argument (discount amount).");
             }
 
             DiscountComponent component = new DiscountComponent(value.doubleValue());
@@ -80,7 +123,9 @@ public class DiscountComponent extends PromoEffectComponent {
                 } else if (arg instanceof Collection<?> groups) {
                     groups.forEach(group -> component.applyGroup(String.valueOf(group)));
                 } else {
-                    throw new IllegalArgumentException("[DiscountComponent.createFromBuilder()] Invalid group format at index " + i);
+                    throw new IllegalArgumentException(
+                            "[DiscountComponent.createFromBuilder()] Invalid group format at index "
+                                    + i);
                 }
             }
 

@@ -13,6 +13,11 @@ public enum IconType {
     TEXTURE,
 
     /**
+     * {@link String} | {@link net.minecraft.network.chat.Component}
+     */
+    TEXT,
+
+    /**
      * NULL
      */
     NONE

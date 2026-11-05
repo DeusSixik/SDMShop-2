@@ -4,14 +4,11 @@ import com.mojang.brigadier.CommandDispatcher;
 import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.base.ShopTable;
-import dev.sixik.sdmshop2.libs.shop.client.config.ComponentConfigurationGroup;
 import dev.sixik.sdmshop2.libs.shop.commands.builder.CommandBuilder;
 import dev.sixik.sdmshop2.libs.shop.components.limiter.LimiterComponent;
 import dev.sixik.sdmshop2.libs.shop.generator.DefaultShopGenerator;
 import dev.sixik.sdmshop2.libs.shop.network.ShopNetworkManager;
 import dev.sixik.sdmshop2.libs.shop.scripting.ScriptConditionComponent;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.ShopRenderLibExtension;
-import dev.sixik.sdmshop2.utils.ShopClientUtils;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.resources.ResourceLocation;
 
@@ -45,10 +42,6 @@ public class SDMShopCommandsDebug {
     }
 
     public static void init(CommandDispatcher<CommandSourceStack> dispatcher) {
-        CommandBuilder.create("sdm_shop_debug open_ui").executesVoid((cts) -> {
-            ShopRenderLibExtension.openUi();
-        }).register(dispatcher);
-
         CommandBuilder.create("sdm_shop tests send_new_shop")
                 .requires(2)
                 .executesVoid(ctx -> {
@@ -64,12 +57,6 @@ public class SDMShopCommandsDebug {
 
 //                    final var component = shopOffer.addComponent(new CommandRewardComponent());
 //                    ShopNetworkManager.sendNewComponent(debugShop, shopOffer, component, ctx.getSource().getPlayerOrException());
-                })
-                .register(dispatcher);
-        CommandBuilder.create("sdm_shop tests config")
-                .requires(2)
-                .executesVoid((ctx) -> {
-                    ShopClientUtils.openWidget(new ComponentConfigurationGroup());
                 })
                 .register(dispatcher);
     }

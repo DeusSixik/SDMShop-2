@@ -58,7 +58,6 @@ dependencies {
     common(project(path: ':common', configuration: 'namedElements')) { transitive false }
     shadowBundle project(path: ':common', configuration: 'transformProductionForge')
 
-    modImplementation("com.lowdragmc.ldlib:ldlib-forge-${minecraft_version}:${ldlib_version}") { transitive = false }
     modImplementation("dev.latvian.mods:kubejs-forge:${kjs_version}")
 
     modImplementation('com.blamejared.crafttweaker:CraftTweaker-forge-1.20.1:14.0.60')
@@ -76,6 +75,8 @@ dependencies {
     include("org.mongodb:mongodb-driver-sync:5.6.5")
     include("org.yaml:snakeyaml:2.2")
     include("com.github.DeusSixik:YamlConfig:1.2.0")
+
+    modImplementation("com.github.DeusSixik.UniGui:unigui-forge-${minecraft_version}:${unigui_version}")
 }
 
 processResources {

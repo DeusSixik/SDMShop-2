@@ -6,6 +6,7 @@ public final class ClientCacheKeys {
     public static final String COMPONENT_FAVORITES = "component_favorites";
     public static final String EDITOR_HISTORY = "editor_history";
     public static final String EDIT_SESSION = "edit_session";
+    public static final String OFFER_PRESETS = "offer_presets";
 
     private ClientCacheKeys() {
     }

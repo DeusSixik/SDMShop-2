@@ -35,9 +35,9 @@ During a purchase, the server:
 5. rolls back payment if reward delivery fails;
 6. gives rewards and syncs updated limiter/currency data back to the client.
 
-### Modern LDLib UI
+### Modern UniGUI UI
 
-The shop UI is built on LDLib and includes:
+The shop UI is built on UniGUI and includes:
 
 - category tabs;
 - search and sorting;
@@ -117,7 +117,7 @@ KubeJS and CraftTweaker integration classes are present in the codebase.
 
 - **Minecraft:** 1.20.1
 - **Loaders:** Fabric / Forge
-- **Required dependencies:** Architectury API, LDLib
+- **Required dependencies:** Architectury API, UniGUI
 
 ---
 

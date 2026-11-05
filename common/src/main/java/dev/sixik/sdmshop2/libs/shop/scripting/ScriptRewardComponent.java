@@ -1,6 +1,6 @@
 package dev.sixik.sdmshop2.libs.shop.scripting;
 
-import com.lowdragmc.lowdraglib.gui.widget.Widget;
+import dev.sixik.unigui.api.widget.Widget;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.IconType;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;

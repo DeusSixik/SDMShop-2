@@ -1,10 +1,9 @@
 package dev.sixik.sdmshop2.libs.shop.components;
 
-import com.lowdragmc.lowdraglib.gui.texture.ItemStackTexture;
-import com.lowdragmc.lowdraglib.gui.texture.TransformTexture;
 import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.IconType;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopItemWidget;
 import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
@@ -13,7 +12,10 @@ import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
 import dev.sixik.sdmshop2.libs.shop.serializer.codec.FieldCodecs;
 import dev.sixik.sdmshop2.utils.ShopItemHelper;
+import dev.sixik.unigui.api.widget.Widget;
+
 import lombok.Getter;
+
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -23,6 +25,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+
 import org.jetbrains.annotations.Nullable;
 
 public class ItemCostComponent extends CostComponent {
@@ -114,8 +117,10 @@ public class ItemCostComponent extends CostComponent {
 
     @Override
     @Environment(EnvType.CLIENT)
-    public @Nullable TransformTexture getRenderIcon() {
-        return new ItemStackTexture(item.isEmpty() ? Items.BARRIER.getDefaultInstance() : item.copyWithCount(amount));
+    public @Nullable Widget getRenderIcon() {
+        var widget = new ShopItemWidget(item.copy(), 12);
+        widget.layout(style -> style.fixed(12, 12).flexNone());
+        return widget;
     }
 
     @Override
@@ -132,9 +137,18 @@ public class ItemCostComponent extends CostComponent {
     private static class Type extends SerializedComponentType<ItemCostComponent> {
 
         private static final ResourceLocation ID = ResourceLocation.tryBuild("sdm", "cost_item");
-        private static final ComponentSerializer<ItemCostComponent> SERIALIZER = ComponentSerializer.<ItemCostComponent>create()
-                .addRequired("item", FieldCodecs.ITEM_STACK_ID_NBT, ItemCostComponent::getItem, (component, value) -> component.item = normalizeItem(value))
-                .addDefaultedInt("amount", ItemCostComponent::getAmount, (component, value) -> component.amount = Math.max(1, value), 1);
+        private static final ComponentSerializer<ItemCostComponent> SERIALIZER =
+                ComponentSerializer.<ItemCostComponent>create()
+                        .addRequired(
+                                "item",
+                                FieldCodecs.ITEM_STACK_ID_NBT,
+                                ItemCostComponent::getItem,
+                                (component, value) -> component.item = normalizeItem(value))
+                        .addDefaultedInt(
+                                "amount",
+                                ItemCostComponent::getAmount,
+                                (component, value) -> component.amount = Math.max(1, value),
+                                1);
 
         private Type() {
             super(ItemCostComponent::new, SERIALIZER);
@@ -148,7 +162,9 @@ public class ItemCostComponent extends CostComponent {
         @Override
         public ItemCostComponent createFromBuilder(Object... args) {
             if (args.length != 2 && args.length != 3) {
-                throw new IllegalArgumentException("ItemCostComponent.createFromBuilder() takes 2 or 3 arguments (ItemStack/Item/ResourceLocation/String, int, (Optional) String)");
+                throw new IllegalArgumentException(
+                        "ItemCostComponent.createFromBuilder() takes 2 or 3 arguments"
+                            + " (ItemStack/Item/ResourceLocation/String, int, (Optional) String)");
             }
 
             ItemStack itemStack = parseItemStack(args[0]);
@@ -173,9 +189,10 @@ public class ItemCostComponent extends CostComponent {
                 return item.getDefaultInstance();
             }
 
-            ResourceLocation id = value instanceof ResourceLocation location
-                    ? location
-                    : ResourceLocation.tryParse(String.valueOf(value));
+            ResourceLocation id =
+                    value instanceof ResourceLocation location
+                            ? location
+                            : ResourceLocation.tryParse(String.valueOf(value));
             if (id == null) {
                 return ItemStack.EMPTY;
             }

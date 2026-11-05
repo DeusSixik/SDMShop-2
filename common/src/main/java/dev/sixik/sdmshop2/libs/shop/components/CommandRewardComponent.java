@@ -1,23 +1,24 @@
 package dev.sixik.sdmshop2.libs.shop.components;
 
-import com.lowdragmc.lowdraglib.gui.texture.ItemStackTexture;
-import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.CurrencyIcon;
 import dev.sixik.sdmshop2.libs.sdmeconomy.icons.IconType;
-import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopEmptyWidget;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopRenderWidgets;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.RewardComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
+import dev.sixik.unigui.api.widget.Widget;
+
 import lombok.Getter;
+
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Items;
+
 import org.jetbrains.annotations.Nullable;
 
 public class CommandRewardComponent extends RewardComponent {
@@ -26,8 +27,6 @@ public class CommandRewardComponent extends RewardComponent {
     public static final String DEFAULT_COMMAND = "/time set day";
 
     public static final IComponentType<CommandRewardComponent> TYPE = new Type();
-
-    protected static final ItemStackTexture DEFAULT_TEXTURE = new ItemStackTexture(Items.COMMAND_BLOCK);
 
     @Getter
     @ComponentConfig(translationKey = "shop.component.reward.command.display_name")
@@ -48,9 +47,8 @@ public class CommandRewardComponent extends RewardComponent {
 
     @Override
     public void reward(ServerPlayer player, int amount) {
-        CommandSourceStack source = player.createCommandSourceStack()
-                .withPermission(2)
-                .withSuppressedOutput();
+        CommandSourceStack source =
+                player.createCommandSourceStack().withPermission(2).withSuppressedOutput();
 
         String format = formatCommand(command, player);
         for (int i = 0; i < amount; i++) {
@@ -63,19 +61,35 @@ public class CommandRewardComponent extends RewardComponent {
         return TYPE;
     }
 
+    /**
+     * Creates the visible command reward description without exposing the command itself.
+     *
+     * @return a fresh label with the configured display name, or the default name when blank.
+     */
     @Override
     @Environment(EnvType.CLIENT)
-    public @Nullable Widget createRender() {
-        return new ShopEmptyWidget().setBackground(DEFAULT_TEXTURE)
-                .setHoverTooltips(Component.translatable("shop.ui.offer_element.component.reward.command", command));
+    public Widget createRender() {
+        return ShopRenderWidgets.text(
+                displayName != null && !displayName.isBlank() ? displayName : EMPTY);
     }
 
     private static class Type extends SerializedComponentType<CommandRewardComponent> {
 
-        private static final ResourceLocation ID = ResourceLocation.tryBuild("sdm", "reward_command");
-        private static final ComponentSerializer<CommandRewardComponent> SERIALIZER = ComponentSerializer.<CommandRewardComponent>create()
-                .addDefaultedString("name", CommandRewardComponent::getDisplayName, (component, value) -> component.displayName = value, EMPTY)
-                .addDefaultedString("command", CommandRewardComponent::getCommand, (component, value) -> component.command = value, DEFAULT_COMMAND, false);
+        private static final ResourceLocation ID =
+                ResourceLocation.tryBuild("sdm", "reward_command");
+        private static final ComponentSerializer<CommandRewardComponent> SERIALIZER =
+                ComponentSerializer.<CommandRewardComponent>create()
+                        .addDefaultedString(
+                                "name",
+                                CommandRewardComponent::getDisplayName,
+                                (component, value) -> component.displayName = value,
+                                EMPTY)
+                        .addDefaultedString(
+                                "command",
+                                CommandRewardComponent::getCommand,
+                                (component, value) -> component.command = value,
+                                DEFAULT_COMMAND,
+                                false);
 
         private Type() {
             super(CommandRewardComponent::new, SERIALIZER);
@@ -88,8 +102,10 @@ public class CommandRewardComponent extends RewardComponent {
 
         @Override
         public CommandRewardComponent createFromBuilder(Object... args) {
-            if(args.length != 2)
-                throw new IllegalArgumentException("CommandRewardComponent.createFromBuilder() takes 2 arguments (String, String)");
+            if (args.length != 2)
+                throw new IllegalArgumentException(
+                        "CommandRewardComponent.createFromBuilder() takes 2 arguments (String,"
+                            + " String)");
 
             return new CommandRewardComponent((String) args[0], (String) args[1]);
         }
@@ -103,7 +119,7 @@ public class CommandRewardComponent extends RewardComponent {
     protected static String formatCommand(String command, ServerPlayer player) {
         String copy = command;
 
-        if(command.contains("{player}"))
+        if (command.contains("{player}"))
             copy = copy.replace("{player}", player.getName().getString());
         return copy;
     }

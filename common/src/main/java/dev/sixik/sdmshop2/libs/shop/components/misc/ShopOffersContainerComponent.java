@@ -19,7 +19,7 @@ public class ShopOffersContainerComponent extends ShopComponent {
     public static final IComponentType<ShopOffersContainerComponent> TYPE = new Type();
 
     @Getter
-    protected final Map<UUID, ShopOffer> entryMap = new ConcurrentHashMap<>();
+    protected final Map<UUID, ShopOffer> entryMap = Collections.synchronizedMap(new LinkedHashMap<>());
 
     @Override
     public IComponentType<?> getType() {
@@ -73,6 +73,86 @@ public class ShopOffersContainerComponent extends ShopComponent {
     public void getEntries(UUID[] entryIds, ShopOffer[] outArray) {
         for (int i = 0; i < entryIds.length; i++) {
             outArray[i] = entryMap.get(entryIds[i]);
+        }
+    }
+
+    public synchronized boolean moveEntryToIndex(UUID entryId, int targetIndex) {
+        if (!entryMap.containsKey(entryId)) return false;
+        List<ShopOffer> list = new ArrayList<>(entryMap.values());
+        int currentIndex = -1;
+        for (int i = 0; i < list.size(); i++) {
+            if (list.get(i).getUUID().equals(entryId)) {
+                currentIndex = i;
+                break;
+            }
+        }
+        if (currentIndex < 0) return false;
+        int clampedIndex = Math.max(0, Math.min(list.size() - 1, targetIndex));
+        if (currentIndex == clampedIndex) return false;
+
+        ShopOffer item = list.remove(currentIndex);
+        list.add(clampedIndex, item);
+
+        entryMap.clear();
+        for (ShopOffer offer : list) {
+            entryMap.put(offer.getUUID(), offer);
+        }
+        notifyEntriesChanged();
+        return true;
+    }
+
+    public synchronized boolean moveEntry(UUID entryId, int offset) {
+        if (!entryMap.containsKey(entryId)) return false;
+        List<ShopOffer> list = new ArrayList<>(entryMap.values());
+        int currentIndex = -1;
+        for (int i = 0; i < list.size(); i++) {
+            if (list.get(i).getUUID().equals(entryId)) {
+                currentIndex = i;
+                break;
+            }
+        }
+        if (currentIndex < 0) return false;
+        return moveEntryToIndex(entryId, currentIndex + offset);
+    }
+
+    public synchronized void addEntryAt(ShopOffer entry, int index) {
+        Objects.requireNonNull(entry, "entry");
+        ShopOffer previous = entryMap.get(entry.getUUID());
+        if (previous != null && previous != entry) {
+            previous.setParentShop(null);
+        }
+        List<ShopOffer> list = new ArrayList<>(entryMap.values());
+        list.removeIf(o -> o.getUUID().equals(entry.getUUID()));
+        int clamped = Math.max(0, Math.min(list.size(), index));
+        list.add(clamped, entry);
+        entryMap.clear();
+        for (ShopOffer offer : list) {
+            entryMap.put(offer.getUUID(), offer);
+        }
+        attachEntry(entry);
+        notifyEntriesChanged();
+    }
+
+    public synchronized void addEntryAfter(ShopOffer entry, UUID afterId) {
+        Objects.requireNonNull(entry, "entry");
+        List<ShopOffer> list = new ArrayList<>(entryMap.values());
+        int afterIndex = -1;
+        for (int i = 0; i < list.size(); i++) {
+            if (list.get(i).getUUID().equals(afterId)) {
+                afterIndex = i;
+                break;
+            }
+        }
+        if (afterIndex >= 0) {
+            list.add(afterIndex + 1, entry);
+            entryMap.clear();
+            for (ShopOffer offer : list) {
+                entryMap.put(offer.getUUID(), offer);
+            }
+            attachEntry(entry);
+            notifyEntriesChanged();
+        } else {
+            addEntry(entry);
         }
     }
 

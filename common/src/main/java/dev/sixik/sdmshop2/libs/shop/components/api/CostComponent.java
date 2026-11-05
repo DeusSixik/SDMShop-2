@@ -1,28 +1,33 @@
 package dev.sixik.sdmshop2.libs.shop.components.api;
 
-import com.lowdragmc.lowdraglib.gui.texture.TransformTexture;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopOfferPresentation;
+import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopRenderWidgets;
 import dev.sixik.sdmshop2.libs.shop.components.api.annotation.ComponentConfig;
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
+import dev.sixik.unigui.api.widget.Widget;
+
 import lombok.Getter;
 import lombok.Setter;
+
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
+
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Абстрактный компонент, представляющий стоимость покупки.
- * Отвечает за проверку наличия средств и процесс оплаты.
+ * Абстрактный компонент, представляющий стоимость покупки. Отвечает за проверку наличия средств и
+ * процесс оплаты.
  */
 public abstract class CostComponent extends ShopComponent {
 
-    private static final ComponentSerializer<CostComponent> ADDITIONAL_SERIALIZER = ComponentSerializer.<CostComponent>create()
-            .addDefaultedString("group_id", CostComponent::getGroupId, CostComponent::setGroupId, "");
+    private static final ComponentSerializer<CostComponent> ADDITIONAL_SERIALIZER =
+            ComponentSerializer.<CostComponent>create()
+                    .addDefaultedString(
+                            "group_id", CostComponent::getGroupId, CostComponent::setGroupId, "");
 
-    /**
-     * Уникальный ID для группировки нескольких валют
-     */
+    /** Уникальный ID для группировки нескольких валют */
     @Getter
     @Setter
     @ComponentConfig(translationKey = "shop.component.cost.group_id")
@@ -56,13 +61,11 @@ public abstract class CostComponent extends ShopComponent {
      */
     public abstract void pay(Player player, double actualPrice);
 
-    public void refund(Player player, double actualPrice) {
-    }
+    public void refund(Player player, double actualPrice) {}
 
     /**
-     * Возвращает базовую стоимость до применения скидок.
-     * Если компонент не поддерживает числовые скидки (например, квестовый предмет),
-     * можно возвращать 0 или игнорировать его в скидках.
+     * Возвращает базовую стоимость до применения скидок. Если компонент не поддерживает числовые
+     * скидки (например, квестовый предмет), можно возвращать 0 или игнорировать его в скидках.
      */
     public abstract double getBaseAmount();
 
@@ -71,12 +74,33 @@ public abstract class CostComponent extends ShopComponent {
         return ADDITIONAL_SERIALIZER;
     }
 
+    /**
+     * Creates the optional icon for the default payment row. Add-ons overriding createRender do not
+     * need to provide an icon separately.
+     *
+     * @return fresh icon widget, or null for a text-only default payment row.
+     */
     @Environment(EnvType.CLIENT)
     @Nullable
-    public abstract TransformTexture getRenderIcon();
+    public Widget getRenderIcon() {
+        return null;
+    }
 
     public Component getDisplayName() {
         return Component.empty();
+    }
+
+    /**
+     * Creates a payment presentation using this cost's own icon factory and amount. Add-ons may
+     * override this method to return any widget tree.
+     *
+     * @return a fresh payment widget.
+     */
+    @Override
+    @Environment(EnvType.CLIENT)
+    public Widget createRender() {
+        return ShopRenderWidgets.cost(
+                getRenderIcon(), ShopOfferPresentation.formatAmount(getBaseAmount()));
     }
 
     @Override

@@ -1,126 +1,116 @@
 package dev.sixik.sdmshop2.libs.shop.client.ui;
 
-import com.lowdragmc.lowdraglib.gui.widget.Widget;
-import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
-import dev.sixik.sdmshop2.libs.shop.base.ShopInstance;
-import dev.sixik.sdmshop2.libs.shop.client.SDMShopClient;
-import dev.sixik.sdmshop2.libs.shop.client.cache.PersistentEditSession;
-import dev.sixik.sdmshop2.libs.shop.client.cache.ShopClientCache;
-import dev.sixik.sdmshop2.libs.shop.client.ui.elements.ShopScreenElement;
-import dev.sixik.sdmshop2.libs.shop.editor.ShopEditSession;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.ButtonWidget;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.TextLabel;
-import dev.sixik.sdmshop2.libs.shop_ldlib_extension.widgets.containers.ModalWidget;
-import dev.sixik.sdmshop2.utils.ShopClientUtils;
-import net.minecraft.client.Minecraft;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import org.jetbrains.annotations.Nullable;
+import dev.sixik.sdmshop2.libs.shop.client.ui.api.ShopUiContext;
+import dev.sixik.sdmshop2.libs.shop.client.ui.root.ShopRootPanel;
+import dev.sixik.sdmshop2.libs.shop.client.ui.root.ShopToolPanel;
+import dev.sixik.unigui.api.widget.Widget;
+import dev.sixik.unigui.widgets.feedback.OverlayLayer;
 
+import java.util.LinkedHashSet;
 import java.util.UUID;
 
+/** Compatibility entry point for network/cache callbacks and the default shop window. */
 public final class ShopScreenController {
+    /** Default window; each open replaces it with a fresh instance. */
+    private static ShopScreen current = new ShopScreen();
 
+    /** Prevents instantiation. */
+    private ShopScreenController() {}
+
+    /**
+     * @return actions for the default shop window.
+     */
+    public static ShopUiContext context() {
+        return current;
+    }
+
+    /**
+     * @return the default window's catalog.
+     */
+    public static ShopRootPanel getRootPanel() {
+        return current.rootPanel();
+    }
+
+    /**
+     * @return the default window's toolbar.
+     */
+    public static ShopToolPanel getToolPanel() {
+        return current.toolPanel();
+    }
+
+    /** Opens a fresh default window. */
     public static void openShop() {
-        ShopClientUtils.openWidget(defaultGui());
+        current.close();
+        current = new ShopScreen();
+        current.open();
     }
 
-    public static void openShopEditor() {
-        openShopEditor(ShopScreenElement.Instance);
+    /**
+     * @return default window's overlay, or null while unmounted.
+     */
+    public static OverlayLayer getActiveOverlay() {
+        return current.overlay();
     }
 
-    public static void openShopEditor(@Nullable Widget owner) {
-        ShopInstance shop = SDMShopClient.Shop;
-        if (shop == null || shop.isNull()) {
-            ShopClientUtils.openWidget(defaultGui());
-            return;
-        }
-
-        PersistentEditSession persisted = ShopClientCache.getEditSession();
-        if (persisted != null && persisted.shopId() != null) {
-            if (persisted.shopId().equals(shop.getId())) {
-                openPersistedEditor(persisted);
-                return;
-            }
-
-            if (owner != null) {
-                openSessionConflictModal(owner, persisted, shop);
-                return;
-            }
-        }
-
-        openNewEditor(shop);
+    /**
+     * @param modal widget to show; null is ignored.
+     */
+    public static void openModal(Widget modal) {
+        current.openModal(modal);
     }
 
-    private static void openNewEditor(ShopInstance shop) {
-        UUID author = Minecraft.getInstance().player == null
-                ? UUID.randomUUID()
-                : Minecraft.getInstance().player.getUUID();
-        ShopEditSession session = ShopEditSession.forShop(shop, author);
-        ShopClientCache.saveEditSession(session, session.draftShop(shop.getId()));
-        openEditor(session, shop.getId());
+    /**
+     * @param modal widget to remove; null is ignored.
+     */
+    public static void closeModal(Widget modal) {
+        current.closeModal(modal);
     }
 
-    private static void openPersistedEditor(PersistentEditSession persisted) {
-        ShopEditSession session = persisted.restoreSession();
-        openEditor(session, persisted.shopId());
+    /**
+     * @param query search text; null clears search.
+     */
+    public static void onSearchQueryChanged(String query) {
+        current.search(query);
     }
 
-    private static void openEditor(ShopEditSession session, ResourceLocation shopId) {
-        ShopClientUtils.openWidget(new ShopScreenElement(session, shopId));
+    /** Toggles favorite-first ordering and updates the toolbar. */
+    public static void toggleFavoritesFirst() {
+        current.toggleFavorites();
     }
 
-    private static void openSessionConflictModal(Widget owner, PersistentEditSession persisted, ShopInstance currentShop) {
-        ModalWidget modal = new ModalWidget(310, 138)
-                .setTitle(Component.translatable("shop.ui.editor.session_conflict.title"))
-                .setCloseOnEsc(true)
-                .setCloseOnOutsideClick(false);
-        ModalWidget opened = ModalWidget.openNested(owner, modal);
-        if (opened == null) {
-            return;
-        }
-
-        TextLabel warning = new TextLabel(0, 4, opened.getContentWidth(), 42,
-                Component.translatable("shop.ui.editor.session_conflict.warning"));
-        warning.setAutoSize(false)
-                .setWrapText(true)
-                .setColor(0xFFFFC95A)
-                .setAlignment(TextLabel.HorizontalAlignment.CENTER, TextLabel.VerticalAlignment.CENTER);
-        opened.addWidget(warning);
-
-        TextLabel details = new TextLabel(0, 48, opened.getContentWidth(), 28,
-                Component.translatable("shop.ui.editor.session_conflict.details", persisted.shopId(), currentShop.getId()));
-        details.setAutoSize(false)
-                .setWrapText(true)
-                .setColor(0xFFAEB4C6)
-                .setAlignment(TextLabel.HorizontalAlignment.CENTER, TextLabel.VerticalAlignment.CENTER);
-        opened.addWidget(details);
-
-        int buttonY = Math.max(82, opened.getContentHeight() - 24);
-        int buttonWidth = Math.max(1, opened.getContentWidth() / 2 - 5);
-
-        ButtonWidget clear = new ButtonWidget(0, buttonY, buttonWidth, 20, Component.translatable("shop.ui.editor.session_conflict.clear_old"), ignored -> {
-            opened.close();
-            ShopClientCache.clearEditSession();
-            openNewEditor(currentShop);
-        });
-        clear.setClientSideWidget();
-        clear.setTextPadding(4);
-        clear.setMinTextScale(0.35f);
-
-        ButtonWidget restore = new ButtonWidget(buttonWidth + 10, buttonY, buttonWidth, 20, Component.translatable("shop.ui.editor.session_conflict.continue_old"), ignored -> {
-            opened.close();
-            openPersistedEditor(persisted);
-        });
-        restore.setClientSideWidget();
-        restore.setTextPadding(4);
-        restore.setMinTextScale(0.35f);
-
-        opened.addWidget(clear);
-        opened.addWidget(restore);
+    /** Refreshes visible currency balances. */
+    public static void invokeRefreshCurrencies() {
+        getRootPanel().refreshCurrencies();
     }
 
-    private static WidgetGroup defaultGui() {
-        return new ShopScreenElement();
+    /**
+     * Updates the visible favorite state.
+     *
+     * @param offerId affected offer identifier.
+     * @param favorite new favorite state.
+     * @param uuids cache snapshot retained for compatibility.
+     */
+    public static void invokeFavoritesChanged(
+            UUID offerId, boolean favorite, LinkedHashSet<UUID> uuids) {
+        getRootPanel().onFavoritesChanged(offerId, favorite);
+    }
+
+    /** Refreshes the visible catalog. */
+    public static void invokeRefreshOffers() {
+        getRootPanel().refreshOffers();
+    }
+
+    /** Refreshes categories, catalog and balances. */
+    public static void invokeRefreshAll() {
+        getRootPanel().buildCategoriesList();
+        getRootPanel().refreshOffers();
+        getRootPanel().refreshCurrencies();
+    }
+
+    /**
+     * @param entityId changed offer identifier.
+     */
+    public static void invokeRefreshOffer(UUID entityId) {
+        getRootPanel().refreshOffer(entityId);
     }
 }

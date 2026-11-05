@@ -1,6 +1,6 @@
 package dev.sixik.sdmshop2.libs.shop.processors;
 
-import com.lowdragmc.lowdraglib.gui.texture.TransformTexture;
+import dev.sixik.unigui.api.widget.Widget;
 import dev.sixik.sdmshop2.libs.shop.base.ShopOffer;
 import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
 import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
@@ -87,7 +87,7 @@ class ShopTransactionProcessorTest {
         }
 
         @Override
-        public @Nullable TransformTexture getRenderIcon() {
+        public @Nullable Widget getRenderIcon() {
             return null;
         }
 

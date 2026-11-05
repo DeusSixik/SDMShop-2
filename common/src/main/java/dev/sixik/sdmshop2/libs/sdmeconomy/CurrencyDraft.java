@@ -23,7 +23,8 @@ public record CurrencyDraft(
         Kind kind,
         String displayName,
         String iconText,
-        ItemStack itemStack
+        ItemStack itemStack,
+        @Nullable ResourceLocation iconTexture
 ) {
 
     public CurrencyDraft {
@@ -34,17 +35,25 @@ public record CurrencyDraft(
         itemStack = itemStack == null ? ItemStack.EMPTY : itemStack.copyWithCount(1);
     }
 
+    public CurrencyDraft(ResourceLocation id, Kind kind, String displayName, String iconText, ItemStack itemStack) {
+        this(id, kind, displayName, iconText, itemStack, null);
+    }
+
     public static CurrencyDraft text(ResourceLocation id, String displayName, String iconText) {
-        return new CurrencyDraft(id, Kind.TEXT, displayName, iconText, ItemStack.EMPTY);
+        return new CurrencyDraft(id, Kind.TEXT, displayName, iconText, ItemStack.EMPTY, null);
     }
 
     public static CurrencyDraft item(ResourceLocation id, ItemStack itemStack) {
         ItemStack safeStack = itemStack == null ? ItemStack.EMPTY : itemStack.copyWithCount(1);
-        return new CurrencyDraft(id, Kind.ITEM, safeStack.getHoverName().getString(), "", safeStack);
+        return new CurrencyDraft(id, Kind.ITEM, safeStack.getHoverName().getString(), "", safeStack, null);
+    }
+
+    public static CurrencyDraft texture(ResourceLocation id, String displayName, ResourceLocation iconTexture) {
+        return new CurrencyDraft(id, Kind.TEXTURE, displayName, "", ItemStack.EMPTY, iconTexture);
     }
 
     public static CurrencyDraft delete(ResourceLocation id) {
-        return new CurrencyDraft(id, Kind.DELETE, id == null ? "" : id.toString(), "", ItemStack.EMPTY);
+        return new CurrencyDraft(id, Kind.DELETE, id == null ? "" : id.toString(), "", ItemStack.EMPTY, null);
     }
 
     public ICurrency toCurrency() {
@@ -54,7 +63,7 @@ public record CurrencyDraft(
     }
 
     public IStoredCurrency toStoredCurrency() {
-        return new SimpleTextCurrency(id, displayName, iconText);
+        return new SimpleTextCurrency(id, displayName, iconText, iconTexture);
     }
 
     public IExternalCurrency toExternalCurrency() {
@@ -69,6 +78,8 @@ public record CurrencyDraft(
         json.addProperty("icon_text", iconText);
         if (kind == Kind.ITEM) {
             json.add("item", FieldCodecs.ITEM_STACK_ID_NBT.toJsonElement(itemStack));
+        } else if (kind == Kind.TEXTURE && iconTexture != null) {
+            json.addProperty("texture", iconTexture.toString());
         }
         return json;
     }
@@ -92,7 +103,10 @@ public record CurrencyDraft(
             ItemStack itemStack = kind == Kind.ITEM && json.has("item")
                     ? FieldCodecs.ITEM_STACK_ID_NBT.fromJsonElement(json.get("item"), ItemStack.EMPTY)
                     : ItemStack.EMPTY;
-            return new CurrencyDraft(id, kind, displayName, iconText, itemStack);
+            ResourceLocation iconTexture = kind == Kind.TEXTURE && json.has("texture")
+                    ? ResourceLocation.tryParse(json.get("texture").getAsString())
+                    : null;
+            return new CurrencyDraft(id, kind, displayName, iconText, itemStack, iconTexture);
         } catch (Exception ignored) {
             return null;
         }
@@ -104,6 +118,10 @@ public record CurrencyDraft(
         buf.writeUtf(displayName);
         buf.writeUtf(iconText);
         buf.writeItem(itemStack);
+        buf.writeBoolean(iconTexture != null);
+        if (iconTexture != null) {
+            buf.writeResourceLocation(iconTexture);
+        }
     }
 
     public static CurrencyDraft readNetwork(FriendlyByteBuf buf) {
@@ -112,7 +130,8 @@ public record CurrencyDraft(
         String displayName = buf.readUtf();
         String iconText = buf.readUtf();
         ItemStack itemStack = buf.readItem();
-        return new CurrencyDraft(id, kind, displayName, iconText, itemStack);
+        ResourceLocation iconTexture = buf.readBoolean() ? buf.readResourceLocation() : null;
+        return new CurrencyDraft(id, kind, displayName, iconText, itemStack, iconTexture);
     }
 
     public static void writeList(FriendlyByteBuf buf, List<CurrencyDraft> drafts) {
@@ -142,30 +161,48 @@ public record CurrencyDraft(
         }
 
         if (currency instanceof SimpleTextCurrency textCurrency) {
+            if (textCurrency.getIconTexture() != null) {
+                return texture(currency.getId(), textCurrency.getDisplayNameValue(), textCurrency.getIconTexture());
+            }
             return text(currency.getId(), textCurrency.getDisplayNameValue(), textCurrency.getIconText());
         }
 
         CurrencyIcon icon = currency.getIcon();
-        if (icon != null && icon.type() == IconType.ITEM) {
-            Object iconValue = icon.icon();
-            if (iconValue instanceof ItemStack stack && !stack.isEmpty()) {
-                return item(currency.getId(), stack);
-            }
-            if (iconValue instanceof Item item && item != Items.AIR) {
-                return item(currency.getId(), item.getDefaultInstance());
+        if (icon != null) {
+            if (icon.type() == IconType.ITEM) {
+                Object iconValue = icon.icon();
+                if (iconValue instanceof ItemStack stack && !stack.isEmpty()) {
+                    return item(currency.getId(), stack);
+                }
+                if (iconValue instanceof Item item && item != Items.AIR) {
+                    return item(currency.getId(), item.getDefaultInstance());
+                }
+            } else if (icon.type() == IconType.TEXTURE) {
+                Object iconValue = icon.icon();
+                if (iconValue instanceof ResourceLocation loc) {
+                    return texture(currency.getId(), currency.getDisplayName().getString(), loc);
+                }
+                if (iconValue instanceof String str && (str.contains(":") || str.contains("/") || str.endsWith(".png"))) {
+                    ResourceLocation loc = ResourceLocation.tryParse(str);
+                    if (loc != null) {
+                        return texture(currency.getId(), currency.getDisplayName().getString(), loc);
+                    }
+                }
+                String text = iconValue instanceof String s ? s : "$";
+                return text(currency.getId(), currency.getDisplayName().getString(), text);
+            } else if (icon.type() == IconType.TEXT) {
+                String text = icon.icon() instanceof String s ? s : "$";
+                return text(currency.getId(), currency.getDisplayName().getString(), text);
             }
         }
 
-        String iconText = "$";
-        if (icon != null && icon.type() == IconType.TEXTURE && icon.icon() instanceof String text) {
-            iconText = text;
-        }
-        return text(currency.getId(), currency.getDisplayName().getString(), iconText);
+        return text(currency.getId(), currency.getDisplayName().getString(), "$");
     }
 
     public enum Kind {
         TEXT,
         ITEM,
+        TEXTURE,
         DELETE;
 
         public static Kind fromName(String value) {

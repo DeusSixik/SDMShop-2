@@ -1,0 +1,93 @@
+# `WindowWidget` (extends `Box`, implements `OverlayHostAware`)
+
+Desktop-style floating window widget supporting title bar, dragging, resizing, collapse, modal dialogs, and docking integrations.
+
+### API
+
+- `WindowWidget()` — Constructs an empty WindowWidget with default title and dimensions.
+- `WindowWidget(RichText, Widget)` — Constructs a WindowWidget with a RichText formatted title and hosted content.
+- `WindowWidget(String, Widget)` — Constructs a WindowWidget with a plain-text title and hosted content widget.
+- `acceptsDocking()` → boolean — Returns true if this window accepts foreign panes dropped into it.
+- `active()` → boolean — Returns true if this window currently holds focus in its WindowManager.
+- `arrangeInHost(RectView)` → void — Positions the window inside the host boundaries.
+- `captionless()` → boolean — Returns true if the window renders without a title bar header.
+- `close()` → WindowWidget — Closes the window.
+- `closeButton()` → Button — Returns the title bar close button widget.
+- `closeButtonVisible()` → boolean — Returns true if the title bar close button is visible.
+- `closeButtonVisible(boolean)` → WindowWidget (default: `true`) — Sets the visibility of the close button.
+- `closeOnOutsideClick()` → boolean — Returns true if clicking outside dismisses this window.
+- `closeOnOutsideClick(boolean)` → WindowWidget (default: `false`) — Configures whether clicking outside closes the window.
+- `collapseButtonVisible()` → boolean — Returns true if the collapse toggle button is shown in the header.
+- `collapseButtonVisible(boolean)` → WindowWidget (default: `false`) — Sets the visibility of the header collapse button.
+- `collapsed()` → boolean — Returns true if the window is currently collapsed to header-only.
+- `collapsed(boolean)` → WindowWidget (default: `false`) — Sets whether the window is collapsed.
+- `commitDockHost()` → void — Commits an auto-created docking host, making it permanent.
+- `constrainToHost()` → boolean — Returns true if window coordinates are clamped within the host boundary.
+- `constrainToHost(boolean)` → WindowWidget (default: `true`) — Configures host boundary clamping.
+- `content()` → Widget — Returns the hosted content widget.
+- `content(Widget)` → WindowWidget — Sets the hosted content widget.
+- `dockDocument(String, String, Widget)` → WindowWidget — Docks a document pane into this window's docking host.
+- `dockKind()` → DockPaneKind — Returns the classification kind (DOCUMENT or TOOL) when docked.
+- `dockKind(DockPaneKind)` → WindowWidget (default: `tool`) — Sets the docking classification kind.
+- `dockPane(DockPane)` → WindowWidget — Docks a pane into this window's embedded docking host.
+- `dockPaneId()` → String — Returns the pane ID representing this window when docked.
+- `dockPaneId(String)` → WindowWidget — Sets the pane ID representing this window when docked.
+- `dockPolicy()` → DockPolicy — Returns the docking policy (FULL, GUEST_ONLY, DISABLED).
+- `dockPolicy(DockPolicy)` → WindowWidget (default: `full`) — Sets the docking integration policy.
+- `dockRedockLocked()` → boolean — Returns true if redocking this window into other hosts is locked.
+- `dockRedockLocked(boolean)` → WindowWidget (default: `false`) — Locks or unlocks redocking capability for this window.
+- `dockSourceId()` → String — Returns the source docking host ID if this window was torn off from a dock.
+- `dockSourcePane()` → DockPane — Returns the source DockPane representation when floating.
+- `dockSourcePane(DockPane)` → WindowWidget — Sets the source DockPane representation.
+- `dockTool(String, String, Widget)` → WindowWidget — Docks a tool pane into this window's docking host.
+- `dockable()` → boolean — Returns true if this window can be docked into an external host.
+- `dockable(boolean)` → WindowWidget (default: `true`) — Enables or disables docking capability.
+- `dockingEnabled()` → boolean — Returns true if docking features are actively enabled.
+- `dockingEnabled(boolean)` → WindowWidget (default: `false`) — Enables or disables docking integration.
+- `dockingRoot()` → DockingRoot — Returns the internal DockingRoot hosted inside this window, or null.
+- `draggable()` → boolean — Returns true if window dragging by the header is enabled.
+- `draggable(boolean)` → WindowWidget (default: `true`) — Enables or disables window dragging.
+- `dragging()` → boolean — Returns true if the window is currently being moved.
+- `ensureDockHost()` → DockingRoot — Initializes and returns an embedded DockingRoot instance as content.
+- `fixedModal()` → boolean — Returns true if the modal window is fixed and cannot be dragged.
+- `fixedModal(boolean)` → WindowWidget (default: `false`) — Configures whether this modal window has a fixed non-draggable position.
+- `headerColor()` → MutableColor — Returns the mutable background color of the title bar header.
+- `headerHeight()` → float — Returns the title bar header height in UI pixels.
+- `headerHeight(float)` → WindowWidget (default: `22`) — Sets the title bar header height in UI pixels.
+- `headerSeparatorColor()` → MutableColor — Returns the mutable separator line color between header and content.
+- `icon()` → UiIcon — Returns the title bar icon.
+- `icon(UiIcon)` → WindowWidget — Sets the title bar icon.
+- `lastDragRootX()` → float — Returns the last pointer root X coordinate during dragging.
+- `lastDragRootY()` → float — Returns the last pointer root Y coordinate during dragging.
+- `mergeDockingFrom(WindowWidget)` → boolean — Merges docking panes from another window into this window's dock host.
+- `minWindowSize(float, float)` → WindowWidget — Sets minimum width and height limits for window resizing.
+- `modal()` → boolean — Returns true if the window is modal, blocking interaction with windows below.
+- `modal(boolean)` → WindowWidget (default: `false`) — Configures modal behavior for this window.
+- `open()` → WindowWidget — Opens the window.
+- `open(boolean)` → WindowWidget (default: `false`) — Sets the open state of the window.
+- `openModal()` → WindowWidget — Opens this window as a modal dialog.
+- `opened()` → boolean — Returns true if the window is currently opened and active in the overlay.
+- `padding()` → EdgeInsets — Returns the window content padding.
+- `padding(EdgeInsets)` → WindowWidget (default: `8`) — Sets the window content padding.
+- `position(float, float)` → WindowWidget — Sets the window coordinates in UI pixels.
+- `releaseAutoDockHost()` → void — Releases an automatically created docking host if empty.
+- `resizable()` → boolean — Returns true if window border and grip resizing is enabled.
+- `resizable(boolean)` → WindowWidget (default: `true`) — Enables or disables border and grip resizing.
+- `resizeGrip()` → ResizeGripStyle — Returns the active resize grip visual style.
+- `resizeGrip(ResizeGripStyle)` → WindowWidget — Sets the corner resize grip visual style.
+- `resizeGripVisible()` → boolean — Returns true if the corner resize grip is rendered.
+- `resizeGripVisible(boolean)` → WindowWidget (default: `true`) — Sets whether the corner resize grip is visible.
+- `resizeHandle()` → String — Returns the name of the active resize handle (e.g. BOTTOM_RIGHT).
+- `resizing()` → boolean — Returns true if the window is actively being resized.
+- `richTitle()` → RichText — Returns the RichText formatted title component.
+- `richTitle(RichText)` → WindowWidget — Sets the RichText formatted title component.
+- `theme()` → DockTheme — Returns the active DockTheme applied to window chrome.
+- `theme(DockTheme)` → WindowWidget — Applies a custom DockTheme to window chrome and controls.
+- `title()` → String — Returns the window title string.
+- `title(String)` → WindowWidget — Sets the window plain-text title.
+- `titleColor()` → MutableColor — Returns the mutable title text color.
+- `toggle()` → WindowWidget — Toggles between open and closed states.
+- `toggleCollapsed()` → WindowWidget — Toggles collapsed state between full and header-only.
+- `windowX()` → float — Returns the window horizontal X coordinate.
+- `windowY()` → float — Returns the window vertical Y coordinate.
+

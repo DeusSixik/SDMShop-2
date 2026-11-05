@@ -1,38 +1,39 @@
 package dev.sixik.sdmshop2.libs.shop.components.api;
 
-import com.lowdragmc.lowdraglib.gui.widget.Widget;
-import dev.sixik.sdmshop2.SDMShop2;
 import dev.sixik.sdmshop2.libs.shop.base.ShopEntity;
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
+import dev.sixik.unigui.api.widget.Widget;
+
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.resources.ResourceLocation;
+
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Базовый класс для всех компонентов магазина.
- * Компоненты определяют поведение и данные сущностей магазина ({@link ShopEntity}).
+ * Базовый класс для всех компонентов магазина. Компоненты определяют поведение и данные сущностей
+ * магазина ({@link ShopEntity}).
  */
 public abstract class ShopComponent {
 
-    /**
-     * Константа для обозначения пустого или неопределенного типа компонента.
-     */
+    /** Константа для обозначения пустого или неопределенного типа компонента. */
     public static ResourceLocation EMPTY = ResourceLocation.tryBuild("sdm", "null");
-    private static final ComponentSerializer<ShopComponent> EMPTY_ADDITIONAL_SERIALIZER = ComponentSerializer.create();
+
+    private static final ComponentSerializer<ShopComponent> EMPTY_ADDITIONAL_SERIALIZER =
+            ComponentSerializer.create();
 
     private ShopEntity root;
     private volatile boolean dirty;
 
     /**
-     * Вызывается при инициализации компонента.
-     * Используется для настройки начального состояния или связей.
+     * Вызывается при инициализации компонента. Используется для настройки начального состояния или
+     * связей.
      */
-    public void init() { }
+    public void init() {}
 
     /**
-     * Определяет приоритет инициализации и обработки компонента.
-     * Компоненты с меньшим значением приоритета обрабатываются раньше.
+     * Определяет приоритет инициализации и обработки компонента. Компоненты с меньшим значением
+     * приоритета обрабатываются раньше.
      *
      * @return Приоритет (по умолчанию 0)
      */
@@ -47,9 +48,7 @@ public abstract class ShopComponent {
      */
     public abstract IComponentType<?> getType();
 
-    /**
-     * Возвращает категорию компонента для сортировоки и поиска
-     */
+    /** Возвращает категорию компонента для сортировоки и поиска */
     public ShopComponentCategory getCategory() {
         return ShopComponentCategory.MISC;
     }
@@ -74,8 +73,7 @@ public abstract class ShopComponent {
     }
 
     /**
-     * Устанавливает корневую сущность для компонента.
-     * Может быть установлена только один раз.
+     * Устанавливает корневую сущность для компонента. Может быть установлена только один раз.
      *
      * @param entity Корневая сущность
      */
@@ -88,7 +86,8 @@ public abstract class ShopComponent {
         if (root != null && root != entity) {
             IComponentType<?> type = getType();
             String componentId = type == null ? getClass().getName() : String.valueOf(type.getId());
-            throw new IllegalStateException("Component " + componentId + " is already attached to another ShopEntity");
+            throw new IllegalStateException(
+                    "Component " + componentId + " is already attached to another ShopEntity");
         }
 
         this.root = entity;
@@ -131,13 +130,11 @@ public abstract class ShopComponent {
         return EMPTY.equals(id);
     }
 
-    /**
-     * Оповещает родителя что компонент был изменён и нужно обновить данные
-     */
+    /** Оповещает родителя что компонент был изменён и нужно обновить данные */
     public final void invokeUpdate() {
         markDirty();
         ShopEntity root = getRoot();
-        if(root == null) return;
+        if (root == null) return;
         root.invokeUpdateComponent(root, this);
     }
 
@@ -145,10 +142,17 @@ public abstract class ShopComponent {
         return EMPTY_ADDITIONAL_SERIALIZER;
     }
 
+    /**
+     * Creates this component's presentation for a catalog card or purchase dialog. Each invocation
+     * must return a new, unparented widget tree. The UI owns and disposes it. Components with no
+     * visible presentation may return null; no type registration in the UI is needed for add-on
+     * components. Called only on the client thread.
+     *
+     * @return a fresh widget tree, or null to omit this component from the presentation.
+     */
     @Nullable
     @Environment(EnvType.CLIENT)
     public Widget createRender() {
-        SDMShop2.LOGGER.error("Can't create render because {} didn't have implementation of method 'createRender'", getType().getId());
         return null;
     }
 }

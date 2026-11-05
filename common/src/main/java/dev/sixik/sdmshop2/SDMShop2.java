@@ -19,6 +19,7 @@ import dev.sixik.sdmshop2.libs.shop.commands.SDMShopCommands;
 import dev.sixik.sdmshop2.libs.shop.config.ShopConfig;
 import dev.sixik.sdmshop2.libs.shop.config.ShopConfigHolder;
 import dev.sixik.sdmshop2.libs.shop.network.SDMShopNetwork;
+import dev.sixik.sdmshop2.libs.shop.processors.ShopTransactionProcessor;
 import dev.sixik.sdmshop2.libs.shop.promo.PromoStateStore;
 import dev.sixik.sdmshop2.libs.shop.register.ShopRegister;
 import dev.sixik.sdmshop2.libs.shop.sound.ShopSounds;
@@ -74,6 +75,8 @@ public final class SDMShop2 {
         SDMEconomyPlatform.init();
         ShopRegister.init();
         ShopSounds.init();
+
+
 
         SDMShopNetwork.init();
 

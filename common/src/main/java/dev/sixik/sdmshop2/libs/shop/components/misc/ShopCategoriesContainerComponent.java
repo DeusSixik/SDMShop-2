@@ -5,14 +5,10 @@ import dev.sixik.sdmshop2.libs.shop.components.api.IComponentType;
 import dev.sixik.sdmshop2.libs.shop.components.api.ShopComponent;
 import dev.sixik.sdmshop2.libs.shop.serializer.ComponentSerializer;
 import dev.sixik.sdmshop2.libs.shop.serializer.SerializedComponentType;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.resources.ResourceLocation;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ShopCategoriesContainerComponent extends ShopComponent {
@@ -20,7 +16,7 @@ public class ShopCategoriesContainerComponent extends ShopComponent {
     public static final IComponentType<ShopCategoriesContainerComponent> TYPE = new Type();
 
     protected final Map<UUID, List<ShopOffer>> indexedEntries = new ConcurrentHashMap<>();
-    protected final Map<UUID, CatalogComponent> catalogComponentMap = new Object2ObjectOpenHashMap<>();
+    protected final Map<UUID, CatalogComponent> catalogComponentMap = Collections.synchronizedMap(new LinkedHashMap<>());
 
     @Override
     public IComponentType<?> getType() {
@@ -37,23 +33,140 @@ public class ShopCategoriesContainerComponent extends ShopComponent {
         reindex();
     }
 
-    public void reindex() {
+    public synchronized void reindex() {
+        if (getRoot() == null) return;
         Optional<ShopOffersContainerComponent> opt = getRoot().getComponent(ShopOffersContainerComponent.class);
         if (opt.isEmpty()) return;
 
         ShopOffersContainerComponent container = opt.get();
 
         indexedEntries.clear();
-        catalogComponentMap.clear();
         for (ShopOffer entry : container.getEntryMap().values()) {
             Optional<CatalogComponent> opt2 = entry.getComponent(CatalogComponent.class);
-
-            if (opt2.isEmpty()) throw new NullPointerException("ShopEntry didn't have 'CategoryComponent'!");
+            if (opt2.isEmpty()) continue;
 
             CatalogComponent categoryComponent = opt2.get();
+            if (categoryComponent.getId() == null || categoryComponent.getId().isBlank()) {
+                continue;
+            }
 
-            indexedEntries.computeIfAbsent(categoryComponent.getUuid(), id -> new ObjectArrayList<>()).add(entry);
-            catalogComponentMap.computeIfAbsent(categoryComponent.getUuid(), id -> categoryComponent);
+            CatalogComponent matched = null;
+            if (categoryComponent.getUuid() != null && catalogComponentMap.containsKey(categoryComponent.getUuid())) {
+                matched = catalogComponentMap.get(categoryComponent.getUuid());
+            } else {
+                for (CatalogComponent existing : catalogComponentMap.values()) {
+                    if (categoryComponent.getId().equalsIgnoreCase(existing.getId())) {
+                        matched = existing;
+                        break;
+                    }
+                }
+            }
+
+            if (matched != null) {
+                categoryComponent.setUuid(matched.getUuid());
+                indexedEntries.computeIfAbsent(matched.getUuid(), id -> new ObjectArrayList<>()).add(entry);
+            } else {
+                if (categoryComponent.getUuid() == null) {
+                    categoryComponent.setUuid(UUID.randomUUID());
+                }
+                catalogComponentMap.put(categoryComponent.getUuid(), categoryComponent);
+                indexedEntries.computeIfAbsent(categoryComponent.getUuid(), id -> new ObjectArrayList<>()).add(entry);
+            }
+        }
+        syncCategoryOrders();
+    }
+
+    public synchronized void addCategory(CatalogComponent category) {
+        Objects.requireNonNull(category, "category");
+        if (category.getUuid() == null) {
+            category.setUuid(UUID.randomUUID());
+        }
+        if (category.getId() != null && !category.getId().isBlank()) {
+            for (CatalogComponent existing : catalogComponentMap.values()) {
+                if (category.getId().equalsIgnoreCase(existing.getId())) {
+                    existing.copyIconFrom(category);
+                    existing.setOrder(category.getOrder());
+                    return;
+                }
+            }
+        }
+        catalogComponentMap.put(category.getUuid(), category);
+        syncCategoryOrders();
+    }
+
+    public synchronized boolean removeCategory(UUID categoryId) {
+        if (categoryId == null) return false;
+        CatalogComponent removed = catalogComponentMap.remove(categoryId);
+        indexedEntries.remove(categoryId);
+        if (removed != null) {
+            if (removed.getId() != null && !removed.getId().isBlank()) {
+                List<UUID> dupUuids = new ArrayList<>();
+                for (Map.Entry<UUID, CatalogComponent> entry : catalogComponentMap.entrySet()) {
+                    if (removed.getId().equalsIgnoreCase(entry.getValue().getId())) {
+                        dupUuids.add(entry.getKey());
+                    }
+                }
+                for (UUID dup : dupUuids) {
+                    catalogComponentMap.remove(dup);
+                    indexedEntries.remove(dup);
+                }
+            }
+            syncCategoryOrders();
+            return true;
+        }
+        return false;
+    }
+
+    public synchronized boolean moveCategoryToIndex(UUID categoryId, int targetIndex) {
+        if (!catalogComponentMap.containsKey(categoryId)) return false;
+        List<CatalogComponent> list = new ArrayList<>(catalogComponentMap.values());
+        int currentIndex = -1;
+        for (int i = 0; i < list.size(); i++) {
+            if (list.get(i).getUuid().equals(categoryId)) {
+                currentIndex = i;
+                break;
+            }
+        }
+        if (currentIndex < 0) return false;
+        int clamped = Math.max(0, Math.min(list.size() - 1, targetIndex));
+        if (currentIndex == clamped) return false;
+
+        CatalogComponent item = list.remove(currentIndex);
+        list.add(clamped, item);
+
+        catalogComponentMap.clear();
+        for (int i = 0; i < list.size(); i++) {
+            CatalogComponent c = list.get(i);
+            c.setOrder(i);
+            catalogComponentMap.put(c.getUuid(), c);
+            List<ShopOffer> offers = indexedEntries.get(c.getUuid());
+            if (offers != null) {
+                for (ShopOffer offer : offers) {
+                    offer.getComponent(CatalogComponent.class).ifPresent(oCat -> oCat.setOrder(c.getOrder()));
+                }
+            }
+        }
+        return true;
+    }
+
+    public synchronized boolean moveCategory(UUID categoryId, int offset) {
+        if (!catalogComponentMap.containsKey(categoryId)) return false;
+        List<CatalogComponent> list = new ArrayList<>(catalogComponentMap.values());
+        int currentIndex = -1;
+        for (int i = 0; i < list.size(); i++) {
+            if (list.get(i).getUuid().equals(categoryId)) {
+                currentIndex = i;
+                break;
+            }
+        }
+        if (currentIndex < 0) return false;
+        return moveCategoryToIndex(categoryId, currentIndex + offset);
+    }
+
+    private void syncCategoryOrders() {
+        int idx = 0;
+        for (CatalogComponent c : catalogComponentMap.values()) {
+            c.setOrder(idx++);
         }
     }
 
