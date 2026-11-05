@@ -40,6 +40,27 @@ public final class ShopTheme {
     public static final int TEXT_MUTED = 0xFF64748B;
     public static final int TEXT_GOLD = 0xFFFCD34D;
 
+    // --- Дополнительные токены главного окна ---
+    /** Фон панели каталога: чуть темнее карточек, чтобы карточки "всплывали". */
+    public static final int BG_CATALOG = 0xFF0F1219;
+    /** Фон шапки секции (например, "Your money"). */
+    public static final int BG_SECTION_HEADER = 0xFF171B26;
+    /** Фон активной кнопки покупки. */
+    public static final int BUY_BG = 0xFF2A2412;
+    public static final int BUY_BG_HOVER = 0xFF3D3318;
+    public static final int BUY_BG_PRESSED = 0xFF5A4A1F;
+    /** Неактивная кнопка: приглушённый фон и текст. */
+    public static final int BUY_BG_DISABLED = 0xFF161923;
+    public static final int TEXT_DISABLED = 0xFF475569;
+    /** Рамка выбранной/наведённой карточки. */
+    public static final int BORDER_CARD_HOVER = 0xFF5A4F2A;
+
+    // --- Отступы (единая сетка 4px) ---
+    public static final float SPACE_XS = 2.0f;
+    public static final float SPACE_S = 4.0f;
+    public static final float SPACE_M = 6.0f;
+    public static final float SPACE_L = 8.0f;
+
     // --- Скругления (Border Radius) ---
     public static final float RADIUS_CARD = 4.0f;
     public static final float RADIUS_PANEL = 4.0f;

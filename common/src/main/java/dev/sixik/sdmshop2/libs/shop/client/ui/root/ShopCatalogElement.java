@@ -16,6 +16,7 @@ import dev.sixik.sdmshop2.libs.shop.client.ui.widgets.ShopContentButton;
 import dev.sixik.sdmshop2.libs.shop.components.api.CostComponent;
 import dev.sixik.sdmshop2.libs.shop.network.ShopNetworkManager;
 import dev.sixik.unigui.api.event.EventPhase;
+import dev.sixik.unigui.api.event.PointerEnteredEvent;
 import dev.sixik.unigui.api.event.PointerExitedEvent;
 import dev.sixik.unigui.api.event.PointerPressedEvent;
 import dev.sixik.unigui.api.event.PointerReleasedEvent;
@@ -24,6 +25,7 @@ import dev.sixik.unigui.api.input.PointerButton;
 import dev.sixik.unigui.api.layout.Align;
 import dev.sixik.unigui.api.layout.Alignment;
 import dev.sixik.unigui.api.layout.Justify;
+import dev.sixik.unigui.api.layout.Overflow;
 import dev.sixik.unigui.api.widget.Visibility;
 import dev.sixik.unigui.api.widget.Widget;
 import dev.sixik.unigui.widgets.containers.Box;
@@ -84,6 +86,7 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
     private float lastClickRootX = -1.0f;
     private float lastClickRootY = -1.0f;
     private boolean cardPressed = false;
+    private boolean hovered = false;
     private Button buyBtn;
 
     public ShopCatalogElement(
@@ -195,7 +198,13 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
         borderWidth(ShopTheme.BORDER_WIDTH_THIN);
         radius(ShopTheme.RADIUS_CARD);
         spacing(4.0f);
-        layout(style -> style.minHeight(96.0f).flexNone().padding(6.0f, 8.0f));
+        layout(style -> style.minHeight(104.0f).flexNone().padding(7.0f, 8.0f));
+        on(
+                PointerEnteredEvent.TYPE,
+                event -> {
+                    hovered = true;
+                    applyCardChrome();
+                });
         on(
                 PointerPressedEvent.TYPE,
                 event -> {
@@ -220,6 +229,8 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
                 PointerExitedEvent.TYPE,
                 event -> {
                     cardPressed = false;
+                    hovered = false;
+                    applyCardChrome();
                 });
         initChildren();
     }
@@ -235,11 +246,20 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
                                 .flexNone());
         VBox separatorRow = new VBox();
         separatorRow.layout(
-                style -> style.widthPercent(100).minWidth(0).gap(3).margin(2, 0).flexNone());
+                style ->
+                        style.widthPercent(100)
+                                .minWidth(0)
+                                .minHeight(18.0f)
+                                .gap(3)
+                                .margin(2, 0)
+                                // Высота резервируется всегда: у карточек без бейджей цены
+                                // стоят на одной линии с карточками со скидкой
+                                .flexNone());
         Separator separator = new Separator();
         separator.orientation(Orientation.HORIZONTAL);
         separator.thickness(1);
-        separator.color().setArgb(ShopTheme.BORDER_SEPARATOR);
+        // Достаточно контрастный и на обычном фоне карточки, и на hover-фоне
+        separator.color().setArgb(ShopTheme.BORDER_SLOT);
         separator.layout(
                 style -> style.widthPercent(100).height(1).verticalAlignment(Alignment.CENTER));
         componentPanel =
@@ -287,19 +307,24 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
         HBox footer = new HBox();
         footer.layout(
                 style ->
-                        style.minHeight(18.0f)
+                        style.minHeight(24.0f)
+                                .minWidth(0.0f)
                                 .alignItems(Align.CENTER)
                                 .justifyContent(Justify.SPACE_BETWEEN)
                                 .flexNone());
         pricesBox = new HBox();
-        pricesBox.layout(style -> style.alignItems(Align.CENTER).gap(3.0f).flexGrow(1.0f));
+        // minWidth(0): иначе цены не могут сжаться и выталкивают кнопку за карточку
+        pricesBox.layout(
+                style -> style.alignItems(Align.CENTER).gap(3.0f).minWidth(0.0f).flexGrow(1.0f));
         refreshPrices();
         footer.addChild(pricesBox);
         buyBtn = new Button(Component.translatable("shop.ui.offer_element.button.buy").getString());
+        buyBtn.themeEnabled(false);
+        buyBtn.boxVisualEnabled(true);
         buyBtn.backgroundVisible(true);
         buyBtn.focusRingVisible(false);
-        buyBtn.textPadding(8.0f, 2.0f);
-        buyBtn.layout(style -> style.minHeight(18.0f).flexNone());
+        buyBtn.textPadding(10.0f, 2.0f);
+        buyBtn.layout(style -> style.minHeight(18.0f).minWidth(40.0f).flexNone());
         buyBtn.onClick(
                 event -> {
                     if (ShopEditorState.get().isEditorMode()) {
@@ -332,10 +357,21 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
 
     public void setSelected(boolean selected) {
         this.selected = selected;
+        applyCardChrome();
+    }
+
+    /** Applies the card surface for the current selected/hovered state. */
+    private void applyCardChrome() {
         if (selected) {
+            background(ShopTheme.color(ShopTheme.BG_CARD_HOVER));
             border(ShopTheme.color(ShopTheme.GOLD_PRIMARY));
             borderWidth(ShopTheme.BORDER_WIDTH_ACCENT);
+        } else if (hovered) {
+            background(ShopTheme.color(ShopTheme.BG_CARD_HOVER));
+            border(ShopTheme.color(ShopTheme.BORDER_CARD_HOVER));
+            borderWidth(ShopTheme.BORDER_WIDTH_THIN);
         } else {
+            background(ShopTheme.color(ShopTheme.BG_CARD));
             border(ShopTheme.color(ShopTheme.BORDER_SUBTLE));
             borderWidth(ShopTheme.BORDER_WIDTH_THIN);
         }
@@ -479,7 +515,22 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
             costPanels.add(costView);
             pricePanel.addChild(costView);
         }
-        pricesBox.addChild(pricePanel);
+        // Много валют не помещаются в карточку: панель цен прокручивается по горизонтали,
+        // а кнопка переключения и «Buy» всегда остаются на месте
+        ScrollView priceViewport =
+                new ScrollView(pricePanel)
+                        .overlayScrollBars(false)
+                        .scrollbarSize(3)
+                        .scrollbarGap(1)
+                        .scrollStep(16);
+        priceViewport.layout(
+                style ->
+                        style.flexInitial()
+                                .minWidth(0.0f)
+                                .height(24.0f)
+                                .overflowX(Overflow.AUTO)
+                                .overflowY(Overflow.HIDDEN));
+        pricesBox.addChild(priceViewport);
         // 2. Переключение способов оплаты:
         // Если ровно 2 способа оплаты — кнопка быстрого переключения ⇄ 1/2
         // Если больше 2 способов оплаты — выпадающий список с выбором
@@ -791,16 +842,20 @@ public class ShopCatalogElement extends LinearBox implements ShopOfferView {
 
     private void applyBuyBtnVisual(boolean enabled) {
         if (buyBtn == null) return;
-        buyBtn.background(ShopTheme.color(ShopTheme.BG_CARD));
+        // Активная кнопка — тёплый золотой акцент; неактивная — явно приглушена
+        buyBtn.background(
+                ShopTheme.color(enabled ? ShopTheme.BUY_BG : ShopTheme.BUY_BG_DISABLED));
         buyBtn.hoverBackground(
-                ShopTheme.color(enabled ? ShopTheme.BG_CARD_HOVER : ShopTheme.BG_CARD));
+                ShopTheme.color(enabled ? ShopTheme.BUY_BG_HOVER : ShopTheme.BUY_BG_DISABLED));
         buyBtn.pressedBackground(
-                ShopTheme.color(enabled ? ShopTheme.GOLD_PRIMARY : ShopTheme.BG_CARD));
+                ShopTheme.color(enabled ? ShopTheme.BUY_BG_PRESSED : ShopTheme.BUY_BG_DISABLED));
         buyBtn.borderVisible(true);
-        buyBtn.border(ShopTheme.color(enabled ? ShopTheme.GOLD_PRIMARY : ShopTheme.BORDER_SUBTLE));
+        buyBtn.border(
+                ShopTheme.color(enabled ? ShopTheme.GOLD_PRIMARY : ShopTheme.BORDER_SEPARATOR));
         buyBtn.borderWidth(ShopTheme.BORDER_WIDTH_THIN);
         buyBtn.radius(ShopTheme.RADIUS_BUTTON);
-        buyBtn.textColor(ShopTheme.color(enabled ? ShopTheme.TEXT_PRIMARY : ShopTheme.TEXT_MUTED));
+        buyBtn.textColor(
+                ShopTheme.color(enabled ? ShopTheme.TEXT_GOLD : ShopTheme.TEXT_DISABLED));
     }
 
     /**

@@ -19,6 +19,7 @@ import dev.sixik.unigui.widgets.containers.LinearBox;
 import dev.sixik.unigui.widgets.core.Orientation;
 import dev.sixik.unigui.widgets.display.ImageView;
 import dev.sixik.unigui.widgets.display.Label;
+import dev.sixik.unigui.widgets.display.Separator;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
@@ -45,6 +46,12 @@ public final class ShopCurrencyPanel extends LinearBox {
                 new Label(Component.translatable("shop.ui.tabs.money_title").getString());
         yourMoneyLabel.color(ShopTheme.color(ShopTheme.GOLD_PRIMARY));
         this.addChild(yourMoneyLabel);
+        Separator divider = new Separator();
+        divider.orientation(Orientation.HORIZONTAL);
+        divider.thickness(1);
+        divider.color().setArgb(ShopTheme.GOLD_MUTED);
+        divider.layout(style -> style.widthPercent(100).height(1).margin(1, 0).flexNone());
+        this.addChild(divider);
         Minecraft mc = Minecraft.getInstance();
         Player player = mc != null ? mc.player : null;
         if (player == null) return;
@@ -99,7 +106,10 @@ public final class ShopCurrencyPanel extends LinearBox {
         }
         String balanceStr = balance.stripTrailingZeros().toPlainString();
         Label balanceLabel = new Label(balanceStr);
-        balanceLabel.color(ShopTheme.color(ShopTheme.TEXT_PRIMARY));
+        // Нулевой баланс приглушён, ненулевой выделен золотом
+        balanceLabel.color(
+                ShopTheme.color(
+                        balance.signum() == 0 ? ShopTheme.TEXT_MUTED : ShopTheme.TEXT_GOLD));
         row.addChild(leftPart);
         row.addChild(balanceLabel);
         this.addChild(row);

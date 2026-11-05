@@ -142,7 +142,7 @@ public final class ShopOfferEditor {
                         "Created offer from preset: " + preset.name());
         state.selectTarget(offer);
         state.markDirty();
-        ShopToastHelper.success(Component.literal("Offer created from preset: " + preset.name()));
+        ShopToastHelper.success(Component.translatable("shop.ui.toast.offer_from_preset", preset.name()));
         return offer;
     }
 
@@ -270,12 +270,12 @@ public final class ShopOfferEditor {
                             "Duplicated offer " + offer.getUUID());
             state.selectTarget(clone);
             state.markDirty();
-            ShopToastHelper.success(Component.literal("Offer duplicated"));
+            ShopToastHelper.success(Component.translatable("shop.ui.toast.offer_duplicated"));
             return clone;
         } catch (Exception e) {
             e.printStackTrace();
             ShopToastHelper.error(
-                    Component.literal("Failed to duplicate offer: " + e.getMessage()));
+                    Component.translatable("shop.ui.toast.offer_duplicate_failed", e.getMessage()));
             return null;
         }
     }
@@ -459,12 +459,12 @@ public final class ShopOfferEditor {
                             component.getType() != null ? component.getType().getId() : null,
                             "Duplicated component");
             state.markDirty();
-            ShopToastHelper.success(Component.literal("Component duplicated"));
+            ShopToastHelper.success(Component.translatable("shop.ui.toast.component_duplicated"));
             return clone;
         } catch (Exception e) {
             e.printStackTrace();
             ShopToastHelper.error(
-                    Component.literal("Failed to duplicate component: " + e.getMessage()));
+                    Component.translatable("shop.ui.toast.component_duplicate_failed", e.getMessage()));
             return null;
         }
     }

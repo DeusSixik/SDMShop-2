@@ -197,7 +197,7 @@ public final class ShopEditorState {
     public void startEditor(boolean clearOldSession) {
         ShopInstance liveShop = SDMShopClient.Shop;
         if (liveShop == null) {
-            ShopToastHelper.error(Component.literal("No active shop found"));
+            ShopToastHelper.error(Component.translatable("shop.ui.toast.no_active_shop"));
             return;
         }
 
@@ -294,7 +294,7 @@ public final class ShopEditorState {
         }
         notifyListeners();
         ShopScreenController.invokeRefreshAll();
-        ShopToastHelper.info(Component.literal("Edit session reset to server state"));
+        ShopToastHelper.info(Component.translatable("shop.ui.toast.edit_session_reset_to_server"));
     }
 
     /** Отправка изменений на сервер. */
@@ -303,7 +303,7 @@ public final class ShopEditorState {
             return;
         }
 
-        ShopToastHelper.info(Component.literal("Sending changes to server..."));
+        ShopToastHelper.info(Component.translatable("shop.ui.toast.sending_changes"));
 
         ShopNetworkManager.sendShopChanges(draftShop)
                 .thenAccept(
@@ -315,15 +315,11 @@ public final class ShopEditorState {
                                                     this.revision++;
                                                     ShopClientCache.clearEditSession();
                                                     ShopToastHelper.success(
-                                                            Component.literal(
-                                                                    "Shop changes successfully"
-                                                                        + " saved on server!"));
+                                                            Component.translatable("shop.ui.toast.shop_changes_saved"));
                                                     exitEditor();
                                                 } else {
                                                     ShopToastHelper.error(
-                                                            Component.literal(
-                                                                    "Server rejected shop"
-                                                                        + " changes!"));
+                                                            Component.translatable("shop.ui.toast.shop_changes_rejected"));
                                                 }
                                             });
                         })
@@ -333,10 +329,7 @@ public final class ShopEditorState {
                                     .execute(
                                             () -> {
                                                 ShopToastHelper.error(
-                                                        Component.literal(
-                                                                "Network error while sending"
-                                                                    + " changes: "
-                                                                        + ex.getMessage()));
+                                                        Component.translatable("shop.ui.toast.network_error_changes", ex.getMessage()));
                                             });
                             return null;
                         });
@@ -355,15 +348,10 @@ public final class ShopEditorState {
                                                                 new ArrayList<>());
                                                         markDirty();
                                                         ShopToastHelper.success(
-                                                                Component.literal(
-                                                                        "Currency changes"
-                                                                            + " successfully saved"
-                                                                            + " on server!"));
+                                                                Component.translatable("shop.ui.toast.currency_changes_saved"));
                                                     } else {
                                                         ShopToastHelper.error(
-                                                                Component.literal(
-                                                                        "Server rejected currency"
-                                                                            + " changes!"));
+                                                                Component.translatable("shop.ui.toast.currency_changes_rejected"));
                                                     }
                                                 });
                             })
@@ -373,10 +361,7 @@ public final class ShopEditorState {
                                         .execute(
                                                 () -> {
                                                     ShopToastHelper.error(
-                                                            Component.literal(
-                                                                    "Network error while sending"
-                                                                        + " currency changes: "
-                                                                            + ex.getMessage()));
+                                                            Component.translatable("shop.ui.toast.network_error_currency", ex.getMessage()));
                                                 });
                                 return null;
                             });

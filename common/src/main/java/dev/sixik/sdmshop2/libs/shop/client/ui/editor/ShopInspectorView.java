@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.WeakHashMap;
+import net.minecraft.client.resources.language.I18n;
 
 /**
  * Панель Inspector в стиле Unity Dark Inspector (1 в 1 с редактором Unity). Отображает свойства и
@@ -199,7 +200,7 @@ public class ShopInspectorView extends LinearBox {
                 });
         topRow.addChild(nameInput);
 
-        Button deleteBtn = new Button("Delete");
+        Button deleteBtn = new Button(I18n.get("shop.ui.common.delete"));
         ShopEditorStyles.styleButton(deleteBtn);
         deleteBtn.textColor().set(ShopEditorStyles.AXIS_X);
         deleteBtn.layout(style -> style.height(18.0f).padding(6.0f, 0.0f).flexNone());
@@ -219,9 +220,9 @@ public class ShopInspectorView extends LinearBox {
                                 .flexGrow(0.0f)
                                 .flexShrink(0.0f));
 
-        Label tagLbl = new Label("Tag: Offer");
+        Label tagLbl = new Label(I18n.get("shop.ui.inspector.tag_offer"));
         tagLbl.color().set(ShopEditorStyles.TEXT_MUTED);
-        Label uuidLbl = new Label("UUID: " + offer.getUUID().toString().substring(0, 8) + "...");
+        Label uuidLbl = new Label(I18n.get("shop.ui.inspector.uuid", offer.getUUID().toString().substring(0, 8)));
         uuidLbl.color().set(ShopEditorStyles.TEXT_MUTED);
 
         metaRow.addChild(tagLbl);
@@ -274,7 +275,7 @@ public class ShopInspectorView extends LinearBox {
                                 .flexGrow(0.0f)
                                 .flexShrink(0.0f));
 
-        Button addCompBtn = new Button("Add Component");
+        Button addCompBtn = new Button(I18n.get("shop.ui.inspector.add_component"));
         ShopEditorStyles.styleButton(addCompBtn);
         addCompBtn.layout(style -> style.width(200.0f).height(24.0f));
         addCompBtn.onClick(
@@ -335,13 +336,13 @@ public class ShopInspectorView extends LinearBox {
                 category.getId() != null && !category.getId().isBlank()
                         ? category.getId()
                         : "unnamed";
-        Label title = new Label("Category: " + catId);
+        Label title = new Label(I18n.get("shop.ui.inspector.category", catId));
         title.color().set(ShopEditorStyles.TEXT_BOLD);
         title.overflowMode(TextOverflowMode.MARQUEE_ON_HOVER);
         title.layout(s -> s.height(18.0f).expand().margin(0.0f, 0.0f, 4.0f, 0.0f));
         topRow.addChild(title);
 
-        Button deleteBtn = new Button("Delete");
+        Button deleteBtn = new Button(I18n.get("shop.ui.common.delete"));
         ShopEditorStyles.styleButton(deleteBtn);
         deleteBtn.textColor().set(ShopEditorStyles.AXIS_X);
         deleteBtn.layout(style -> style.height(18.0f).padding(6.0f, 0.0f).flexNone());
@@ -371,7 +372,7 @@ public class ShopInspectorView extends LinearBox {
                         id -> {
                             category.setId(id);
                             title.text(
-                                    "Category: " + (id != null && !id.isBlank() ? id : "unnamed"));
+                                    I18n.get("shop.ui.inspector.category", (id != null && !id.isBlank() ? id : I18n.get("shop.ui.inspector.unnamed"))));
                             selfUpdating = true;
                             try {
                                 ShopEditorState.get().markDirty();
@@ -477,7 +478,7 @@ public class ShopInspectorView extends LinearBox {
                 currency.displayName() != null && !currency.displayName().isBlank()
                         ? currency.displayName()
                         : (currency.id() != null ? currency.id().toString() : "Draft");
-        Label title = new Label("Currency: " + currName);
+        Label title = new Label(I18n.get("shop.ui.inspector.currency", currName));
         title.color().set(ShopEditorStyles.TEXT_BOLD);
         title.overflowMode(TextOverflowMode.MARQUEE_ON_HOVER);
         title.layout(s -> s.height(18.0f).expand().margin(0.0f, 0.0f, 4.0f, 0.0f));
@@ -485,7 +486,7 @@ public class ShopInspectorView extends LinearBox {
 
         boolean isDefault = ShopEditorState.get().isDefaultCurrency(currency.id());
         if (!isDefault) {
-            Button deleteBtn = new Button("Delete");
+            Button deleteBtn = new Button(I18n.get("shop.ui.common.delete"));
             ShopEditorStyles.styleButton(deleteBtn);
             deleteBtn.textColor().set(ShopEditorStyles.AXIS_X);
             deleteBtn.layout(style -> style.height(18.0f).padding(6.0f, 0.0f).flexNone());
@@ -591,7 +592,7 @@ public class ShopInspectorView extends LinearBox {
                                 .alignItems(Align.CENTER)
                                 .flexGrow(0.0f)
                                 .flexShrink(0.0f));
-        typeRow.addChild(ShopPropertyRows.label("Type"));
+        typeRow.addChild(ShopPropertyRows.label(I18n.get("shop.ui.inspector.type")));
         ComboBox combo = new ComboBox();
         combo.items(List.of("TEXT", "ITEM", "TEXTURE"));
         int selectedTypeIdx = 0;
@@ -730,9 +731,9 @@ public class ShopInspectorView extends LinearBox {
         emptyBox.layout(
                 style -> style.widthPercent(100.0f).padding(40.0f, 10.0f).alignItems(Align.CENTER));
 
-        Label label = new Label("Select an offer or category");
+        Label label = new Label(I18n.get("shop.ui.inspector.empty.line1"));
         label.color().set(ShopEditorStyles.TEXT_MUTED);
-        Label subLabel = new Label("to inspect and edit properties.");
+        Label subLabel = new Label(I18n.get("shop.ui.inspector.empty.line2"));
         subLabel.color().set(ShopEditorStyles.TEXT_MUTED);
 
         emptyBox.addChild(label);

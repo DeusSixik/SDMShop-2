@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import net.minecraft.client.resources.language.I18n;
 
 public class ShopPurchaseModalTest {
 
@@ -38,17 +39,17 @@ public class ShopPurchaseModalTest {
         // Enough
         ShopPurchaseModal.CostStatusBadge badgeEnough = new ShopPurchaseModal.CostStatusBadge(true, 0.0);
         assertTrue(badgeEnough.isEnough());
-        assertEquals("✓ Хватает", badgeEnough.getText());
+        assertEquals(I18n.get("shop.ui.purchase.badge.enough"), badgeEnough.getText());
 
         // Not enough - integer missing amount (e.g. 50 coins missing)
         ShopPurchaseModal.CostStatusBadge badgeMissing50 = new ShopPurchaseModal.CostStatusBadge(false, 50.0);
         assertFalse(badgeMissing50.isEnough());
-        assertEquals("✗ Не хватает: 50", badgeMissing50.getText());
+        assertEquals(I18n.get("shop.ui.purchase.badge.missing", "50"), badgeMissing50.getText());
 
         // Not enough - decimal missing amount
         ShopPurchaseModal.CostStatusBadge badgeMissingDecimal = new ShopPurchaseModal.CostStatusBadge(false, 15.5);
         assertFalse(badgeMissingDecimal.isEnough());
-        assertEquals("✗ Не хватает: 15.50", badgeMissingDecimal.getText());
+        assertEquals(I18n.get("shop.ui.purchase.badge.missing", "15.50"), badgeMissingDecimal.getText());
     }
 
     @Test

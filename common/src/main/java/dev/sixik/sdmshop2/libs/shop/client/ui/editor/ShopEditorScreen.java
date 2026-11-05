@@ -29,6 +29,7 @@ import net.minecraft.world.entity.player.Player;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import net.minecraft.client.resources.language.I18n;
 
 /**
  * Полноэкранный редактор магазина SDMShop-2 в стиле Unity Editor. Воспроизводит компоновку Unity: -
@@ -391,14 +392,14 @@ public final class ShopEditorScreen {
         toolbar.addChild(cubeIcon);
 
         // Кнопка меню File
-        Button fileBtn = new Button("File");
+        Button fileBtn = new Button(I18n.get("shop.ui.editor.menu.file"));
         styleToolbarMenuButton(fileBtn);
         fileBtn.layout(style -> style.height(20.0f).flexNone());
         fileBtn.onClick(e -> openFileMenu(fileBtn));
         toolbar.addChild(fileBtn);
 
         // Кнопка меню Window
-        Button windowBtn = new Button("Window");
+        Button windowBtn = new Button(I18n.get("shop.ui.editor.menu.window"));
         styleToolbarMenuButton(windowBtn);
         windowBtn.layout(style -> style.height(20.0f).flexNone());
         windowBtn.onClick(e -> openWindowMenu(windowBtn));
@@ -414,8 +415,8 @@ public final class ShopEditorScreen {
         toolbar.addChild(menuDivider);
 
         ShopInstance shop = ShopEditorState.get().getDraftShop();
-        String shopIdStr = shop != null && shop.getId() != null ? shop.getId().toString() : "Shop";
-        Label titleLbl = new Label("SDMShop Editor — " + shopIdStr);
+        String shopIdStr = shop != null && shop.getId() != null ? shop.getId().toString() : I18n.get("shop.ui.editor.shop_fallback");
+        Label titleLbl = new Label(I18n.get("shop.ui.editor.title", shopIdStr));
         titleLbl.color().set(ShopEditorStyles.TEXT_BOLD);
         toolbar.addChild(titleLbl);
 
@@ -430,10 +431,7 @@ public final class ShopEditorScreen {
                                     int changes = ShopEditorState.get().getChangeCount();
                                     if (changes > 0) {
                                         changesBadge.text(
-                                                "• "
-                                                        + changes
-                                                        + " change"
-                                                        + (changes > 1 ? "s" : ""));
+                                                changes > 1 ? I18n.get("shop.ui.editor.changes.many", String.valueOf(changes)) : I18n.get("shop.ui.editor.changes.one", String.valueOf(changes)));
                                     } else {
                                         changesBadge.text("");
                                     }
@@ -445,14 +443,14 @@ public final class ShopEditorScreen {
         toolbar.addChild(spacer);
 
         // Кнопка Reset Session
-        Button resetBtn = new Button("Reset Session");
+        Button resetBtn = new Button(I18n.get("shop.ui.tool_panel.button.reset_session"));
         ShopEditorStyles.styleButton(resetBtn);
         resetBtn.layout(style -> style.height(20.0f).flexNone());
         resetBtn.onClick(e -> openResetSessionModal());
         toolbar.addChild(resetBtn);
 
         // Кнопка Send Changes (обычный цвет текста)
-        Button sendChangesBtn = new Button("Send Changes");
+        Button sendChangesBtn = new Button(I18n.get("shop.ui.tool_panel.button.send_changes"));
         ShopEditorStyles.styleButton(sendChangesBtn);
         sendChangesBtn.textColor().set(ShopEditorStyles.TEXT_PRIMARY);
         sendChangesBtn.layout(style -> style.height(20.0f).flexNone());
@@ -460,7 +458,7 @@ public final class ShopEditorScreen {
         toolbar.addChild(sendChangesBtn);
 
         // Кнопка Close
-        Button closeBtn = new Button("Close");
+        Button closeBtn = new Button(I18n.get("shop.ui.common.close"));
         ShopEditorStyles.styleButton(closeBtn);
         closeBtn.layout(style -> style.height(20.0f).flexNone());
         closeBtn.onClick(e -> closeEditor());

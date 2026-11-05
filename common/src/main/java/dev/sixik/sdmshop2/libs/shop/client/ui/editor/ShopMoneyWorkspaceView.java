@@ -39,6 +39,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import net.minecraft.client.resources.language.I18n;
 
 /** Центральная рабочая панель «Money» (список валют магазина). */
 public class ShopMoneyWorkspaceView extends LinearBox {
@@ -118,7 +119,7 @@ public class ShopMoneyWorkspaceView extends LinearBox {
 
         Label plus = new Label("+");
         plus.color(ShopEditorStyles.SELECTION_BLUE);
-        Label addLbl = new Label("Add New Currency");
+        Label addLbl = new Label(I18n.get("shop.ui.money_workspace.add"));
         addLbl.color(ShopEditorStyles.TEXT_PRIMARY);
 
         addCard.addChild(plus);
@@ -228,7 +229,7 @@ public class ShopMoneyWorkspaceView extends LinearBox {
                         ? draft.displayName()
                         : (liveCur != null ? liveCur.getDisplayName().getString() : id.getPath());
         if (draft != null && liveCur != null) {
-            displayName = displayName + " [Draft]";
+            displayName = displayName + " " + I18n.get("shop.ui.common.draft_suffix");
         }
         Label nameLbl = new Label(displayName);
         nameLbl.color(isSelected ? ShopEditorStyles.TEXT_BOLD : ShopEditorStyles.TEXT_PRIMARY);

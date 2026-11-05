@@ -198,7 +198,7 @@ class ShopComponentRenderingTest {
         Label command =
                 (Label) new CommandRewardComponent("/time set day", "Advance time").createRender();
         assertEquals("Advance time", command.text());
-        ShopBadge discount = (ShopBadge) new DiscountComponent(0.25).createRender();
+        ShopBadge discount = (ShopBadge) new DiscountComponent(25).createRender();
         assertEquals("-25%", find(discount, Label.class).get(0).text());
         assertNull(new DiscountComponent(0).createRender());
     }
@@ -230,7 +230,7 @@ class ShopComponentRenderingTest {
                         List.of(
                                 () -> ShopRenderWidgets.item(Items.BREAD.getDefaultInstance()),
                                 () -> ShopRenderWidgets.item(Items.STONE.getDefaultInstance()),
-                                () -> new DiscountComponent(0.25).createRender(),
+                                () -> new DiscountComponent(25).createRender(),
                                 () -> ShopRenderWidgets.badge("Addon")),
                         List.of());
         ShopCatalogElement card = new ShopCatalogElement(model, false, null);

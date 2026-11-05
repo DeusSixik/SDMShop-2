@@ -30,6 +30,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import net.minecraft.client.resources.language.I18n;
 
 /**
  * Модальное окно выбора предмета (Select Item) в стиле Unity Dark со скроллбаром. Позволяет
@@ -153,7 +154,7 @@ public class ShopItemPickerModal extends Box implements OverlayHostAware {
         titleGroup.spacing(8.0f);
         titleGroup.layout(style -> style.height(22.0f).alignItems(Align.CENTER).flexGrow(1.0f));
 
-        Label title = new Label("Select Item");
+        Label title = new Label(I18n.get("shop.ui.item_selector.title"));
         title.color().set(ShopEditorStyles.TEXT_BOLD);
         titleGroup.addChild(title);
 
@@ -163,7 +164,7 @@ public class ShopItemPickerModal extends Box implements OverlayHostAware {
             titleGroup.addChild(curSlot);
 
             String curName = initialStack.getHoverName().getString();
-            Label curLabel = new Label("Current: " + curName);
+            Label curLabel = new Label(I18n.get("shop.ui.item_selector.current", curName));
             curLabel.color().set(ShopEditorStyles.TEXT_MUTED);
             titleGroup.addChild(curLabel);
         }
@@ -184,7 +185,7 @@ public class ShopItemPickerModal extends Box implements OverlayHostAware {
                                 .alignItems(Align.CENTER)
                                 .flexNone());
 
-        tabAllBtn = new Button("All Items");
+        tabAllBtn = new Button(I18n.get("shop.ui.item_selector.all"));
         ShopEditorStyles.styleButton(tabAllBtn);
         tabAllBtn.layout(style -> style.height(22.0f).padding(12.0f, 0.0f).flexNone());
         tabAllBtn.onClick(
@@ -197,7 +198,7 @@ public class ShopItemPickerModal extends Box implements OverlayHostAware {
                     }
                 });
 
-        tabInvBtn = new Button("Inventory");
+        tabInvBtn = new Button(I18n.get("shop.ui.item_selector.inventory"));
         ShopEditorStyles.styleButton(tabInvBtn);
         tabInvBtn.layout(style -> style.height(22.0f).padding(12.0f, 0.0f).flexNone());
         tabInvBtn.onClick(
@@ -226,7 +227,7 @@ public class ShopItemPickerModal extends Box implements OverlayHostAware {
                                 .flexNone());
 
         TextField searchField = new TextField();
-        searchField.placeholder("Search item by name or id (e.g. diamond, minecraft:apple)...");
+        searchField.placeholder(I18n.get("shop.ui.item_selector.search.long"));
         searchField.themeEnabled(false);
         searchField.boxVisualEnabled(true);
         searchField.backgroundVisible(true);
@@ -288,7 +289,7 @@ public class ShopItemPickerModal extends Box implements OverlayHostAware {
                                 .justifyContent(Justify.SPACE_BETWEEN)
                                 .flexNone());
 
-        Button clearBtn = new Button("Clear (Air)");
+        Button clearBtn = new Button(I18n.get("shop.ui.item_selector.clear"));
         ShopEditorStyles.styleButton(clearBtn);
         clearBtn.layout(style -> style.height(22.0f).padding(8.0f, 0.0f).flexNone());
         clearBtn.onClick(
@@ -302,11 +303,11 @@ public class ShopItemPickerModal extends Box implements OverlayHostAware {
                     closeSelf();
                 });
 
-        itemsCountLabel = new Label("0 items");
+        itemsCountLabel = new Label(I18n.get("shop.ui.item_selector.count", "0"));
         itemsCountLabel.color().set(ShopEditorStyles.TEXT_MUTED);
         itemsCountLabel.layout(style -> style.alignSelf(Align.CENTER).flexNone());
 
-        Button cancelBtn = new Button("Cancel");
+        Button cancelBtn = new Button(I18n.get("shop.ui.common.cancel"));
         ShopEditorStyles.styleButton(cancelBtn);
         cancelBtn.layout(style -> style.height(22.0f).padding(10.0f, 0.0f).flexNone());
         cancelBtn.onClick(e -> closeSelf());
@@ -359,7 +360,7 @@ public class ShopItemPickerModal extends Box implements OverlayHostAware {
 
         int total = currentFilteredList.size();
         if (itemsCountLabel != null) {
-            itemsCountLabel.text(total + " items");
+            itemsCountLabel.text(I18n.get("shop.ui.item_selector.count", String.valueOf(total)));
         }
 
         if (scroll != null) {

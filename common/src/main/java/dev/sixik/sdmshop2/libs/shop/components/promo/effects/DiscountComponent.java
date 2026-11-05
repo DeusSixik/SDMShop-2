@@ -27,7 +27,8 @@ public class DiscountComponent extends PromoEffectComponent {
 
     @Getter
     @ComponentConfig(translationKey = "shop.component.promo.effects.discount.discount")
-    @ComponentNumberRange(doubleMin = 0)
+    @ComponentNumberRange(doubleMin = 0, doubleMax = 100)
+    /** Скидка в процентных пунктах: 25 означает -25% от цены. Значение зажато в [0, 100]. */
     private double discount;
 
     public DiscountComponent() {}
@@ -43,28 +44,42 @@ public class DiscountComponent extends PromoEffectComponent {
 
     /**
      * Creates this promotion's badge without requiring the card to know discount semantics. The
-     * stored fraction is converted to percentage points: percent = discount * 100.
+     * stored value is already in percentage points and is shown as is (clamped to 0..100).
      *
      * @return fresh discount badge, or null for a zero discount.
      */
     @Override
     @Environment(EnvType.CLIENT)
     public Widget createRender() {
-        return discount > 0
-                ? ShopRenderWidgets.badge(
-                        "-" + ShopOfferPresentation.formatAmount(discount * 100) + "%")
+        double percent = percent();
+        return percent > 0
+                ? ShopRenderWidgets.badge("-" + ShopOfferPresentation.formatAmount(percent) + "%")
                 : null;
+    }
+
+    /**
+     * @return discount in percentage points, limited to the valid range 0..100.
+     */
+    private double percent() {
+        return Math.max(0.0, Math.min(100.0, discount));
+    }
+
+    /**
+     * @return multiplier applied to the price: 1 - percent / 100.
+     */
+    private double priceFactor() {
+        return 1.0 - percent() / 100.0;
     }
 
     @Override
     public double applyPrice(PromoPriceContext context) {
-        return context.currentPrice() * (1 - discount);
+        return context.currentPrice() * priceFactor();
     }
 
     @Override
     @Deprecated
     public double applyPrice(double input, Set<String> activePromo, Set<String> activeGroups) {
-        return input * (1 - discount);
+        return input * priceFactor();
     }
 
     private static class Type extends SerializedComponentType<DiscountComponent> {

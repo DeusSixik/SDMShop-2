@@ -29,6 +29,7 @@ import dev.sixik.unigui.widgets.feedback.OverlayLayer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import net.minecraft.client.resources.language.I18n;
 
 /** Центральная рабочая панель «Category» (список категорий магазина). */
 public class ShopCategoryWorkspaceView extends LinearBox {
@@ -108,7 +109,7 @@ public class ShopCategoryWorkspaceView extends LinearBox {
 
         Label plus = new Label("+");
         plus.color(ShopEditorStyles.SELECTION_BLUE);
-        Label addLbl = new Label("Add New Category");
+        Label addLbl = new Label(I18n.get("shop.ui.category_workspace.add"));
         addLbl.color(ShopEditorStyles.TEXT_PRIMARY);
 
         addCard.addChild(plus);
@@ -216,7 +217,7 @@ public class ShopCategoryWorkspaceView extends LinearBox {
                                     ? cat.getId()
                                     : "unnamed");
             idLbl.color(isSelected ? ShopEditorStyles.TEXT_BOLD : ShopEditorStyles.TEXT_PRIMARY);
-            Label orderLbl = new Label("Order: " + cat.getOrder());
+            Label orderLbl = new Label(I18n.get("shop.ui.category_workspace.order", String.valueOf(cat.getOrder())));
             orderLbl.color(ShopEditorStyles.TEXT_MUTED);
 
             card.addChild(idLbl);

@@ -34,6 +34,7 @@ import dev.sixik.unigui.widgets.display.Label;
 import dev.sixik.unigui.widgets.display.Separator;
 import dev.sixik.unigui.widgets.feedback.OverlayHostAware;
 import dev.sixik.unigui.widgets.interaction.Button;
+import dev.sixik.unigui.widgets.interaction.NumberField;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
@@ -43,6 +44,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.client.resources.language.I18n;
 
 /**
  * Модальное окно покупки товара в стиле "Obsidian & Gold". - Центрируется на экране - Занимает
@@ -73,10 +75,15 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
 
     private int activeGroupIndex = 0;
     private int quantity = 1;
-    private int maxQuantity = 64;
+    /** Верхняя граница количества, если лимитер не задаёт меньшую. */
+    private static final int MAX_QUANTITY = 9999;
+
+    private int maxQuantity = MAX_QUANTITY;
+    /** Защита от рекурсии при программной записи значения в поле количества. */
+    private boolean syncingQuantity;
     private VBox dialogCard;
     private VBox scrollableContent;
-    private Label quantityLabel;
+    private NumberField quantityField;
     private Button buyButton;
     private Label limitLabel;
 
@@ -157,10 +164,7 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
                                 .alignItems(Align.CENTER)
                                 .justifyContent(Justify.SPACE_BETWEEN)
                                 .flexNone());
-        Label title = new Label(Component.translatable("shop.ui.purchase_modal.title").getString());
-        if (title.text().isBlank() || title.text().equals("shop.ui.purchase_modal.title")) {
-            title.text("Покупка товара");
-        }
+        Label title = new Label(I18n.get("shop.ui.purchase.title"));
         title.color(ShopTheme.color(ShopTheme.TEXT_GOLD));
         header.addChild(title);
         Button closeBtn = new Button("✕");
@@ -188,7 +192,7 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
         productDetails.addChild(new Label(sourceCard.getTitle()));
         componentPanel = new ShopComponentPanel(renderElements);
         componentPanel.attachTooltips(host.overlay());
-        limitLabel = new Label("Лимит: без ограничений");
+        limitLabel = new Label(I18n.get("shop.ui.purchase.limit_unlimited"));
         limitLabel.color(ShopTheme.color(ShopTheme.TEXT_MUTED));
         productDetails.addChild(limitLabel);
         productRow.addChild(productDetails);
@@ -229,36 +233,37 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
                                 .gap(6.0f)
                                 .height(22.0f)
                                 .flexNone());
-        Button btnMin = createSmallButton("Min", () -> setQuantity(1));
+        Button btnMin = createSmallButton(I18n.get("shop.ui.purchase.button.min"), () -> setQuantity(1));
         Button btnMinus = createSmallButton("-", () -> setQuantity(quantity - 1));
-        Box qtyBox = new Box();
-        qtyBox.themeEnabled(false);
-        qtyBox.boxVisualEnabled(true);
-        qtyBox.backgroundVisible(true);
-        qtyBox.background(ShopTheme.color(ShopTheme.BG_INPUT));
-        qtyBox.borderVisible(true);
-        qtyBox.border(ShopTheme.color(ShopTheme.BORDER_SLOT));
-        qtyBox.borderWidth(ShopTheme.BORDER_WIDTH_THIN);
-        qtyBox.radius(ShopTheme.RADIUS_SLOT);
-        qtyBox.layout(
-                style ->
-                        style.fixed(42.0f, 20.0f)
-                                .alignItems(Align.CENTER)
-                                .justifyContent(Justify.CENTER));
-        quantityLabel = new Label(String.valueOf(quantity));
-        quantityLabel.color(ShopTheme.color(ShopTheme.TEXT_PRIMARY));
-        quantityLabel.textAlignment(Alignment.CENTER);
-        qtyBox.addChild(quantityLabel);
+        quantityField = new NumberField();
+        quantityField.themeEnabled(false);
+        quantityField.backgroundVisible(true);
+        quantityField.background(ShopTheme.color(ShopTheme.BG_INPUT));
+        quantityField.borderVisible(true);
+        quantityField.border(ShopTheme.color(ShopTheme.BORDER_SLOT));
+        quantityField.borderWidth(ShopTheme.BORDER_WIDTH_THIN);
+        quantityField.radius(ShopTheme.RADIUS_SLOT);
+        quantityField.textColor().setArgb(ShopTheme.TEXT_PRIMARY);
+        quantityField.range(1.0, maxQuantity);
+        quantityField.step(1.0);
+        quantityField.value(quantity);
+        quantityField.layout(style -> style.fixed(52.0f, 20.0f).flexNone());
+        // Ввод с клавиатуры: значение само упирается в границы [1, maxQuantity]
+        quantityField.onValueChanged(
+                event -> {
+                    if (syncingQuantity) return;
+                    setQuantity((int) Math.round(event.newValue()));
+                });
         Button btnPlus = createSmallButton("+", () -> setQuantity(quantity + 1));
-        Button btnMax = createSmallButton("Max", () -> setQuantity(maxQuantity));
+        Button btnMax = createSmallButton(I18n.get("shop.ui.purchase.button.max"), () -> setQuantity(affordableQuantity()));
         quantityRow.addChild(btnMin);
         quantityRow.addChild(btnMinus);
-        quantityRow.addChild(qtyBox);
+        quantityRow.addChild(quantityField);
         quantityRow.addChild(btnPlus);
         quantityRow.addChild(btnMax);
         dialogCard.addChild(quantityRow);
         // Кнопка подтверждения покупки
-        buyButton = new Button("Купить");
+        buyButton = new Button(I18n.get("shop.ui.offer_element.button.buy"));
         ShopStyles.button(buyButton);
         buyButton.backgroundVisible(true);
         buyButton.background(ShopTheme.color(ShopTheme.BG_CARD));
@@ -282,7 +287,7 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
         scrollableContent.clearChildren();
         // 1. Если есть несколько групп оплаты, добавляем переключатель вариантов
         if (costGroups.size() > 1) {
-            Label groupTitle = new Label("Способ оплаты:");
+            Label groupTitle = new Label(I18n.get("shop.ui.purchase.payment_method"));
             groupTitle.color(ShopTheme.color(ShopTheme.TEXT_SECONDARY));
             scrollableContent.addChild(groupTitle);
             HBox groupTabs = new HBox();
@@ -292,14 +297,7 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
                 final int idx = i;
                 ShopCatalogElement.CostGroup group = costGroups.get(i);
                 boolean isActive = (i == activeGroupIndex);
-                String tabText;
-                if (group.groupId() != null
-                        && !group.groupId().isBlank()
-                        && !group.groupId().startsWith("group_")) {
-                    tabText = group.groupId();
-                } else {
-                    tabText = "Вариант " + (i + 1);
-                }
+                String tabText = I18n.get("shop.ui.purchase.variant", String.valueOf(i + 1));
                 Button tabBtn = new Button(tabText);
                 ShopStyles.button(tabBtn);
                 tabBtn.backgroundVisible(true);
@@ -322,6 +320,8 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
                 tabBtn.onClick(
                         e -> {
                             activeGroupIndex = idx;
+                            // Другой способ оплаты — другой расчёт: счётчик начинается заново
+                            quantity = 1;
                             refreshDynamicContent();
                         });
                 groupTabs.addChild(tabBtn);
@@ -334,32 +334,30 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
         ShopLimiters.LimitSnapshot snapshot = ShopLimiters.getSnapshot(offer, player);
         if (snapshot.isLimited()) {
             int available = snapshot.getAvailable();
-            this.maxQuantity = Math.max(1, Math.min(64, available));
+            this.maxQuantity = Math.max(1, Math.min(MAX_QUANTITY, available));
             if (quantity > maxQuantity && available > 0) {
                 quantity = maxQuantity;
-                if (quantityLabel != null) {
-                    quantityLabel.text(String.valueOf(quantity));
-                }
             }
             if (limitLabel != null) {
-                limitLabel.text("Лимит: " + available + " / " + snapshot.getCapacity());
+                limitLabel.text(I18n.get("shop.ui.purchase.limit_value", String.valueOf(available), String.valueOf(snapshot.getCapacity())));
                 limitLabel.color(
                         ShopTheme.color(available <= 0 ? ShopTheme.DANGER : ShopTheme.TEXT_MUTED));
             }
         } else {
-            this.maxQuantity = 64;
+            this.maxQuantity = MAX_QUANTITY;
             if (limitLabel != null) {
-                limitLabel.text("Лимит: без ограничений");
+                limitLabel.text(I18n.get("shop.ui.purchase.limit_unlimited"));
                 limitLabel.color(ShopTheme.color(ShopTheme.TEXT_MUTED));
             }
         }
+        syncQuantityField();
         // 2. Расчет общей стоимости по выбранной группе
         ShopCatalogElement.CostGroup currentGroup =
                 costGroups.isEmpty()
                         ? new ShopCatalogElement.CostGroup("", List.of())
                         : costGroups.get(Math.min(activeGroupIndex, costGroups.size() - 1));
         boolean canAffordAll = true;
-        Label costsTitle = new Label("Стоимость и баланс:");
+        Label costsTitle = new Label(I18n.get("shop.ui.purchase.cost_and_balance"));
         costsTitle.color(ShopTheme.color(ShopTheme.TEXT_SECONDARY));
         scrollableContent.addChild(costsTitle);
         VBox costsList = new VBox();
@@ -394,11 +392,9 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
             leftPart.addChild(costView);
             Label calcLabel =
                     new Label(
-                            formatAmount(unitAmount)
-                                    + " × "
-                                    + quantity
-                                    + " = "
-                                    + formatAmount(totalAmount));
+                            // Единичное количество уже показано иконкой стоимости слева,
+                            // поэтому здесь только множитель и итог
+                            I18n.get("shop.ui.purchase.cost_multiplier", String.valueOf(quantity), formatAmount(totalAmount)));
             calcLabel.color(ShopTheme.color(ShopTheme.TEXT_PRIMARY));
             leftPart.addChild(calcLabel);
             costRow.addChild(leftPart);
@@ -453,22 +449,52 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
         buyButton.pressedBackground(
                 ShopTheme.color(canBuy ? ShopTheme.GOLD_PRIMARY : ShopTheme.BG_CARD));
         if (!limiterOk) {
-            buyButton.text("Лимит исчерпан");
+            buyButton.text(I18n.get("shop.ui.purchase.button.limit_reached"));
         } else if (!conditionsMet) {
-            buyButton.text("Условие не выполнено");
+            buyButton.text(I18n.get("shop.ui.purchase.button.condition_failed"));
         } else if (!canAffordAll) {
-            buyButton.text("Недостаточно средств");
+            buyButton.text(I18n.get("shop.ui.purchase.button.not_enough_funds"));
         } else {
-            buyButton.text("Купить (" + quantity + " шт.)");
+            buyButton.text(I18n.get("shop.ui.purchase.button.buy_quantity", String.valueOf(quantity)));
         }
     }
 
     private void setQuantity(int newQty) {
         this.quantity = Math.max(1, Math.min(maxQuantity, newQty));
-        if (quantityLabel != null) {
-            quantityLabel.text(String.valueOf(this.quantity));
-        }
         refreshDynamicContent();
+    }
+
+    /** Записывает текущее количество и границы в поле ввода, не вызывая повторную обработку. */
+    private void syncQuantityField() {
+        if (quantityField == null) return;
+        syncingQuantity = true;
+        try {
+            quantityField.range(1.0, maxQuantity);
+            quantityField.value(quantity);
+        } finally {
+            syncingQuantity = false;
+        }
+    }
+
+    /**
+     * Максимум, который игрок может оплатить выбранным способом: минимум по всем валютам и
+     * предметам стоимости, ограниченный лимитом предложения. Не меньше 1.
+     */
+    private int affordableQuantity() {
+        if (costGroups.isEmpty()) return maxQuantity;
+        ShopCatalogElement.CostGroup group =
+                costGroups.get(Math.min(activeGroupIndex, costGroups.size() - 1));
+        long best = maxQuantity;
+        for (ShopCatalogElement.CostEntry cost : group.costs()) {
+            double unit =
+                    cost.component() != null
+                            ? cost.component().getBaseAmount()
+                            : parseAmount(cost.amount());
+            if (unit <= 0.0) continue;
+            long canPay = (long) Math.floor(checkCostBalance(cost) / unit + 1e-9);
+            best = Math.min(best, canPay);
+        }
+        return (int) Math.max(1L, best);
     }
 
     private void executePurchase() {
@@ -548,9 +574,9 @@ public class ShopPurchaseModal extends Box implements OverlayHostAware {
         public CostStatusBadge(boolean enough, double missing) {
             this.enough = enough;
             if (enough) {
-                this.text = "✓ Хватает";
+                this.text = I18n.get("shop.ui.purchase.badge.enough");
             } else {
-                this.text = "✗ Не хватает: " + formatAmount(missing);
+                this.text = I18n.get("shop.ui.purchase.badge.missing", formatAmount(missing));
             }
             Minecraft mc = Minecraft.getInstance();
             float fontW =

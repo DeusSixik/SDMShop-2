@@ -31,6 +31,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.function.Consumer;
+import net.minecraft.client.resources.language.I18n;
 
 /**
  * Панель Hierarchy в стиле Unity: Дерево объектов магазина (Категории, Офферы, Валюты) с поиском и
@@ -85,7 +86,7 @@ public class ShopHierarchyView extends LinearBox {
         topBar.addChild(createBtn);
 
         searchInput = new TextInput("");
-        searchInput.placeholder("Search...");
+        searchInput.placeholder(I18n.get("shop.ui.hierarchy.search"));
         ShopEditorStyles.styleTextInput(searchInput);
         searchInput.layout(style -> style.flexGrow(1.0f).height(20.0f));
         searchInput.onTextChanged(
@@ -288,7 +289,7 @@ public class ShopHierarchyView extends LinearBox {
                     continue;
                 }
                 TreeViewNode draftNode =
-                        currenciesGroupNode.addChild(draft.displayName() + " [Draft]");
+                        currenciesGroupNode.addChild(draft.displayName() + " " + I18n.get("shop.ui.common.draft_suffix"));
                 nodeObjectMap.put(draftNode, draft);
                 objectNodeMap.put(draft, draftNode);
                 nodeTypeMap.put(draftNode, UnityIcons.ShopObjectType.CURRENCY);

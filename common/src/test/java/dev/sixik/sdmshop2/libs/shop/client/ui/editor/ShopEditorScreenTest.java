@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import net.minecraft.client.resources.language.I18n;
 
 public class ShopEditorScreenTest {
 
@@ -111,11 +112,11 @@ public class ShopEditorScreenTest {
         for (Widget w : toolbar.children()) {
             if (w instanceof Button btn) {
                 String text = btn.text();
-                if ("File".equals(text)) fileBtn = btn;
-                else if ("Window".equals(text)) windowBtn = btn;
-                else if ("Send Changes".equals(text)) sendChangesBtn = btn;
-                else if ("Reset Session".equals(text)) resetBtn = btn;
-                else if ("Close".equals(text)) closeBtn = btn;
+                if (I18n.get("shop.ui.editor.menu.file").equals(text)) fileBtn = btn;
+                else if (I18n.get("shop.ui.editor.menu.window").equals(text)) windowBtn = btn;
+                else if (I18n.get("shop.ui.tool_panel.button.send_changes").equals(text)) sendChangesBtn = btn;
+                else if (I18n.get("shop.ui.tool_panel.button.reset_session").equals(text)) resetBtn = btn;
+                else if (I18n.get("shop.ui.common.close").equals(text)) closeBtn = btn;
             }
         }
 

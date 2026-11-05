@@ -26,6 +26,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.player.Player;
 
 import org.jetbrains.annotations.Nullable;
+import net.minecraft.client.resources.language.I18n;
 
 public class ShopToolPanel implements ShopScreenElement {
     /** Actions and overlays of the owning window; null uses the compatibility facade. */
@@ -85,7 +86,7 @@ public class ShopToolPanel implements ShopScreenElement {
         boolean isAdmin = ShopUtils.isPlayerAdmin(player);
 
         if (isAdmin) {
-            editBtn = createToolButton("Edit");
+            editBtn = createToolButton(I18n.get("shop.ui.tool_panel.button.edit"));
             editBtn.onClick(event -> handleEditToggle());
             toolbar.addChild(editBtn);
         } else {
@@ -106,7 +107,7 @@ public class ShopToolPanel implements ShopScreenElement {
                                 .flexNone());
 
         searchInput = new TextField();
-        searchInput.placeholder("Search offers...");
+        searchInput.placeholder(I18n.get("shop.ui.tool_panel.search.placeholder"));
         searchInput.themeEnabled(false);
         searchInput.boxVisualEnabled(true);
         searchInput.backgroundVisible(true);

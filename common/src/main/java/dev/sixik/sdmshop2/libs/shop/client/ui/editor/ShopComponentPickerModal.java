@@ -190,7 +190,7 @@ public class ShopComponentPickerModal extends Box implements OverlayHostAware {
                                 .justifyContent(Justify.SPACE_BETWEEN)
                                 .flexNone());
 
-        Label title = new Label("Select Component");
+        Label title = new Label(I18n.get("shop.ui.component_picker.title"));
         title.color().set(ShopEditorStyles.TEXT_BOLD);
 
         Button closeBtn = UnityIcons.createCloseButton(this::closeSelf);
@@ -210,7 +210,7 @@ public class ShopComponentPickerModal extends Box implements OverlayHostAware {
                                 .flexNone());
 
         TextField searchField = new TextField();
-        searchField.placeholder("Search component by name, id, category...");
+        searchField.placeholder(I18n.get("shop.ui.component_picker.search"));
         searchField.themeEnabled(false);
         searchField.boxVisualEnabled(true);
         searchField.backgroundVisible(true);
@@ -231,7 +231,7 @@ public class ShopComponentPickerModal extends Box implements OverlayHostAware {
                     refreshGrid();
                 });
 
-        favoritesBtn = new Button("Favorites");
+        favoritesBtn = new Button(I18n.get("shop.ui.component_picker.favorites"));
         ShopEditorStyles.styleButton(favoritesBtn);
         favoritesBtn.layout(style -> style.height(20.0f).padding(6.0f, 0.0f).flexNone());
         favoritesBtn.onClick(
@@ -306,7 +306,7 @@ public class ShopComponentPickerModal extends Box implements OverlayHostAware {
                                 .flexGrow(0.0f)
                                 .flexShrink(0.0f));
 
-        Button cancelBtn = new Button("Cancel");
+        Button cancelBtn = new Button(I18n.get("shop.ui.common.cancel"));
         ShopEditorStyles.styleButton(cancelBtn);
         cancelBtn.layout(style -> style.fixed(80.0f, 22.0f));
         cancelBtn.onClick(event -> closeSelf());
@@ -360,7 +360,7 @@ public class ShopComponentPickerModal extends Box implements OverlayHostAware {
         }
 
         if (categorized.isEmpty()) {
-            Label empty = new Label("No matching components found");
+            Label empty = new Label(I18n.get("shop.ui.component_picker.empty"));
             empty.color().set(ShopEditorStyles.TEXT_MUTED);
             empty.layout(style -> style.margin(12.0f).alignSelf(Align.CENTER));
             listContainer.addChild(empty);

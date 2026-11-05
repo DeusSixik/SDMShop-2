@@ -31,6 +31,7 @@ import dev.sixik.unigui.widgets.interaction.TextInput;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import net.minecraft.client.resources.language.I18n;
 
 /**
  * Центральная рабочая панель «Catalog» (предпросмотр офферов магазина). Поддерживает Drag-and-Drop
@@ -75,7 +76,7 @@ public class ShopCatalogPreviewView extends LinearBox {
                                 .flexShrink(0.0f));
 
         TextInput filterInput = new TextInput("");
-        filterInput.placeholder("Filter offers...");
+        filterInput.placeholder(I18n.get("shop.ui.catalog_preview.filter"));
         ShopEditorStyles.styleTextInput(filterInput);
         filterInput.layout(style -> style.width(220.0f).height(20.0f).flexNone());
         filterInput.onTextChanged(
@@ -434,7 +435,7 @@ public class ShopCatalogPreviewView extends LinearBox {
 
         Label plus = new Label("+");
         plus.color(ShopEditorStyles.SELECTION_BLUE);
-        Label addLbl = new Label("Add New Offer");
+        Label addLbl = new Label(I18n.get("shop.ui.catalog_preview.add_offer"));
         addLbl.color(ShopEditorStyles.TEXT_PRIMARY);
 
         card.addChild(plus);

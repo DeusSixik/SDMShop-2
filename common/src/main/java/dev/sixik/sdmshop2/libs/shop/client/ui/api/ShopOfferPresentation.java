@@ -62,7 +62,7 @@ public final class ShopOfferPresentation {
             parts.add(cost.amount() + "x " + name);
         }
         if (parts.isEmpty()) {
-            return "Вариант " + (index + 1);
+            return I18n.get("shop.ui.purchase.variant", String.valueOf(index + 1));
         }
         return (index + 1) + ". " + String.join(" + ", parts);
     }

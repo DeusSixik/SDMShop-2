@@ -20,6 +20,7 @@ import dev.sixik.unigui.api.layout.Overflow;
 import dev.sixik.unigui.api.render.SimpleTextureHandle;
 import dev.sixik.unigui.api.widget.Widget;
 import dev.sixik.unigui.api.widget.visual.BackgroundKind;
+import dev.sixik.unigui.widgets.containers.Box;
 import dev.sixik.unigui.widgets.containers.GridBox;
 import dev.sixik.unigui.widgets.containers.HBox;
 import dev.sixik.unigui.widgets.containers.PanelWidget;
@@ -181,7 +182,8 @@ public class ShopRootPanel implements ShopScreenElement {
         catalogPanel.boxVisualEnabled(true);
         catalogPanel.backgroundVisible(true);
         catalogPanel.backgroundKind(BackgroundKind.COLOR);
-        catalogPanel.background(ShopTheme.color(ShopTheme.BG_SURFACE));
+        // Более тёмный фон каталога: карточки читаются как приподнятые поверхности
+        catalogPanel.background(ShopTheme.color(ShopTheme.BG_CATALOG));
         catalogPanel.borderVisible(true);
         catalogPanel.border(ShopTheme.color(ShopTheme.BORDER_SUBTLE));
         catalogPanel.borderWidth(ShopTheme.BORDER_WIDTH_THIN);
@@ -239,7 +241,7 @@ public class ShopRootPanel implements ShopScreenElement {
         categoriesPanel.clearChildren();
         categoryButtons.clear();
         List<CategoryEntry> categories = new ArrayList<>();
-        categories.add(new CategoryEntry(CAT_ALL, "All"));
+        categories.add(new CategoryEntry(CAT_ALL, I18n.get("shop.ui.tabs.button.all")));
         Set<String> seenIds = new HashSet<>();
         seenIds.add(CAT_ALL.toLowerCase(Locale.ROOT));
         ShopInstance shop = SDMShopClient.Shop;
@@ -281,6 +283,9 @@ public class ShopRootPanel implements ShopScreenElement {
     private Button createCategoryBtn(CategoryEntry entry) {
         HBox row = new HBox();
         row.layout(style -> style.alignItems(Align.CENTER).gap(6.0f));
+        // Фиксированный слот иконки 14x14: подписи всех категорий выровнены по одной вертикали,
+        // даже если у категории нет иконки
+        boolean hasIcon = false;
         if (entry.iconType() == CatalogComponent.IconType.ITEM
                 && entry.iconItem() != null
                 && !entry.iconItem().isEmpty()) {
@@ -288,6 +293,7 @@ public class ShopRootPanel implements ShopScreenElement {
             itemWidget.decorations(false);
             itemWidget.layout(s -> s.fixed(14.0f, 14.0f).flexNone());
             row.addChild(itemWidget);
+            hasIcon = true;
         } else if (entry.iconType() == CatalogComponent.IconType.TEXTURE
                 && entry.iconTexture() != null
                 && !CatalogComponent.isEmptyIconTexture(entry.iconTexture())) {
@@ -295,6 +301,12 @@ public class ShopRootPanel implements ShopScreenElement {
             ImageView img = new ImageView(new SimpleTextureHandle(tex, 14, 14, tex));
             img.layout(s -> s.fixed(14.0f, 14.0f).flexNone());
             row.addChild(img);
+            hasIcon = true;
+        }
+        if (!hasIcon) {
+            Box iconSlot = new Box();
+            iconSlot.layout(style -> style.fixed(14.0f, 14.0f).flexNone());
+            row.addChild(iconSlot);
         }
         Label label = new Label(entry.displayName());
         label.layout(s -> s.alignSelf(Align.CENTER));
@@ -308,7 +320,7 @@ public class ShopRootPanel implements ShopScreenElement {
         btn.borderWidth(ShopTheme.BORDER_WIDTH_THIN);
         btn.radius(ShopTheme.RADIUS_BUTTON);
         btn.textPadding(6.0f, 2.0f);
-        btn.layout(style -> style.height(24.0f).flexNone());
+        btn.layout(style -> style.height(24.0f).widthPercent(100).flexNone());
         updateCategoryButtonStyle(btn, entry.id().equalsIgnoreCase(selectedCategoryId));
         btn.onClick(event -> selectCategory(entry.id()));
         return btn;
@@ -408,7 +420,7 @@ public class ShopRootPanel implements ShopScreenElement {
                                     .alignSelf(Align.CENTER)
                                     .alignItems(Align.CENTER)
                                     .padding(20.0f));
-            Label emptyLbl = new Label("No offers found");
+            Label emptyLbl = new Label(I18n.get("shop.ui.root.empty"));
             emptyLbl.color(ShopTheme.color(ShopTheme.TEXT_MUTED));
             emptyBox.addChild(emptyLbl);
             itemsGrid.addChild(emptyBox);

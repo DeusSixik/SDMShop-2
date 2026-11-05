@@ -132,7 +132,7 @@ public final class ShopCategoryEditor {
                         copy.getUuid(),
                         copy.getType().getId(),
                         "Duplicated category " + copy.getId());
-        ShopToastHelper.success(Component.literal("Category duplicated"));
+        ShopToastHelper.success(Component.translatable("shop.ui.toast.category_duplicated"));
         state.selectTarget(copy);
         state.markDirty();
         return copy;

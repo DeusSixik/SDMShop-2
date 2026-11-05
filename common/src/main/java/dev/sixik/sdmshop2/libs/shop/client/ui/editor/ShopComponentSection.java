@@ -331,8 +331,8 @@ public class ShopComponentSection extends LinearBox {
             Label noFields =
                     new Label(
                             type != null
-                                    ? type.getId().getPath() + " has no configurable parameters."
-                                    : "No configurable parameters.");
+                                    ? I18n.get("shop.ui.component_section.no_params", type.getId().getPath())
+                                    : I18n.get("shop.ui.component_section.no_params_generic"));
             noFields.color().set(ShopEditorStyles.TEXT_MUTED);
             noFields.layout(style -> style.height(ShopEditorStyles.ROW_HEIGHT).margin(2.0f, 0.0f));
             bodyHost.addChild(noFields);

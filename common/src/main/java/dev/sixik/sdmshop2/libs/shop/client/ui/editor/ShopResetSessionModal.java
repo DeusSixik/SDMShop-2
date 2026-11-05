@@ -16,6 +16,7 @@ import dev.sixik.unigui.widgets.display.Label;
 import dev.sixik.unigui.widgets.feedback.OverlayHostAware;
 import dev.sixik.unigui.widgets.feedback.OverlayLayer;
 import dev.sixik.unigui.widgets.interaction.Button;
+import net.minecraft.client.resources.language.I18n;
 
 /** Модальное окно подтверждения сброса несохраненной сессии редактора. */
 public class ShopResetSessionModal extends Box implements OverlayHostAware {
@@ -75,7 +76,7 @@ public class ShopResetSessionModal extends Box implements OverlayHostAware {
         window.radius(4.0f);
 
         // Заголовок
-        Label title = new Label("Reset Edit Session");
+        Label title = new Label(I18n.get("shop.ui.tool_panel.reset_session.title"));
         title.color().set(ShopEditorStyles.TEXT_BOLD);
         title.layout(style -> style.alignSelf(Align.CENTER));
         window.addChild(title);
@@ -86,11 +87,11 @@ public class ShopResetSessionModal extends Box implements OverlayHostAware {
         messageBox.spacing(4.0f);
         messageBox.layout(style -> style.alignItems(Align.CENTER));
 
-        Label line1 = new Label("All unsaved modifications (" + changeCount + " changes)");
+        Label line1 = new Label(I18n.get("shop.ui.tool_panel.reset_session.line1", String.valueOf(changeCount)));
         line1.color().set(ShopEditorStyles.TEXT_PRIMARY);
-        Label line2 = new Label("will be permanently discarded.");
+        Label line2 = new Label(I18n.get("shop.ui.tool_panel.reset_session.line2"));
         line2.color().set(ShopEditorStyles.TEXT_LABEL);
-        Label line3 = new Label("Are you sure you want to revert to server state?");
+        Label line3 = new Label(I18n.get("shop.ui.tool_panel.reset_session.line3"));
         line3.color().set(ShopEditorStyles.TEXT_MUTED);
 
         messageBox.addChild(line1);
@@ -108,12 +109,12 @@ public class ShopResetSessionModal extends Box implements OverlayHostAware {
                                 .alignItems(Align.CENTER)
                                 .flexNone());
 
-        Button cancelBtn = new Button("Cancel");
+        Button cancelBtn = new Button(I18n.get("shop.ui.common.cancel"));
         ShopEditorStyles.styleButton(cancelBtn);
         cancelBtn.layout(style -> style.fixed(110.0f, 24.0f));
         cancelBtn.onClick(event -> closeSelf());
 
-        Button resetBtn = new Button("Reset Session");
+        Button resetBtn = new Button(I18n.get("shop.ui.tool_panel.button.reset_session"));
         ShopEditorStyles.styleButton(resetBtn);
         resetBtn.textColor().set(ShopEditorStyles.AXIS_X);
         resetBtn.layout(style -> style.fixed(110.0f, 24.0f));

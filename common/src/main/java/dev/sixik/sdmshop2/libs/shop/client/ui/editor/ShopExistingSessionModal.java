@@ -20,6 +20,7 @@ import dev.sixik.unigui.widgets.feedback.OverlayLayer;
 import dev.sixik.unigui.widgets.interaction.Button;
 
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.resources.language.I18n;
 
 /**
  * Модальное окно разрешения конфликта сессий. Отображается, если в локальном кэше сохранена сессия
@@ -97,7 +98,7 @@ public class ShopExistingSessionModal extends Box implements OverlayHostAware {
                                 .justifyContent(Justify.SPACE_BETWEEN)
                                 .flexNone());
 
-        Label title = new Label("Existing Edit Session");
+        Label title = new Label(I18n.get("shop.ui.editor.session_conflict.title"));
         title.color().set(ShopEditorStyles.TEXT_BOLD);
 
         Button closeBtn = UnityIcons.createCloseButton(this::closeSelf);
@@ -111,15 +112,15 @@ public class ShopExistingSessionModal extends Box implements OverlayHostAware {
         messageBox.spacing(8.0f);
         messageBox.layout(style -> style.alignItems(Align.CENTER));
 
-        Label warning = new Label("A saved edit session exists for another shop.");
+        Label warning = new Label(I18n.get("shop.ui.editor.session_conflict.warning"));
         warning.color().set(ShopEditorStyles.AUDIO_GOLD);
 
         String savedStr =
                 savedSession != null && savedSession.shopId() != null
                         ? savedSession.shopId().toString()
-                        : "unknown";
-        String currStr = currentShopId != null ? currentShopId.toString() : "unknown";
-        Label details = new Label("Saved: " + savedStr + " | Current: " + currStr);
+                        : I18n.get("shop.ui.common.unknown");
+        String currStr = currentShopId != null ? currentShopId.toString() : I18n.get("shop.ui.common.unknown");
+        Label details = new Label(I18n.get("shop.ui.editor.session_conflict.details", savedStr, currStr));
         details.color().set(ShopEditorStyles.TEXT_LABEL);
 
         messageBox.addChild(warning);
@@ -136,7 +137,7 @@ public class ShopExistingSessionModal extends Box implements OverlayHostAware {
                                 .alignItems(Align.CENTER)
                                 .flexNone());
 
-        Button clearOldBtn = new Button("Clear Old");
+        Button clearOldBtn = new Button(I18n.get("shop.ui.editor.session_conflict.clear_old"));
         ShopEditorStyles.styleButton(clearOldBtn);
         clearOldBtn.layout(style -> style.fixed(120.0f, 24.0f));
         clearOldBtn.onClick(
@@ -146,7 +147,7 @@ public class ShopExistingSessionModal extends Box implements OverlayHostAware {
                     ShopEditorScreen.open();
                 });
 
-        Button continueOldBtn = new Button("Continue Old");
+        Button continueOldBtn = new Button(I18n.get("shop.ui.editor.session_conflict.continue_old"));
         ShopEditorStyles.styleButton(continueOldBtn);
         continueOldBtn.layout(style -> style.fixed(120.0f, 24.0f));
         continueOldBtn.onClick(

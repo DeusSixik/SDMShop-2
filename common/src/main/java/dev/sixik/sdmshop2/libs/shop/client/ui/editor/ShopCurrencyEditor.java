@@ -203,7 +203,7 @@ public final class ShopCurrencyEditor {
         }
         if (isDefaultCurrency(currency.id())) {
             ShopToastHelper.warning(
-                    Component.literal("Default currency (sdm:coin) cannot be deleted."));
+                    Component.translatable("shop.ui.toast.default_currency_protected"));
             return;
         }
 
@@ -229,7 +229,7 @@ public final class ShopCurrencyEditor {
             state.setSelectionSilently(null);
         }
         state.markDirty();
-        ShopToastHelper.info(Component.literal("Currency deleted"));
+        ShopToastHelper.info(Component.translatable("shop.ui.toast.currency_deleted"));
     }
 
     /**
@@ -243,7 +243,7 @@ public final class ShopCurrencyEditor {
         }
         if (isDefaultCurrency(currency.getId())) {
             ShopToastHelper.warning(
-                    Component.literal("Default currency (sdm:coin) cannot be deleted."));
+                    Component.translatable("shop.ui.toast.default_currency_protected"));
             return;
         }
 
@@ -262,7 +262,7 @@ public final class ShopCurrencyEditor {
             state.setSelectionSilently(null);
         }
         state.markDirty();
-        ShopToastHelper.info(Component.literal("Currency marked for deletion"));
+        ShopToastHelper.info(Component.translatable("shop.ui.toast.currency_marked_for_deletion"));
     }
 
     /**
@@ -292,7 +292,7 @@ public final class ShopCurrencyEditor {
                         null,
                         newId,
                         "Duplicated currency " + newId);
-        ShopToastHelper.success(Component.literal("Currency draft duplicated"));
+        ShopToastHelper.success(Component.translatable("shop.ui.toast.currency_draft_duplicated"));
         state.selectTarget(copy);
         state.markDirty();
         return copy;
@@ -336,7 +336,7 @@ public final class ShopCurrencyEditor {
                         null,
                         newId,
                         "Duplicated currency " + newId);
-        ShopToastHelper.success(Component.literal("Currency duplicated as draft"));
+        ShopToastHelper.success(Component.translatable("shop.ui.toast.currency_duplicated_as_draft"));
         state.selectTarget(copy);
         state.markDirty();
         return copy;

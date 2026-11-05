@@ -29,6 +29,7 @@ import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import net.minecraft.client.resources.language.I18n;
 
 /** Модальное окно управления и создания пресетов товаров (Offer Presets). */
 public class ShopCreatePresetModal extends Box implements OverlayHostAware {
@@ -104,7 +105,7 @@ public class ShopCreatePresetModal extends Box implements OverlayHostAware {
                                 .justifyContent(Justify.SPACE_BETWEEN)
                                 .flexNone());
 
-        Label title = new Label("Offer Presets");
+        Label title = new Label(I18n.get("shop.ui.preset.title"));
         title.color().set(ShopEditorStyles.TEXT_BOLD);
 
         Button closeBtn = UnityIcons.createCloseButton(this::closeSelf);
@@ -115,7 +116,7 @@ public class ShopCreatePresetModal extends Box implements OverlayHostAware {
         window.addChild(ShopEditorStyles.separatorLine());
 
         // 2. Секция создания нового пресета
-        Label createSectionTitle = new Label("SAVE OFFER PRESET");
+        Label createSectionTitle = new Label(I18n.get("shop.ui.preset.save_section"));
         createSectionTitle.color().set(ShopEditorStyles.TEXT_MUTED);
         window.addChild(createSectionTitle);
 
@@ -150,12 +151,12 @@ public class ShopCreatePresetModal extends Box implements OverlayHostAware {
                                 .alignItems(Align.CENTER)
                                 .flexNone());
 
-        Label nameLabel = ShopEditorStyles.label("Name:");
+        Label nameLabel = ShopEditorStyles.label(I18n.get("shop.ui.preset.name"));
         nameLabel.layout(style -> style.width(60.0f));
 
         nameField = new TextField();
         ShopEditorStyles.styleTextField(nameField);
-        nameField.placeholder("Enter preset name...");
+        nameField.placeholder(I18n.get("shop.ui.preset.name_placeholder"));
         nameField.text(
                 sourceOffer != null
                         ? ShopCatalogElement.resolveTitle(sourceOffer)
@@ -176,12 +177,12 @@ public class ShopCreatePresetModal extends Box implements OverlayHostAware {
                                 .alignItems(Align.CENTER)
                                 .flexNone());
 
-        Label descLabel = ShopEditorStyles.label("Description:");
+        Label descLabel = ShopEditorStyles.label(I18n.get("shop.ui.preset.description"));
         descLabel.layout(style -> style.width(60.0f));
 
         descField = new TextField();
         ShopEditorStyles.styleTextField(descField);
-        descField.placeholder("Optional preset description...");
+        descField.placeholder(I18n.get("shop.ui.preset.description_placeholder"));
         descField.layout(style -> style.height(20.0f).flexGrow(1.0f));
 
         descRow.addChild(descLabel);
@@ -197,7 +198,7 @@ public class ShopCreatePresetModal extends Box implements OverlayHostAware {
                                 .justifyContent(Justify.END)
                                 .flexNone());
 
-        Button saveBtn = new Button("Save Preset");
+        Button saveBtn = new Button(I18n.get("shop.ui.preset.save"));
         ShopEditorStyles.styleButton(saveBtn);
         saveBtn.textColor().set(ShopEditorStyles.TEXT_PRIMARY);
         saveBtn.layout(style -> style.fixed(95.0f, 20.0f));
@@ -216,7 +217,7 @@ public class ShopCreatePresetModal extends Box implements OverlayHostAware {
                                 .alignItems(Align.CENTER)
                                 .flexNone());
 
-        presetsCountLabel = new Label("SAVED CUSTOM PRESETS");
+        presetsCountLabel = new Label(I18n.get("shop.ui.preset.saved_section"));
         presetsCountLabel.color().set(ShopEditorStyles.TEXT_MUTED);
         listHeader.addChild(presetsCountLabel);
         window.addChild(listHeader);
@@ -244,7 +245,7 @@ public class ShopCreatePresetModal extends Box implements OverlayHostAware {
                                 .justifyContent(Justify.END)
                                 .flexNone());
 
-        Button footerCloseBtn = new Button("Close");
+        Button footerCloseBtn = new Button(I18n.get("shop.ui.common.close"));
         ShopEditorStyles.styleButton(footerCloseBtn);
         footerCloseBtn.layout(style -> style.fixed(75.0f, 20.0f));
         footerCloseBtn.onClick(e -> closeSelf());
@@ -264,7 +265,7 @@ public class ShopCreatePresetModal extends Box implements OverlayHostAware {
         String desc = descField != null && descField.text() != null ? descField.text().trim() : "";
 
         ShopOfferPreset saved = ShopOfferPresetManager.saveOfferAsPreset(name, desc, sourceOffer);
-        ShopToastHelper.success(Component.literal("Preset saved: " + saved.name()));
+        ShopToastHelper.success(Component.translatable("shop.ui.preset.saved", saved.name()));
 
         if (descField != null) {
             descField.text("");
@@ -277,11 +278,11 @@ public class ShopCreatePresetModal extends Box implements OverlayHostAware {
         List<ShopOfferPreset> customPresets = ShopOfferPresetManager.getCustomPresets();
 
         if (presetsCountLabel != null) {
-            presetsCountLabel.text("SAVED CUSTOM PRESETS (" + customPresets.size() + ")");
+            presetsCountLabel.text(I18n.get("shop.ui.preset.saved_section_count", String.valueOf(customPresets.size())));
         }
 
         if (customPresets.isEmpty()) {
-            Label emptyLbl = new Label("No custom presets created yet.");
+            Label emptyLbl = new Label(I18n.get("shop.ui.preset.empty"));
             emptyLbl.color().set(ShopEditorStyles.TEXT_MUTED);
             emptyLbl.layout(style -> style.margin(4.0f, 0.0f));
             customPresetsBox.addChild(emptyLbl);
@@ -326,7 +327,7 @@ public class ShopCreatePresetModal extends Box implements OverlayHostAware {
             actionsBox.spacing(4.0f);
             actionsBox.layout(style -> style.alignItems(Align.CENTER).flexNone());
 
-            Button useBtn = new Button("Use");
+            Button useBtn = new Button(I18n.get("shop.ui.preset.use"));
             ShopEditorStyles.styleButton(useBtn);
             useBtn.layout(style -> style.fixed(42.0f, 18.0f));
             useBtn.onClick(
@@ -335,14 +336,14 @@ public class ShopCreatePresetModal extends Box implements OverlayHostAware {
                         closeSelf();
                     });
 
-            Button delBtn = new Button("Delete");
+            Button delBtn = new Button(I18n.get("shop.ui.common.delete"));
             ShopEditorStyles.styleButton(delBtn);
             delBtn.textColor().set(ShopEditorStyles.AXIS_X);
             delBtn.layout(style -> style.fixed(48.0f, 18.0f));
             delBtn.onClick(
                     e -> {
                         ShopOfferPresetManager.deletePreset(preset.id());
-                        ShopToastHelper.info(Component.literal("Deleted preset: " + preset.name()));
+                        ShopToastHelper.info(Component.translatable("shop.ui.preset.deleted", preset.name()));
                         refreshCustomPresetsList();
                     });
 

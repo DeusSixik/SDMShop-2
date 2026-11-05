@@ -24,7 +24,7 @@ import java.util.zip.CRC32;
 public final class ComponentSerializer<T extends ShopComponent> {
 
     private final List<Entry<T, ?>> fields = new ArrayList<>();
-    private final Map<String, Entry<T, ?>> fieldsByKey = new LinkedHashMap<>();
+    private final Map<String, Entry<T, ?>> fieldsByKey = new Object2ObjectLinkedOpenHashMap<>();
     private final Int2ObjectMap<Entry<T, ?>> fieldsById = new Int2ObjectOpenHashMap<>();
     private int cachedNetworkSchemaHash;
 
