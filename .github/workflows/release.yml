@@ -3,14 +3,19 @@ name: Build and publish to CurseForge
 on:
   push:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the current version to CurseForge (main or 1.20.1 only)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
   group: curseforge-${{ github.ref }}
-  # Do not interrupt a release after one loader has already been published.
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  # Never interrupt a run after one loader may have been published.
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -32,6 +37,7 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           BEFORE: ${{ github.event.before }}
+          MANUAL_PUBLISH: ${{ inputs.publish }}
         run: |
           import os
           import re
@@ -58,11 +64,14 @@ jobs:
               if result.returncode == 0:
                   previous = properties(result.stdout).get("mod_version", "").strip()
 
-          # Preserve automatic releases on a version change in main. First pushes and
-          # manual runs build artifacts only; publishing is never triggered by a missing baseline.
-          release = (os.environ["EVENT_NAME"] == "push"
-                     and os.environ["GITHUB_REF"] == "refs/heads/main"
-                     and bool(previous) and previous != version)
+          # Release branches publish version changes. A manual retry can publish the
+          # current version after a failed build or a previously skipped publication.
+          release_branch = os.environ["GITHUB_REF"] in ("refs/heads/main", "refs/heads/1.20.1")
+          version_changed = (os.environ["EVENT_NAME"] == "push"
+                             and bool(previous) and previous != version)
+          manual_publish = (os.environ["EVENT_NAME"] == "workflow_dispatch"
+                            and os.environ.get("MANUAL_PUBLISH", "").lower() == "true")
+          release = release_branch and (version_changed or manual_publish)
           normalized = version.lower()
           release_type = ("alpha" if "alpha" in normalized else
                           "beta" if any(marker in normalized for marker in
