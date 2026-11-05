@@ -1,4 +1,23 @@
-# SDM Shop 2
+<p align="center">
+  <img src="./.idea/icon.png" alt="UniGUI logo" width="144">
+</p>
+
+
+<h1 align="center">SDM Shop 2</h1>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Minecraft-1.20.1-5D9E3D?style=for-the-badge&logo=minecraft&logoColor=white" alt="Minecraft versions">
+  <img src="https://img.shields.io/badge/Fabric%20%7C%20Forge-supported-6366f1?style=for-the-badge&logo=java&logoColor=white" alt="Supported platforms">
+</p>
+
+<p align="center">
+  <a href="https://www.curseforge.com/minecraft/mc-mods/sdm-shop-2"><img src="https://img.shields.io/curseforge/dt/1649763?style=for-the-badge&logo=curseforge&logoColor=white" alt="CurseForge downloads"></a>
+</p>
+
+<p align="center">
+  <a href="https://discord.gg/TEUrpKJynj"><img src="https://img.shields.io/badge/Discord-Join%20Server-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
+</p>
+
 
 **SDM Shop 2** is a full rewrite of the original SDM Shop mod for Minecraft 1.20.1.
 The project is currently in **Beta**: the core shop flow is usable, but the mod should still be treated as a beta while dedicated-server and cross-loader testing continues.
