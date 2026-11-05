@@ -61,6 +61,18 @@ public class CommandRewardComponent extends RewardComponent {
         return TYPE;
     }
 
+    /**
+     * Creates the visible command reward description without exposing the command itself.
+     *
+     * @return a fresh label with the configured display name, or the default name when blank.
+     */
+    @Override
+    @Environment(EnvType.CLIENT)
+    public Widget createRender() {
+        return ShopRenderWidgets.text(
+                displayName != null && !displayName.isBlank() ? displayName : EMPTY);
+    }
+
     private static class Type extends SerializedComponentType<CommandRewardComponent> {
 
         private static final ResourceLocation ID =
