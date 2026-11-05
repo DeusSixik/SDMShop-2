@@ -33,6 +33,23 @@ public class SDMEconomyServiceClient extends SDMEconomyService {
         return map;
     }
 
+    /**
+     * Возвращает копию реестра хранимых валют для клиента.
+     *
+     * <p>При подключении к удалённому серверу синхронизированные валюты имеют приоритет над
+     * локальными регистрациями. Во встроенном сервере используется серверный реестр.
+     *
+     * @return изменяемая копия карты хранимых валют
+     */
+    public static Object2ObjectOpenHashMap<ResourceLocation, IStoredCurrency> getAllStoredCurrencies() {
+        Object2ObjectOpenHashMap<ResourceLocation, IStoredCurrency> map =
+                new Object2ObjectOpenHashMap<>(SDMEconomyCurrencyRegistry.getStoredCurrenciesMap());
+        if (SDMEconomyPlatform.server == null) {
+            map.putAll(STORED_CURRENCIES);
+        }
+        return map;
+    }
+
     @Nullable
     public static ICurrency getCurrency(ResourceLocation id) {
         return getAllCurrencies().get(id);

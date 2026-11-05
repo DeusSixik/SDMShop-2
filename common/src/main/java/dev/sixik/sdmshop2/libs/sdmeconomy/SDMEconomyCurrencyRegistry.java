@@ -163,13 +163,20 @@ public class SDMEconomyCurrencyRegistry {
         }
     }
 
+    /**
+     * Ищет внешнюю валюту по строковому ID.
+     *
+     * @param id ID валюты; без пространства имён используется {@code sdm}, не {@code null}
+     * @return валюта или {@code null}, если ID некорректен либо отсутствует в реестре
+     * @throws NullPointerException если {@code id} равен {@code null}
+     */
     @Nullable
     public static IExternalCurrency getCurrency(String id) {
-        return getCurrency(
-                id.contains(":")
-                        ? ResourceLocation.tryParse(id)
-                        : ResourceLocation.tryBuild("sdm", id)
-        );
+        Objects.requireNonNull(id, "id");
+        ResourceLocation currencyId = id.contains(":")
+                ? ResourceLocation.tryParse(id)
+                : ResourceLocation.tryBuild("sdm", id);
+        return currencyId == null ? null : getCurrency(currencyId);
     }
 
     @Nullable
